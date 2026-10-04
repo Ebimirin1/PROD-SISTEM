@@ -1,0 +1,619 @@
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_dashboard" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..700&amp;family=Work+Sans:ital,wght@0,400..700;1,400..700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"surface-tint":"#b4271c","on-secondary-container":"#71150f","error":"#ba1a1a","on-primary-fixed-variant":"#910906","text-muted":"#5C5150","tertiary":"#402800","tertiary-container":"#5d3c00","on-tertiary-fixed":"#291800","on-primary-container":"#ff9283","badge-warning-text":"#4A2C00","amber-warning":"#D99311","surface-container-lowest":"#ffffff","surface-dim":"#ffcfc9","tertiary-fixed-dim":"#ffb94e","inverse-primary":"#ffb4a9","bordeaux-primary":"#8C0303","secondary":"#a43b2f","primary-container":"#8c0303","outline":"#8e706b","surface-variant":"#ffdad5","on-secondary-fixed":"#410001","inverse-surface":"#54201a","on-error-container":"#93000a","surface-container-low":"#fff0ee","on-tertiary-container":"#eaa224","surface":"#fff8f7","on-primary":"#ffffff","primary":"#630001","error-container":"#ffdad6","on-surface-variant":"#5a413d","primary-fixed":"#ffdad5","outline-variant":"#e2beb9","badge-error-bg":"#FDE8E8","badge-warning-bg":"#FFF2D6","on-tertiary-fixed-variant":"#624000","alert-critical":"#D90404","background":"#fff8f7","on-error":"#ffffff","on-surface":"#390b08","on-primary-fixed":"#410000","inverse-on-surface":"#ffedea","surface-container-high":"#ffe2de","on-background":"#390b08","secondary-fixed":"#ffdad5","surface-card":"#FFFFFF","on-secondary":"#ffffff","secondary-container":"#fd7d6c","badge-error-text":"#8C0303","on-tertiary":"#ffffff","surface-bright":"#fff8f7","status-info":"#205A85","on-secondary-fixed-variant":"#84231a","tertiary-fixed":"#ffddb2","surface-canvas":"#F8F6F4","ink-text":"#260101","status-success":"#176B45","wine-deep":"#590202","surface-container-highest":"#ffdad5","surface-container":"#ffe9e6","secondary-fixed-dim":"#ffb4a9","border-subtle":"#E8E1DF","primary-fixed-dim":"#ffb4a9"},borderRadius:{DEFAULT:"0.25rem",lg:"0.5rem",xl:"0.75rem",full:"9999px"},spacing:{margin:"1rem","space-md":"1rem","space-lg":"1.5rem",gutter:"1rem","space-2xl":"3rem","gutter-desktop":"1.5rem","margin-desktop":"2rem","space-sm":"0.5rem","space-xs":"0.25rem","margin-tablet":"1.5rem","gutter-tablet":"1.25rem","space-xl":"2rem"},fontFamily:{"title-lg":["Work Sans"],"body-lg":["Work Sans"],"label-md":["Work Sans"],"body-md":["Work Sans"],"tabular-data-md":["Work Sans"],"tabular-data-lg":["Work Sans"],"display-lg":["\"Source Serif 4\""],"headline-md":["\"Source Serif 4\""],"title-md":["Work Sans"],"label-sm":["Work Sans"],"headline-sm":["\"Source Serif 4\""],"display-lg-mobile":["\"Source Serif 4\""]},fontSize:{"title-lg":["18px",{lineHeight:"24px",fontWeight:"600"}],"body-lg":["16px",{lineHeight:"24px",fontWeight:"400"}],"label-md":["13px",{lineHeight:"16px",letterSpacing:"0.02em",fontWeight:"600"}],"body-md":["14px",{lineHeight:"20px",fontWeight:"400"}],"tabular-data-md":["14px",{lineHeight:"18px",fontWeight:"500"}],"tabular-data-lg":["20px",{lineHeight:"24px",fontWeight:"600"}],"display-lg":["32px",{lineHeight:"40px",letterSpacing:"-0.02em",fontWeight:"700"}],"headline-md":["24px",{lineHeight:"32px",fontWeight:"600"}],"title-md":["16px",{lineHeight:"22px",fontWeight:"600"}],"label-sm":["11px",{lineHeight:"14px",letterSpacing:"0.04em",fontWeight:"600"}],"headline-sm":["20px",{lineHeight:"28px",fontWeight:"600"}],"display-lg-mobile":["26px",{lineHeight:"32px",letterSpacing:"-0.01em",fontWeight:"700"}]}}}};</script></head><body class="bg-surface-canvas font-body-md text-ink-text"><aside class="fixed left-0 top-0 h-full w-64 bg-wine-deep z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="flex flex-col"><div class="h-16 px-space-md flex items-center gap-space-sm border-b border-white/10"><img alt="Controle de Produção Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1U9DfQfAxBlZvtkowarJvsfYc8nVYfn9str_2tQpl4P5et-vaZqf1KW6w4ImrwRSdPI0x4GzyI4QsT3liajzYJRgWcz7p0Kc5kIBmbYXS_msgnarUhXWH78W5y04NeMw014O9Xlk4H-buFywm74tKpt_BoLD5IaoOOAivptXu2lPYMeA8j1PIEFz5ryT3PyRdhX1Wvczzxwzl_P-xTtwKcb8F9MdWmCOKX0EH_ol5HJFRga1l2x2T2WD1Ua"><div class="flex flex-col"><span class="font-title-md text-title-md text-on-primary leading-tight">SGP Industrial</span><span class="font-label-sm text-label-sm text-white/70 uppercase tracking-wider">Chão de Fábrica</span></div></div><nav class="flex flex-col gap-1 p-space-sm overflow-y-auto" data-active-classes="bg-bordeaux-primary text-on-primary font-bold shadow-sm"><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="visao-geral" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">grid_view</span><span class="font-label-md text-label-md">Visão Geral</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/20 text-on-primary">Painel</span></a><a aria-current="page" class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg transition-colors bg-bordeaux-primary text-on-primary font-bold shadow-sm" data-path="planejamento" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">calendar_today</span><span class="font-label-md text-label-md">Planejamento</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-badge-warning-bg text-badge-warning-text">PCP</span></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="cadastros-e-formulacoes" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">menu_book</span><span class="font-label-md text-label-md">Cadastros &amp; Fórmulas</span></div></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="separacao-de-insumos" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">scale</span><span class="font-label-md text-label-md">Separação Insumos</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-badge-warning-bg text-badge-warning-text">3 Pend</span></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="producao" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">precision_manufacturing</span><span class="font-label-md text-label-md">Produção</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/20 text-on-primary">L-1</span></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="estoque-e-acompanhamento" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">inventory_2</span><span class="font-label-md text-label-md">Estoque &amp; Cura</span></div></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="pedidos-e-expedicao" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">local_shipping</span><span class="font-label-md text-label-md">Pedidos &amp; Expedição</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-badge-warning-bg text-badge-warning-text">8 Lotes</span></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="faturamento" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">receipt_long</span><span class="font-label-md text-label-md">Faturamento</span></div></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="usuarios-e-permissoes" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">manage_accounts</span><span class="font-label-md text-label-md">Usuários &amp; Acessos</span></div></a></nav></div><div class="p-space-sm border-t border-white/10 flex flex-col gap-2"><div class="flex items-center justify-between px-2 text-white/70"><span class="font-label-sm text-label-sm">Terminal ID</span><span class="font-tabular-data-md text-tabular-data-md text-on-primary">TRM-04</span></div><div class="flex items-center gap-2 px-2 py-1.5 rounded bg-white/10"><span class="w-2 h-2 rounded-full bg-status-success"></span><span class="font-label-sm text-label-sm text-on-primary">Balança RS232 Conectada</span></div></div></aside><div class="pl-64"><header class="fixed top-0 left-64 right-0 h-16 bg-surface-card shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-space-lg"><div class="flex items-center gap-space-md"><img alt="Controle de Produção Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1U9DfQfAxBlZvtkowarJvsfYc8nVYfn9str_2tQpl4P5et-vaZqf1KW6w4ImrwRSdPI0x4GzyI4QsT3liajzYJRgWcz7p0Kc5kIBmbYXS_msgnarUhXWH78W5y04NeMw014O9Xlk4H-buFywm74tKpt_BoLD5IaoOOAivptXu2lPYMeA8j1PIEFz5ryT3PyRdhX1Wvczzxwzl_P-xTtwKcb8F9MdWmCOKX0EH_ol5HJFRga1l2x2T2WD1Ua"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-[18px] text-text-muted">today</span><span class="font-tabular-data-md text-tabular-data-md text-ink-text font-semibold">24/10/2024</span></div><span class="text-border-subtle">|</span><div class="flex items-center gap-2"><span class="inline-flex items-center px-2 py-0.5 rounded font-label-sm text-label-sm bg-badge-warning-bg text-badge-warning-text">Turno Manhã</span><span class="font-body-md text-body-md text-text-muted">Linha 1 - Embutimento</span></div></div><div class="flex items-center gap-space-md"><div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-canvas"><span class="w-2.5 h-2.5 rounded-full bg-status-success animate-pulse"></span><span class="font-label-md text-label-md text-status-success">SISTEMA ONLINE</span></div><div class="h-6 w-px bg-border-subtle"></div><div class="flex items-center gap-space-sm"><div class="flex flex-col text-right"><span class="font-title-md text-title-md text-ink-text leading-none">Carlos M.</span><span class="font-label-sm text-label-sm text-text-muted leading-tight">Supervisor Industrial</span></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="w-full pt-16 bg-surface-canvas min-h-screen"><div class="flex flex-col w-full">
+<div class="px-space-lg py-space-md space-y-space-lg max-w-[1720px] mx-auto w-full pb-28">
+<!-- Top Breadcrumb & Status Ribbon -->
+<div class="flex flex-wrap items-center justify-between gap-space-sm bg-surface-card px-space-md py-space-sm rounded-lg shadow-sm">
+<div class="flex items-center gap-space-sm text-text-muted font-label-md text-label-md">
+<span>PCP Industrial</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span>Planejamento Semanal</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-bordeaux-primary font-bold">Consolidação de Ciclo</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container font-label-sm text-label-sm text-ink-text">
+<span class="material-symbols-outlined text-[15px] text-text-muted">history</span>
+          Última sincronização: hoje às 06:42
+        </span>
+<span class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-badge-warning-bg text-badge-warning-text font-label-md text-label-md font-semibold">
+<span class="w-2 h-2 rounded-full bg-amber-warning animate-pulse"></span>
+          Status: Rascunho Operacional
+        </span>
+</div>
+</div>
+<!-- Header Bento Grid: OP Identity + Inbound Meat Intake Card -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-space-md">
+<!-- Main OP Context Badge Card -->
+<div class="xl:col-span-4 bg-surface-card p-space-lg rounded-xl shadow-sm flex flex-col justify-between relative overflow-hidden">
+<div class="absolute -right-10 -bottom-10 w-44 h-44 rounded-full bg-surface-variant/30 pointer-events-none"></div>
+<div>
+<div class="flex items-center justify-between gap-2 mb-2">
+<span class="font-label-sm text-label-sm uppercase tracking-widest text-bordeaux-primary bg-primary-fixed px-2.5 py-0.5 rounded">Ciclo #39</span>
+<div class="flex items-center gap-1 text-text-muted font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[16px]">calendar_month</span>
+              Base: <span class="text-ink-text font-bold ml-1 font-tabular-data-md text-tabular-data-md">24/09/2026</span>
+</div>
+</div>
+<h1 class="font-headline-md text-headline-md text-ink-text leading-tight mb-2">
+            Ordem de Produção Consolidada: <span class="text-bordeaux-primary font-bold">OP-2026-094</span>
+</h1>
+<p class="font-body-md text-body-md text-text-muted">
+            Unificação de corte e pesagem por massadas programadas. Sem fragmentação por cliente em câmara fria.
+          </p>
+</div>
+<div class="mt-6 pt-4 bg-surface-canvas rounded-lg p-3 grid grid-cols-3 gap-2 text-center">
+<div>
+<span class="block font-label-sm text-label-sm text-text-muted uppercase">Programado</span>
+<span class="font-tabular-data-lg text-tabular-data-lg text-ink-text font-bold">1.480 <span class="text-xs font-normal text-text-muted">kg</span></span>
+</div>
+<div>
+<span class="block font-label-sm text-label-sm text-text-muted uppercase">Carnes Aloc.</span>
+<span class="font-tabular-data-lg text-tabular-data-lg text-status-success font-bold">1.700 <span class="text-xs font-normal text-text-muted">kg</span></span>
+</div>
+<div>
+<span class="block font-label-sm text-label-sm text-text-muted uppercase">Saldo Livre</span>
+<span class="font-tabular-data-lg text-tabular-data-lg text-status-info font-bold">220 <span class="text-xs font-normal text-text-muted">kg</span></span>
+</div>
+</div>
+</div>
+<!-- Linked Meat Intake (PC-104) Card -->
+<div class="xl:col-span-8 bg-surface-card p-space-lg rounded-xl shadow-sm flex flex-col justify-between">
+<div class="flex flex-wrap items-center justify-between gap-space-sm mb-3">
+<div class="flex items-center gap-2.5">
+<div class="w-9 h-9 rounded-lg bg-surface-container flex items-center justify-center text-bordeaux-primary">
+<span class="material-symbols-outlined text-[20px]">inventory</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<span class="font-title-md text-title-md text-ink-text font-bold">Pedido de Carnes Vinculado: PC-104</span>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-surface-container-low text-status-success">
+<span class="material-symbols-outlined text-[13px]">check_circle</span> Inspecionado SIF
+                </span>
+</div>
+<span class="font-label-sm text-label-sm text-text-muted">Recepção: 23/09/2026 - Docas 02/03 - Fornecedor FrigoVale Agro</span>
+</div>
+</div>
+<div class="flex items-baseline gap-1.5 bg-surface-canvas px-3.5 py-1.5 rounded-lg">
+<span class="font-label-sm text-label-sm text-text-muted uppercase font-semibold">Total Disponível:</span>
+<span class="font-tabular-data-lg text-tabular-data-lg text-bordeaux-primary font-bold">1.700,00</span>
+<span class="font-label-md text-label-md text-ink-text font-bold">kg</span>
+</div>
+</div>
+<!-- Lots Breakdown Table/Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-space-sm pt-2">
+<!-- Pernil -->
+<div class="bg-surface-canvas rounded-lg p-3 hover:bg-surface-container-low transition-colors">
+<div class="flex items-center justify-between mb-1.5">
+<span class="font-title-md text-title-md text-ink-text font-bold">Pernil Desossado</span>
+<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-surface-card text-ink-text">Lote C-8841</span>
+</div>
+<div class="flex items-baseline justify-between mb-2">
+<span class="font-label-sm text-label-sm text-text-muted">Câmara 02 (0°C)</span>
+<span class="font-tabular-data-lg text-tabular-data-lg text-ink-text font-bold">800,00 <span class="font-label-sm text-label-sm font-normal text-text-muted">kg</span></span>
+</div>
+<div class="w-full bg-surface-card rounded-full h-1.5 overflow-hidden">
+<div class="bg-bordeaux-primary h-full rounded-full" style="width: 88%"></div>
+</div>
+<div class="flex justify-between items-center mt-1 text-[11px] text-text-muted">
+<span>Alocação OP: 704 kg</span>
+<span class="text-status-success font-semibold">88% uso</span>
+</div>
+</div>
+<!-- Copa-Lombo -->
+<div class="bg-surface-canvas rounded-lg p-3 hover:bg-surface-container-low transition-colors">
+<div class="flex items-center justify-between mb-1.5">
+<span class="font-title-md text-title-md text-ink-text font-bold">Copa-Lombo Suíno</span>
+<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-surface-card text-ink-text">Lote C-8842</span>
+</div>
+<div class="flex items-baseline justify-between mb-2">
+<span class="font-label-sm text-label-sm text-text-muted">Câmara 02 (-1°C)</span>
+<span class="font-tabular-data-lg text-tabular-data-lg text-ink-text font-bold">600,00 <span class="font-label-sm text-label-sm font-normal text-text-muted">kg</span></span>
+</div>
+<div class="w-full bg-surface-card rounded-full h-1.5 overflow-hidden">
+<div class="bg-bordeaux-primary h-full rounded-full" style="width: 86%"></div>
+</div>
+<div class="flex justify-between items-center mt-1 text-[11px] text-text-muted">
+<span>Alocação OP: 516 kg</span>
+<span class="text-status-success font-semibold">86% uso</span>
+</div>
+</div>
+<!-- Panceta -->
+<div class="bg-surface-canvas rounded-lg p-3 hover:bg-surface-container-low transition-colors">
+<div class="flex items-center justify-between mb-1.5">
+<span class="font-title-md text-title-md text-ink-text font-bold">Panceta / Barriga</span>
+<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-surface-card text-ink-text">Lote C-8843</span>
+</div>
+<div class="flex items-baseline justify-between mb-2">
+<span class="font-label-sm text-label-sm text-text-muted">Câmara 01 (+1°C)</span>
+<span class="font-tabular-data-lg text-tabular-data-lg text-ink-text font-bold">300,00 <span class="font-label-sm text-label-sm font-normal text-text-muted">kg</span></span>
+</div>
+<div class="w-full bg-surface-card rounded-full h-1.5 overflow-hidden">
+<div class="bg-amber-warning h-full rounded-full" style="width: 86%"></div>
+</div>
+<div class="flex justify-between items-center mt-1 text-[11px] text-text-muted">
+<span>Alocação OP: 260 kg</span>
+<span class="text-badge-warning-text font-semibold">86% uso</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Central Demands Table Section -->
+<div class="bg-surface-card rounded-xl shadow-sm overflow-hidden">
+<!-- Section Toolbar -->
+<div class="p-space-md flex flex-wrap items-center justify-between gap-space-md bg-surface-card">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-primary-fixed flex items-center justify-center text-bordeaux-primary font-bold">
+<span class="material-symbols-outlined text-[20px]">format_list_bulleted</span>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm text-ink-text leading-tight">Demandas Programadas por Sabor e Destino</h2>
+<p class="font-label-sm text-label-sm text-text-muted">Ordem consolidada de envase sem cisão de lotes industriais</p>
+</div>
+</div>
+<!-- Quick Filters / Quick Stats -->
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm text-text-muted mr-1">6 formulações ativas</span>
+<button class="min-h-[44px] px-3.5 py-1.5 rounded-lg bg-surface-canvas hover:bg-surface-container text-ink-text font-label-md text-label-md flex items-center gap-2 transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">tune</span>
+            Ajustar Sequência de Moagem
+          </button>
+</div>
+</div>
+<!-- Table Container -->
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-wine-deep text-on-primary font-label-md text-label-md uppercase tracking-wider">
+<th class="py-3.5 px-space-md font-semibold">Item</th>
+<th class="py-3.5 px-space-md font-semibold">Sabor &amp; Especificação</th>
+<th class="py-3.5 px-space-md font-semibold">Destino / Cliente Interno</th>
+<th class="py-3.5 px-space-md font-semibold">Tipo Final Previsto</th>
+<th class="py-3.5 px-space-md font-semibold text-center">Calibre / Embalagem</th>
+<th class="py-3.5 px-space-md font-semibold text-right">Qtd. Planejada (kg)</th>
+<th class="py-3.5 px-space-md font-semibold text-right">% Ciclo</th>
+</tr>
+</thead>
+<tbody class="font-body-md text-body-md text-ink-text">
+<!-- Row 1: Tradicional -->
+<tr class="bg-surface-card hover:bg-surface-canvas transition-colors">
+<td class="py-3.5 px-space-md font-tabular-data-md text-tabular-data-md text-text-muted">#01</td>
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-bordeaux-primary"></span>
+<span class="font-title-md text-title-md font-bold text-ink-text">Tradicional</span>
+</div>
+<span class="font-label-sm text-label-sm text-text-muted ml-4.5 block">Moagem fina 5mm / Suíno selecionado</span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container font-label-md text-label-md text-ink-text">
+<span class="material-symbols-outlined text-[15px] text-bordeaux-primary">storefront</span>
+                  Empório Loja 1
+                </span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="px-2 py-0.5 rounded text-[12px] font-semibold bg-surface-canvas text-ink-text">Linguiça Fina</span>
+</td>
+<td class="py-3.5 px-space-md text-center font-tabular-data-md text-tabular-data-md text-text-muted">
+                Tripa Suína 28/30 mm
+              </td>
+<td class="py-3.5 px-space-md text-right font-tabular-data-lg text-tabular-data-lg font-bold text-ink-text">
+                240,00 <span class="font-label-sm text-label-sm font-normal text-text-muted">kg</span>
+</td>
+<td class="py-3.5 px-space-md text-right font-tabular-data-md text-tabular-data-md text-text-muted">
+                16,2%
+              </td>
+</tr>
+<!-- Row 2: Toscana Nobre -->
+<tr class="bg-surface-canvas/50 hover:bg-surface-canvas transition-colors">
+<td class="py-3.5 px-space-md font-tabular-data-md text-tabular-data-md text-text-muted">#02</td>
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-secondary"></span>
+<span class="font-title-md text-title-md font-bold text-ink-text">Toscana Nobre</span>
+</div>
+<span class="font-label-sm text-label-sm text-text-muted ml-4.5 block">Pernil em cubos 10mm com vinho tinto</span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container font-label-md text-label-md text-ink-text">
+<span class="material-symbols-outlined text-[15px] text-status-info">local_shipping</span>
+                  Atacado Boa Vista
+                </span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="px-2 py-0.5 rounded text-[12px] font-semibold bg-surface-card text-ink-text">Manta Recheada</span>
+</td>
+<td class="py-3.5 px-space-md text-center font-tabular-data-md text-tabular-data-md text-text-muted">
+                Vácuo Termoformado 1kg
+              </td>
+<td class="py-3.5 px-space-md text-right font-tabular-data-lg text-tabular-data-lg font-bold text-ink-text">
+                380,00 <span class="font-label-sm text-label-sm font-normal text-text-muted">kg</span>
+</td>
+<td class="py-3.5 px-space-md text-right font-tabular-data-md text-tabular-data-md text-text-muted">
+                25,7%
+              </td>
+</tr>
+<!-- Row 3: Apimentada -->
+<tr class="bg-surface-card hover:bg-surface-canvas transition-colors">
+<td class="py-3.5 px-space-md font-tabular-data-md text-tabular-data-md text-text-muted">#03</td>
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-alert-critical"></span>
+<span class="font-title-md text-title-md font-bold text-ink-text">Apimentada (Calabresa Picante)</span>
+</div>
+<span class="font-label-sm text-label-sm text-text-muted ml-4.5 block">Pimenta calabresa desidratada &amp; páprica defumada</span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container font-label-md text-label-md text-ink-text">
+<span class="material-symbols-outlined text-[15px] text-badge-warning-text">restaurant</span>
+                  Lanchonete Matriz
+                </span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="px-2 py-0.5 rounded text-[12px] font-semibold bg-surface-canvas text-ink-text">Granel (Porções)</span>
+</td>
+<td class="py-3.5 px-space-md text-center font-tabular-data-md text-tabular-data-md text-text-muted">
+                Caixas PEAD 10kg
+              </td>
+<td class="py-3.5 px-space-md text-right font-tabular-data-lg text-tabular-data-lg font-bold text-ink-text">
+                210,00 <span class="font-label-sm text-label-sm font-normal text-text-muted">kg</span>
+</td>
+<td class="py-3.5 px-space-md text-right font-tabular-data-md text-tabular-data-md text-text-muted">
+                14,2%
+              </td>
+</tr>
+<!-- Row 4: Sabores de Bragança -->
+<tr class="bg-surface-canvas/50 hover:bg-surface-canvas transition-colors">
+<td class="py-3.5 px-space-md font-tabular-data-md text-tabular-data-md text-text-muted">#04</td>
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-tertiary"></span>
+<span class="font-title-md text-title-md font-bold text-ink-text">Sabores de Bragança</span>
+</div>
+<span class="font-label-sm text-label-sm text-text-muted ml-4.5 block">Alho confitado, ervas frescas e pimenta biquinho</span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container font-label-md text-label-md text-ink-text">
+<span class="material-symbols-outlined text-[15px] text-status-info">local_shipping</span>
+                  Atacado Boa Vista
+                </span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="px-2 py-0.5 rounded text-[12px] font-semibold bg-surface-card text-ink-text">Linguiça Fina</span>
+</td>
+<td class="py-3.5 px-space-md text-center font-tabular-data-md text-tabular-data-md text-text-muted">
+                Tripa Ovina 22/24 mm
+              </td>
+<td class="py-3.5 px-space-md text-right font-tabular-data-lg text-tabular-data-lg font-bold text-ink-text">
+                300,00 <span class="font-label-sm text-label-sm font-normal text-text-muted">kg</span>
+</td>
+<td class="py-3.5 px-space-md text-right font-tabular-data-md text-tabular-data-md text-text-muted">
+                20,3%
+              </td>
+</tr>
+<!-- Row 5: Panceta com Shimeji -->
+<tr class="bg-surface-card hover:bg-surface-canvas transition-colors">
+<td class="py-3.5 px-space-md font-tabular-data-md text-tabular-data-md text-text-muted">#05</td>
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-wine-deep"></span>
+<span class="font-title-md text-title-md font-bold text-ink-text">Panceta com Shimeji</span>
+</div>
+<span class="font-label-sm text-label-sm text-text-muted ml-4.5 block">Cogumelos salteados na manteiga artesanal</span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container font-label-md text-label-md text-ink-text">
+<span class="material-symbols-outlined text-[15px] text-bordeaux-primary">storefront</span>
+                  Empório Balcão
+                </span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="px-2 py-0.5 rounded text-[12px] font-semibold bg-surface-canvas text-ink-text">Manta Especial</span>
+</td>
+<td class="py-3.5 px-space-md text-center font-tabular-data-md text-tabular-data-md text-text-muted">
+                Bandejas Seladas 500g
+              </td>
+<td class="py-3.5 px-space-md text-right font-tabular-data-lg text-tabular-data-lg font-bold text-ink-text">
+                180,00 <span class="font-label-sm text-label-sm font-normal text-text-muted">kg</span>
+</td>
+<td class="py-3.5 px-space-md text-right font-tabular-data-md text-tabular-data-md text-text-muted">
+                12,1%
+              </td>
+</tr>
+<!-- Row 6: Caipira Mista -->
+<tr class="bg-surface-canvas/50 hover:bg-surface-canvas transition-colors">
+<td class="py-3.5 px-space-md font-tabular-data-md text-tabular-data-md text-text-muted">#06</td>
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-secondary-container"></span>
+<span class="font-title-md text-title-md font-bold text-ink-text">Caipira Mista</span>
+</div>
+<span class="font-label-sm text-label-sm text-text-muted ml-4.5 block">Toque rústico de cheiro-verde e noz moscada</span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container font-label-md text-label-md text-ink-text">
+<span class="material-symbols-outlined text-[15px] text-badge-warning-text">restaurant</span>
+                  Lanchonete Matriz
+                </span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="px-2 py-0.5 rounded text-[12px] font-semibold bg-surface-card text-ink-text">Hambúrguer Artesanal</span>
+</td>
+<td class="py-3.5 px-space-md text-center font-tabular-data-md text-tabular-data-md text-text-muted">
+                Discos 180g (cx 36 un)
+              </td>
+<td class="py-3.5 px-space-md text-right font-tabular-data-lg text-tabular-data-lg font-bold text-ink-text">
+                170,00 <span class="font-label-sm text-label-sm font-normal text-text-muted">kg</span>
+</td>
+<td class="py-3.5 px-space-md text-right font-tabular-data-md text-tabular-data-md text-text-muted">
+                11,5%
+              </td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Subtotals & Grand Total Footer Grid -->
+<div class="p-space-lg bg-surface-container-low">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-space-md items-center">
+<!-- Subtotal Empório -->
+<div class="bg-surface-card p-space-sm rounded-lg shadow-sm">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-sm text-label-sm uppercase tracking-wide text-text-muted flex items-center gap-1">
+<span class="material-symbols-outlined text-[15px] text-bordeaux-primary">storefront</span>
+                Empório (Lojas &amp; Balcão)
+              </span>
+<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-surface-container text-ink-text">2 Itens</span>
+</div>
+<div class="flex items-baseline justify-between">
+<span class="font-label-md text-label-md text-ink-text">Subtotal</span>
+<span class="font-tabular-data-lg text-tabular-data-lg text-bordeaux-primary font-bold">420,00 <span class="font-label-sm text-label-sm font-normal text-text-muted">kg</span></span>
+</div>
+</div>
+<!-- Subtotal Lanchonete -->
+<div class="bg-surface-card p-space-sm rounded-lg shadow-sm">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-sm text-label-sm uppercase tracking-wide text-text-muted flex items-center gap-1">
+<span class="material-symbols-outlined text-[15px] text-amber-warning">restaurant</span>
+                Lanchonete Matriz
+              </span>
+<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-surface-container text-ink-text">2 Itens</span>
+</div>
+<div class="flex items-baseline justify-between">
+<span class="font-label-md text-label-md text-ink-text">Subtotal</span>
+<span class="font-tabular-data-lg text-tabular-data-lg text-bordeaux-primary font-bold">380,00 <span class="font-label-sm text-label-sm font-normal text-text-muted">kg</span></span>
+</div>
+</div>
+<!-- Subtotal Atacado -->
+<div class="bg-surface-card p-space-sm rounded-lg shadow-sm">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-sm text-label-sm uppercase tracking-wide text-text-muted flex items-center gap-1">
+<span class="material-symbols-outlined text-[15px] text-status-info">local_shipping</span>
+                Atacado / Externos
+              </span>
+<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-surface-container text-ink-text">2 Itens</span>
+</div>
+<div class="flex items-baseline justify-between">
+<span class="font-label-md text-label-md text-ink-text">Subtotal</span>
+<span class="font-tabular-data-lg text-tabular-data-lg text-bordeaux-primary font-bold">680,00 <span class="font-label-sm text-label-sm font-normal text-text-muted">kg</span></span>
+</div>
+</div>
+<!-- Total Consolidado -->
+<div class="bg-wine-deep p-space-sm rounded-lg text-on-primary shadow-sm flex flex-col justify-center">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-white/70 block">Total Geral Consolidado</span>
+<div class="flex items-baseline justify-between mt-1">
+<span class="font-title-md text-title-md font-bold text-on-primary">OP-2026-094</span>
+<span class="font-tabular-data-lg text-tabular-data-lg font-bold text-on-primary text-xl">1.480,00 <span class="text-xs font-normal text-white/80">kg</span></span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Production Math & Residual Blend+ Buffer Section -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-space-md">
+<!-- Mathematical Formulation & Balance Check -->
+<div class="lg:col-span-7 bg-surface-card p-space-lg rounded-xl shadow-sm flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between gap-2 mb-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-bordeaux-primary text-[22px]">calculate</span>
+<h3 class="font-headline-sm text-headline-sm text-ink-text font-bold">Conferência de Cálculos &amp; Formulações Ativas</h3>
+</div>
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-surface-container font-label-sm text-label-sm text-status-success font-bold">
+<span class="material-symbols-outlined text-[15px]">verified</span> 100% Verificado
+            </span>
+</div>
+<p class="font-body-md text-body-md text-text-muted mb-4">
+            Balanceamento estequiométrico baseado nas receitas técnicas ativas cadastradas no SGP Industrial (proporção 90% corte cárneo / 10% insumos e condimentos).
+          </p>
+</div>
+<div class="space-y-3">
+<!-- Step Bars -->
+<div class="bg-surface-canvas p-space-sm rounded-lg">
+<div class="flex justify-between items-center mb-1">
+<span class="font-title-md text-title-md text-ink-text font-bold">Massa-Base Cárnea Líquida</span>
+<span class="font-tabular-data-lg text-tabular-data-lg font-bold text-ink-text">1.332,00 kg <span class="text-xs text-text-muted font-normal">(90,0%)</span></span>
+</div>
+<div class="w-full bg-surface-card rounded-full h-2">
+<div class="bg-bordeaux-primary h-2 rounded-full" style="width: 90%"></div>
+</div>
+<span class="font-label-sm text-label-sm text-text-muted mt-1 block">Alocação direta de Pernil (704 kg) + Copa-Lombo (516 kg) + Panceta (112 kg)</span>
+</div>
+<div class="bg-surface-canvas p-space-sm rounded-lg">
+<div class="flex justify-between items-center mb-1">
+<span class="font-title-md text-title-md text-ink-text font-bold">Insumos, Temperos e Condimentos Totais</span>
+<span class="font-tabular-data-lg text-tabular-data-lg font-bold text-ink-text">148,00 kg <span class="text-xs text-text-muted font-normal">(10,0%)</span></span>
+</div>
+<div class="w-full bg-surface-card rounded-full h-2">
+<div class="bg-status-info h-2 rounded-full" style="width: 10%"></div>
+</div>
+<span class="font-label-sm text-label-sm text-text-muted mt-1 block">Sal de cura, especiarias moídas, alho natural, vinhos e líquidos de infusão</span>
+</div>
+<!-- Total Equalizer -->
+<div class="flex items-center justify-between p-3 rounded-lg bg-surface-container font-label-md text-label-md">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-bordeaux-primary text-[18px]">balance</span>
+<span class="font-bold text-ink-text">Equilíbrio Físico da Mistura:</span>
+</div>
+<span class="font-tabular-data-md text-tabular-data-md font-bold text-ink-text">1.332 kg + 148 kg = 1.480,00 kg (Margem de variação: 0,00%)</span>
+</div>
+</div>
+</div>
+<!-- Residual Blend+ Buffer & Traceability Card -->
+<div class="lg:col-span-5 bg-surface-card p-space-lg rounded-xl shadow-sm flex flex-col justify-between relative overflow-hidden">
+<div>
+<div class="flex items-center justify-between gap-2 mb-2">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded bg-badge-warning-bg flex items-center justify-center text-badge-warning-text">
+<span class="material-symbols-outlined text-[17px]">rebase_edit</span>
+</div>
+<h3 class="font-title-lg text-title-lg font-bold text-ink-text">Controle de Sobra Real: Massa-Base Blend+</h3>
+</div>
+<span class="px-2 py-0.5 rounded font-label-sm text-label-sm bg-badge-warning-bg text-badge-warning-text font-bold">Buffer Ativo</span>
+</div>
+<p class="font-body-md text-body-md text-text-muted mt-2">
+            Pelas dinâmicas de raspagem da ensacadeira e corte de terminal das mantas, há um excedente programado para evitar subpeso nas peças nobres.
+          </p>
+<div class="my-4 p-3.5 bg-surface-canvas rounded-lg space-y-2">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-ink-text font-semibold">Volume Estimado de Sobra:</span>
+<span class="font-tabular-data-lg text-tabular-data-lg font-bold text-bordeaux-primary">~ 45,00 kg</span>
+</div>
+<div class="flex items-center justify-between text-[13px] text-text-muted">
+<span>Destinação Pré-Aprovada:</span>
+<span class="font-semibold text-ink-text">Tradicional Granel - Lanchonete</span>
+</div>
+<div class="flex items-center justify-between text-[13px] text-text-muted">
+<span>Finalidade Operacional:</span>
+<span class="font-semibold text-status-success">Buffer da Semana Seguinte (Ciclo #40)</span>
+</div>
+</div>
+</div>
+<div class="p-3 bg-surface-container-low rounded-lg flex items-start gap-2.5">
+<span class="material-symbols-outlined text-[20px] text-bordeaux-primary shrink-0 mt-0.5">verified_user</span>
+<div class="text-xs text-text-muted leading-relaxed">
+<strong class="text-ink-text font-semibold">Rastreabilidade Assegurada:</strong>
+            A sobra permanecerá formalmente vinculada à <span class="font-mono font-bold text-ink-text">OP-2026-094</span> com carimbo térmico indicando data e horário da massa pronta (24/09/2026 11:30), vedada e etiquetada conforme Instrução Normativa SIF-4.
+          </div>
+</div>
+</div>
+</div>
+</div>
+<!-- Fixed Bottom Operational Action Bar -->
+<aside class="fixed bottom-0 left-64 right-0 bg-surface-card shadow-[0_-4px_20px_rgba(38,1,1,0.08)] py-space-sm px-space-lg z-30 flex flex-wrap items-center justify-between gap-space-md">
+<div class="flex items-center gap-space-md">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-status-success animate-ping"></span>
+<span class="font-label-md text-label-md text-ink-text font-bold">OP Consolidada Pronta para Liberação</span>
+</div>
+<div class="hidden md:flex items-center gap-2 text-text-muted font-label-sm text-label-sm">
+<span>6 Linhas de Demanda</span>
+<span>•</span>
+<span>Massa Total: 1.480 kg</span>
+<span>•</span>
+<span>Sobra Prevista: 45 kg</span>
+</div>
+</div>
+<div class="flex items-center gap-space-sm">
+<button class="min-h-[48px] px-space-lg py-2.5 rounded-lg bg-surface-card text-wine-deep font-title-md text-title-md font-semibold hover:bg-surface-canvas active:scale-95 transition-all flex items-center gap-2 shadow-sm" onclick="window.reviewDraft()" type="button">
+<span class="material-symbols-outlined text-[20px]">edit_note</span>
+        Salvar Rascunho / Revisar Valores
+      </button>
+<button class="min-h-[48px] px-space-xl py-2.5 rounded-lg bg-bordeaux-primary text-on-primary font-title-md text-title-md font-bold hover:bg-wine-deep active:scale-95 transition-all shadow-md flex items-center gap-2" id="btnGenerateOP" onclick="window.openConfirmModal()" type="button">
+<span class="material-symbols-outlined text-[22px]">precision_manufacturing</span>
+        Gerar Ordens de Produção
+      </button>
+</div>
+</aside>
+<!-- Industrial Confirmation Modal (Hidden by default) -->
+<div class="fixed inset-0 bg-ink-text/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden" id="confirmModal">
+<div class="bg-surface-card max-w-xl w-full rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
+<div class="p-space-lg bg-wine-deep text-on-primary flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-bordeaux-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[24px]">assignment_turned_in</span>
+</div>
+<div>
+<h4 class="font-headline-sm text-headline-sm font-bold text-on-primary leading-tight">Validação e Liberação de Chão de Fábrica</h4>
+<span class="font-label-sm text-label-sm text-white/70">Ordem Consolidada OP-2026-094</span>
+</div>
+</div>
+<button class="text-white/80 hover:text-white p-1" onclick="window.closeConfirmModal()" type="button">
+<span class="material-symbols-outlined text-[24px]">close</span>
+</button>
+</div>
+<div class="p-space-lg space-y-4">
+<p class="font-body-md text-body-md text-ink-text">
+          Você está prestes a bloquear o rascunho e <strong>gerar as Ordens de Produção industriais definitivas</strong>. Esta ação despachará as fichas de pesagem para o terminal TRM-04 e notificará a separação de carnes nas câmaras 01 e 02.
+        </p>
+<div class="bg-surface-canvas p-space-md rounded-xl space-y-2 text-ink-text font-body-md text-body-md">
+<div class="flex justify-between">
+<span class="text-text-muted">Total de Massa a Liberar:</span>
+<span class="font-bold font-tabular-data-md text-tabular-data-md text-ink-text">1.480,00 kg</span>
+</div>
+<div class="flex justify-between">
+<span class="text-text-muted">Massa-Base Cárnea Requisitada:</span>
+<span class="font-bold font-tabular-data-md text-tabular-data-md text-ink-text">1.332,00 kg (PC-104)</span>
+</div>
+<div class="flex justify-between">
+<span class="text-text-muted">Condimentos &amp; Insumos:</span>
+<span class="font-bold font-tabular-data-md text-tabular-data-md text-ink-text">148,00 kg</span>
+</div>
+<div class="flex justify-between">
+<span class="text-text-muted">Destinação Sobra (~45 kg):</span>
+<span class="font-bold text-status-success">Tradicional Granel (Lanchonete)</span>
+</div>
+</div>
+<div class="p-3 bg-badge-warning-bg rounded-lg flex items-center gap-3 text-badge-warning-text font-label-md text-label-md">
+<span class="material-symbols-outlined text-[20px]">info</span>
+<span>Todas as 6 receitas associadas foram checadas contra o banco de formulações ativas.</span>
+</div>
+</div>
+<div class="p-space-md bg-surface-canvas flex items-center justify-end gap-3">
+<button class="min-h-[44px] px-space-md py-2 rounded-lg bg-surface-card text-ink-text font-label-md text-label-md hover:bg-surface-container font-semibold transition-colors" onclick="window.closeConfirmModal()" type="button">
+          Cancelar e Voltar
+        </button>
+<button class="min-h-[44px] px-space-lg py-2 rounded-lg bg-bordeaux-primary text-on-primary font-title-md text-title-md font-bold hover:bg-wine-deep transition-colors shadow" onclick="window.executeGeneration()" type="button">
+          Confirmar e Disparar OP
+        </button>
+</div>
+</div>
+</div>
+<!-- Notification Toast Container -->
+<div class="fixed top-20 right-6 z-50 max-w-sm w-full bg-wine-deep text-on-primary p-4 rounded-xl shadow-xl flex items-center gap-3 transform translate-y-[-150%] transition-transform duration-300" id="toastNotification">
+<span class="material-symbols-outlined text-status-success text-[24px]">task_alt</span>
+<div>
+<h5 class="font-title-md text-title-md text-on-primary font-bold">OP Gerada com Sucesso!</h5>
+<p class="font-label-sm text-label-sm text-white/80">Ordens enviadas para as linhas de moagem e pesagem.</p>
+</div>
+</div>
+<script>
+    window.openConfirmModal = function() {
+      document.getElementById('confirmModal').classList.remove('hidden');
+    };
+
+    window.closeConfirmModal = function() {
+      document.getElementById('confirmModal').classList.add('hidden');
+    };
+
+    window.executeGeneration = function() {
+      window.closeConfirmModal();
+      const toast = document.getElementById('toastNotification');
+      toast.classList.remove('translate-y-[-150%]');
+      toast.classList.add('translate-y-0');
+
+      const btn = document.getElementById('btnGenerateOP');
+      btn.classList.remove('bg-bordeaux-primary');
+      btn.classList.add('bg-status-success');
+      btn.innerHTML = '<span class="material-symbols-outlined text-[22px]">check</span> OP Emitida &amp; Bloqueada';
+
+      setTimeout(function() {
+        toast.classList.remove('translate-y-0');
+        toast.classList.add('translate-y-[-150%]');
+      }, 4000);
+    };
+
+    window.reviewDraft = function() {
+      alert('Rascunho da OP-2026-094 revisado e salvo no banco local.');
+    };
+  </script>
+</div></main></div></body></html>

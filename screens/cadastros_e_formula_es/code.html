@@ -1,0 +1,431 @@
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_dashboard" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..700&amp;family=Work+Sans:ital,wght@0,400..700;1,400..700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"surface-tint":"#b4271c","on-secondary-container":"#71150f","error":"#ba1a1a","on-primary-fixed-variant":"#910906","text-muted":"#5C5150","tertiary":"#402800","tertiary-container":"#5d3c00","on-tertiary-fixed":"#291800","on-primary-container":"#ff9283","badge-warning-text":"#4A2C00","amber-warning":"#D99311","surface-container-lowest":"#ffffff","surface-dim":"#ffcfc9","tertiary-fixed-dim":"#ffb94e","inverse-primary":"#ffb4a9","bordeaux-primary":"#8C0303","secondary":"#a43b2f","primary-container":"#8c0303","outline":"#8e706b","surface-variant":"#ffdad5","on-secondary-fixed":"#410001","inverse-surface":"#54201a","on-error-container":"#93000a","surface-container-low":"#fff0ee","on-tertiary-container":"#eaa224","surface":"#fff8f7","on-primary":"#ffffff","primary":"#630001","error-container":"#ffdad6","on-surface-variant":"#5a413d","primary-fixed":"#ffdad5","outline-variant":"#e2beb9","badge-error-bg":"#FDE8E8","badge-warning-bg":"#FFF2D6","on-tertiary-fixed-variant":"#624000","alert-critical":"#D90404","background":"#fff8f7","on-error":"#ffffff","on-surface":"#390b08","on-primary-fixed":"#410000","inverse-on-surface":"#ffedea","surface-container-high":"#ffe2de","on-background":"#390b08","secondary-fixed":"#ffdad5","surface-card":"#FFFFFF","on-secondary":"#ffffff","secondary-container":"#fd7d6c","badge-error-text":"#8C0303","on-tertiary":"#ffffff","surface-bright":"#fff8f7","status-info":"#205A85","on-secondary-fixed-variant":"#84231a","tertiary-fixed":"#ffddb2","surface-canvas":"#F8F6F4","ink-text":"#260101","status-success":"#176B45","wine-deep":"#590202","surface-container-highest":"#ffdad5","surface-container":"#ffe9e6","secondary-fixed-dim":"#ffb4a9","border-subtle":"#E8E1DF","primary-fixed-dim":"#ffb4a9"},borderRadius:{DEFAULT:"0.25rem",lg:"0.5rem",xl:"0.75rem",full:"9999px"},spacing:{margin:"1rem","space-md":"1rem","space-lg":"1.5rem",gutter:"1rem","space-2xl":"3rem","gutter-desktop":"1.5rem","margin-desktop":"2rem","space-sm":"0.5rem","space-xs":"0.25rem","margin-tablet":"1.5rem","gutter-tablet":"1.25rem","space-xl":"2rem"},fontFamily:{"title-lg":["Work Sans"],"body-lg":["Work Sans"],"label-md":["Work Sans"],"body-md":["Work Sans"],"tabular-data-md":["Work Sans"],"tabular-data-lg":["Work Sans"],"display-lg":["\"Source Serif 4\""],"headline-md":["\"Source Serif 4\""],"title-md":["Work Sans"],"label-sm":["Work Sans"],"headline-sm":["\"Source Serif 4\""],"display-lg-mobile":["\"Source Serif 4\""]},fontSize:{"title-lg":["18px",{lineHeight:"24px",fontWeight:"600"}],"body-lg":["16px",{lineHeight:"24px",fontWeight:"400"}],"label-md":["13px",{lineHeight:"16px",letterSpacing:"0.02em",fontWeight:"600"}],"body-md":["14px",{lineHeight:"20px",fontWeight:"400"}],"tabular-data-md":["14px",{lineHeight:"18px",fontWeight:"500"}],"tabular-data-lg":["20px",{lineHeight:"24px",fontWeight:"600"}],"display-lg":["32px",{lineHeight:"40px",letterSpacing:"-0.02em",fontWeight:"700"}],"headline-md":["24px",{lineHeight:"32px",fontWeight:"600"}],"title-md":["16px",{lineHeight:"22px",fontWeight:"600"}],"label-sm":["11px",{lineHeight:"14px",letterSpacing:"0.04em",fontWeight:"600"}],"headline-sm":["20px",{lineHeight:"28px",fontWeight:"600"}],"display-lg-mobile":["26px",{lineHeight:"32px",letterSpacing:"-0.01em",fontWeight:"700"}]}}}};</script></head><body class="bg-surface-canvas font-body-md text-ink-text"><aside class="fixed left-0 top-0 h-full w-64 bg-wine-deep z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="flex flex-col"><div class="h-16 px-space-md flex items-center gap-space-sm border-b border-white/10"><img alt="Controle de Produção Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1U9DfQfAxBlZvtkowarJvsfYc8nVYfn9str_2tQpl4P5et-vaZqf1KW6w4ImrwRSdPI0x4GzyI4QsT3liajzYJRgWcz7p0Kc5kIBmbYXS_msgnarUhXWH78W5y04NeMw014O9Xlk4H-buFywm74tKpt_BoLD5IaoOOAivptXu2lPYMeA8j1PIEFz5ryT3PyRdhX1Wvczzxwzl_P-xTtwKcb8F9MdWmCOKX0EH_ol5HJFRga1l2x2T2WD1Ua"><div class="flex flex-col"><span class="font-title-md text-title-md text-on-primary leading-tight">SGP Industrial</span><span class="font-label-sm text-label-sm text-white/70 uppercase tracking-wider">Chão de Fábrica</span></div></div><nav class="flex flex-col gap-1 p-space-sm overflow-y-auto" data-active-classes="bg-bordeaux-primary text-on-primary font-bold shadow-sm"><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="visao-geral" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">grid_view</span><span class="font-label-md text-label-md">Visão Geral</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/20 text-on-primary">Painel</span></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="planejamento" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">calendar_today</span><span class="font-label-md text-label-md">Planejamento</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-badge-warning-bg text-badge-warning-text">PCP</span></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="cadastros-e-formulacoes" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">menu_book</span><span class="font-label-md text-label-md">Cadastros &amp; Fórmulas</span></div></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="separacao-de-insumos" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">scale</span><span class="font-label-md text-label-md">Separação Insumos</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-badge-warning-bg text-badge-warning-text">3 Pend</span></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="producao" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">precision_manufacturing</span><span class="font-label-md text-label-md">Produção</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/20 text-on-primary">L-1</span></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="estoque-e-acompanhamento" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">inventory_2</span><span class="font-label-md text-label-md">Estoque &amp; Cura</span></div></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="pedidos-e-expedicao" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">local_shipping</span><span class="font-label-md text-label-md">Pedidos &amp; Expedição</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-badge-warning-bg text-badge-warning-text">8 Lotes</span></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="faturamento" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">receipt_long</span><span class="font-label-md text-label-md">Faturamento</span></div></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="usuarios-e-permissoes" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">manage_accounts</span><span class="font-label-md text-label-md">Usuários &amp; Acessos</span></div></a></nav></div><div class="p-space-sm border-t border-white/10 flex flex-col gap-2"><div class="flex items-center justify-between px-2 text-white/70"><span class="font-label-sm text-label-sm">Terminal ID</span><span class="font-tabular-data-md text-tabular-data-md text-on-primary">TRM-04</span></div><div class="flex items-center gap-2 px-2 py-1.5 rounded bg-white/10"><span class="w-2 h-2 rounded-full bg-status-success"></span><span class="font-label-sm text-label-sm text-on-primary">Balança RS232 Conectada</span></div></div></aside><div class="pl-64"><header class="fixed top-0 left-64 right-0 h-16 bg-surface-card shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-space-lg"><div class="flex items-center gap-space-md"><img alt="Controle de Produção Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1U9DfQfAxBlZvtkowarJvsfYc8nVYfn9str_2tQpl4P5et-vaZqf1KW6w4ImrwRSdPI0x4GzyI4QsT3liajzYJRgWcz7p0Kc5kIBmbYXS_msgnarUhXWH78W5y04NeMw014O9Xlk4H-buFywm74tKpt_BoLD5IaoOOAivptXu2lPYMeA8j1PIEFz5ryT3PyRdhX1Wvczzxwzl_P-xTtwKcb8F9MdWmCOKX0EH_ol5HJFRga1l2x2T2WD1Ua"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-[18px] text-text-muted">today</span><span class="font-tabular-data-md text-tabular-data-md text-ink-text font-semibold">24/10/2024</span></div><span class="text-border-subtle">|</span><div class="flex items-center gap-2"><span class="inline-flex items-center px-2 py-0.5 rounded font-label-sm text-label-sm bg-badge-warning-bg text-badge-warning-text">Turno Manhã</span><span class="font-body-md text-body-md text-text-muted">Linha 1 - Embutimento</span></div></div><div class="flex items-center gap-space-md"><div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-canvas"><span class="w-2.5 h-2.5 rounded-full bg-status-success animate-pulse"></span><span class="font-label-md text-label-md text-status-success">SISTEMA ONLINE</span></div><div class="h-6 w-px bg-border-subtle"></div><div class="flex items-center gap-space-sm"><div class="flex flex-col text-right"><span class="font-title-md text-title-md text-ink-text leading-none">Carlos M.</span><span class="font-label-sm text-label-sm text-text-muted leading-tight">Supervisor Industrial</span></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="w-full pt-16 bg-surface-canvas min-h-screen"><div class="flex flex-col w-full">
+<div class="p-space-lg flex flex-col gap-space-lg">
+<!-- Top Breadcrumb & Quick Summary Row -->
+<div class="flex flex-wrap items-center justify-between gap-space-md">
+<div class="flex flex-col">
+<div class="flex items-center gap-space-xs text-text-muted">
+<span class="font-label-sm text-label-sm uppercase tracking-wider">Engenharia de Alimentos</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="font-label-sm text-label-sm text-bordeaux-primary uppercase tracking-wider font-bold">Fichas Técnicas &amp; Cadastros</span>
+</div>
+<h1 class="font-display-lg text-display-lg text-ink-text mt-0.5">Cadastros &amp; Formulações</h1>
+</div>
+<div class="flex items-center gap-space-sm flex-wrap">
+<button class="inline-flex items-center gap-2 h-11 px-4 rounded bg-surface-card text-wine-deep shadow-sm hover:bg-surface-container-low transition-colors font-label-md text-label-md" type="button">
+<span class="material-symbols-outlined text-[18px]">menu_book</span>
+<span>Conferir Ingredientes</span>
+</button>
+<button class="inline-flex items-center gap-2 h-11 px-4 rounded bg-surface-card text-wine-deep shadow-sm hover:bg-surface-container-low transition-colors font-label-md text-label-md" type="button">
+<span class="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+<span>Exportar Ficha Técnica</span>
+</button>
+<button class="inline-flex items-center gap-2 h-11 px-5 rounded bg-bordeaux-primary text-on-primary shadow-sm hover:bg-wine-deep transition-all font-label-md text-label-md" type="button">
+<span class="material-symbols-outlined text-[20px]">add_circle</span>
+<span>Nova Versão de Fórmula</span>
+</button>
+</div>
+</div>
+<!-- Master Navigation Tabs -->
+<div class="bg-surface-card rounded-xl p-1.5 shadow-sm flex items-center gap-1 overflow-x-auto">
+<button class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-bordeaux-primary text-on-primary font-label-md text-label-md shadow-sm whitespace-nowrap">
+<span class="material-symbols-outlined text-[18px]">science</span>
+<span>Formulações Ativas</span>
+<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/20 text-on-primary">6</span>
+</button>
+<button class="flex items-center gap-2 px-4 py-2.5 rounded-lg text-text-muted hover:bg-surface-container hover:text-ink-text transition-colors font-label-md text-label-md whitespace-nowrap">
+<span class="material-symbols-outlined text-[18px]">restaurant_menu</span>
+<span>Sabores</span>
+<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-surface-container-highest text-ink-text">38</span>
+</button>
+<button class="flex items-center gap-2 px-4 py-2.5 rounded-lg text-text-muted hover:bg-surface-container hover:text-ink-text transition-colors font-label-md text-label-md whitespace-nowrap">
+<span class="material-symbols-outlined text-[18px]">grain</span>
+<span>Insumos</span>
+<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-surface-container-highest text-ink-text">24</span>
+</button>
+<button class="flex items-center gap-2 px-4 py-2.5 rounded-lg text-text-muted hover:bg-surface-container hover:text-ink-text transition-colors font-label-md text-label-md whitespace-nowrap">
+<span class="material-symbols-outlined text-[18px]">set_meal</span>
+<span>Perfis de Carne</span>
+<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-surface-container-highest text-ink-text">3</span>
+</button>
+<button class="flex items-center gap-2 px-4 py-2.5 rounded-lg text-text-muted hover:bg-surface-container hover:text-ink-text transition-colors font-label-md text-label-md whitespace-nowrap">
+<span class="material-symbols-outlined text-[18px]">badge</span>
+<span>Colaboradores</span>
+<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-surface-container-highest text-ink-text">12</span>
+</button>
+</div>
+<!-- Active Formula Header & Version Selector Bar -->
+<div class="bg-surface-card rounded-xl p-space-md shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-space-md">
+<div class="flex items-center gap-space-md">
+<div class="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-bordeaux-primary">
+<span class="material-symbols-outlined text-[28px]">verified</span>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-space-sm flex-wrap">
+<span class="font-headline-sm text-headline-sm text-ink-text">Linguiça Tradicional</span>
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-low text-bordeaux-primary font-tabular-data-md text-tabular-data-md font-bold">
+<span class="material-symbols-outlined text-[14px]">tune</span>
+              Versão v2.4 (Ativa desde 12/08/2026)
+            </span>
+</div>
+<div class="flex items-center gap-2 mt-1">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded font-label-sm text-label-sm bg-surface-container-highest text-status-success font-bold">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+              Ativa / Aprovada pelo Resp. Técnico (CRQ 04412-IV)
+            </span>
+<span class="text-text-muted text-[12px] font-label-sm">• Rastreabilidade SIF/DIPOA #882</span>
+</div>
+</div>
+</div>
+<!-- Version Audit Pill Switcher -->
+<div class="flex items-center gap-2 self-start md:self-auto bg-surface-canvas p-1.5 rounded-lg">
+<span class="font-label-sm text-label-sm text-text-muted px-2 uppercase tracking-wider">Histórico:</span>
+<button class="px-3 py-1 rounded font-tabular-data-md text-tabular-data-md bg-surface-card text-ink-text shadow-sm font-semibold flex items-center gap-1" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-status-success"></span>
+          v2.4
+        </button>
+<button class="px-3 py-1 rounded font-tabular-data-md text-tabular-data-md text-text-muted hover:text-ink-text hover:bg-surface-card transition-colors flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-[14px]">lock</span>
+          v2.3
+        </button>
+<button class="px-3 py-1 rounded font-tabular-data-md text-tabular-data-md text-text-muted hover:text-ink-text hover:bg-surface-card transition-colors flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-[14px]">lock</span>
+          v2.2
+        </button>
+</div>
+</div>
+<!-- Main Specification Grid (Bento Form Layout) -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg items-start">
+<!-- Left Panel: Meat Base + Formulation Ingredients Table (8 Cols) -->
+<div class="lg:col-span-8 flex flex-col gap-space-lg">
+<!-- Base Meat Specification Card -->
+<div class="bg-surface-card rounded-xl p-space-lg shadow-sm flex flex-col gap-space-md">
+<div class="flex items-center justify-between flex-wrap gap-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-bordeaux-primary text-[22px]">stream</span>
+<span class="font-title-lg text-title-lg text-ink-text">1. Definição da Massa-Base Cárnea</span>
+</div>
+<span class="px-3 py-1 rounded font-tabular-data-lg text-tabular-data-lg bg-surface-container text-ink-text font-bold">
+              90,00% <span class="font-label-sm text-label-sm text-text-muted font-normal">(900 g/kg)</span>
+</span>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-space-md">
+<div class="p-space-md rounded-lg bg-surface-canvas flex flex-col justify-between">
+<span class="font-label-sm text-label-sm text-text-muted uppercase">Perfil Homologado</span>
+<div class="flex items-baseline justify-between mt-2">
+<span class="font-headline-sm text-headline-sm text-ink-text">Blend Padrão</span>
+<span class="font-label-sm text-label-sm px-2 py-0.5 rounded bg-surface-card text-status-success font-bold">Base Pura</span>
+</div>
+<span class="font-body-md text-body-md text-text-muted mt-1">Cortes nobres refrigerados a 0°C a 2°C</span>
+</div>
+<div class="p-space-md rounded-lg bg-surface-canvas flex flex-col justify-between">
+<span class="font-label-sm text-label-sm text-text-muted uppercase">Fração Pernil Suíno</span>
+<div class="flex items-baseline justify-between mt-2">
+<span class="font-tabular-data-lg text-tabular-data-lg text-bordeaux-primary font-bold">50,00%</span>
+<span class="font-tabular-data-md text-tabular-data-md text-text-muted">450 g/kg</span>
+</div>
+<span class="font-body-md text-body-md text-text-muted mt-1">Moagem disco 8mm com gordura intramuscular</span>
+</div>
+<div class="p-space-md rounded-lg bg-surface-canvas flex flex-col justify-between">
+<span class="font-label-sm text-label-sm text-text-muted uppercase">Fração Copa-Lombo Suína</span>
+<div class="flex items-baseline justify-between mt-2">
+<span class="font-tabular-data-lg text-tabular-data-lg text-bordeaux-primary font-bold">50,00%</span>
+<span class="font-tabular-data-md text-tabular-data-md text-text-muted">450 g/kg</span>
+</div>
+<span class="font-body-md text-body-md text-text-muted mt-1">Cubos selecionados para marmoreio visual</span>
+</div>
+</div>
+</div>
+<!-- Ingredients Table Specification Card -->
+<div class="bg-surface-card rounded-xl shadow-sm overflow-hidden flex flex-col">
+<div class="p-space-lg flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm">
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-bordeaux-primary text-[22px]">scale</span>
+<h2 class="font-title-lg text-title-lg text-ink-text">2. Tabela de Insumos da Formulação</h2>
+</div>
+<span class="font-body-md text-body-md text-text-muted">Proporção estrita somando os 10,00% complementares da batelada</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm text-text-muted">Base de Cálculo:</span>
+<div class="px-3 py-1 rounded bg-surface-container font-tabular-data-md text-tabular-data-md font-bold text-ink-text">
+                100,00 kg (1 Batelada Padrão)
+              </div>
+</div>
+</div>
+<!-- Table with Zebra Styling & High Visual Rigor -->
+<div class="overflow-x-auto">
+<table class="w-full text-left font-body-md text-body-md">
+<thead class="bg-surface-container text-ink-text">
+<tr>
+<th class="py-3 px-space-lg font-label-md text-label-md uppercase tracking-wider">Item &amp; Insumo Homologado</th>
+<th class="py-3 px-4 font-label-md text-label-md uppercase tracking-wider">Código SGP</th>
+<th class="py-3 px-4 font-label-md text-label-md uppercase tracking-wider text-right">Dosagem (g/kg)</th>
+<th class="py-3 px-4 font-label-md text-label-md uppercase tracking-wider text-right">Percentual (%)</th>
+<th class="py-3 px-space-lg font-label-md text-label-md uppercase tracking-wider text-right">Batelada 100kg</th>
+</tr>
+</thead>
+<tbody class="divide-y-0 text-ink-text">
+<!-- Item 1 -->
+<tr class="hover:bg-surface-canvas/60 transition-colors">
+<td class="py-3.5 px-space-lg flex items-center gap-3">
+<span class="w-6 h-6 rounded-full bg-surface-container flex items-center justify-center font-label-sm text-label-sm text-bordeaux-primary font-bold">1</span>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-ink-text">Sal Refinado com Nitrito (Cura)</span>
+<span class="font-label-sm text-label-sm text-text-muted">Conservante, fixador de cor e sabor</span>
+</div>
+</td>
+<td class="py-3.5 px-4 font-tabular-data-md text-tabular-data-md text-text-muted">INS-0012-CR</td>
+<td class="py-3.5 px-4 font-tabular-data-md text-tabular-data-md text-right font-medium">22,00 g/kg</td>
+<td class="py-3.5 px-4 font-tabular-data-lg text-tabular-data-lg text-right font-bold text-ink-text">2,20%</td>
+<td class="py-3.5 px-space-lg font-tabular-data-md text-tabular-data-md text-right text-bordeaux-primary font-bold">2,200 kg</td>
+</tr>
+<!-- Item 2 (Alternating background) -->
+<tr class="bg-surface-canvas/40 hover:bg-surface-canvas/80 transition-colors">
+<td class="py-3.5 px-space-lg flex items-center gap-3">
+<span class="w-6 h-6 rounded-full bg-surface-container flex items-center justify-center font-label-sm text-label-sm text-bordeaux-primary font-bold">2</span>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-ink-text">Alho Fresco Moído</span>
+<span class="font-label-sm text-label-sm text-text-muted">Pasta in natura pasteurizada</span>
+</div>
+</td>
+<td class="py-3.5 px-4 font-tabular-data-md text-tabular-data-md text-text-muted">INS-0045-AL</td>
+<td class="py-3.5 px-4 font-tabular-data-md text-tabular-data-md text-right font-medium">18,00 g/kg</td>
+<td class="py-3.5 px-4 font-tabular-data-lg text-tabular-data-lg text-right font-bold text-ink-text">1,80%</td>
+<td class="py-3.5 px-space-lg font-tabular-data-md text-tabular-data-md text-right text-bordeaux-primary font-bold">1,800 kg</td>
+</tr>
+<!-- Item 3 -->
+<tr class="hover:bg-surface-canvas/60 transition-colors">
+<td class="py-3.5 px-space-lg flex items-center gap-3">
+<span class="w-6 h-6 rounded-full bg-surface-container flex items-center justify-center font-label-sm text-label-sm text-bordeaux-primary font-bold">3</span>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-ink-text">Pimenta-do-reino Preta Moída</span>
+<span class="font-label-sm text-label-sm text-text-muted">Granulometria fina padrão 40 mesh</span>
+</div>
+</td>
+<td class="py-3.5 px-4 font-tabular-data-md text-tabular-data-md text-text-muted">INS-0089-PM</td>
+<td class="py-3.5 px-4 font-tabular-data-md text-tabular-data-md text-right font-medium">4,00 g/kg</td>
+<td class="py-3.5 px-4 font-tabular-data-lg text-tabular-data-lg text-right font-bold text-ink-text">0,40%</td>
+<td class="py-3.5 px-space-lg font-tabular-data-md text-tabular-data-md text-right text-bordeaux-primary font-bold">0,400 kg</td>
+</tr>
+<!-- Item 4 (Alternating background) -->
+<tr class="bg-surface-canvas/40 hover:bg-surface-canvas/80 transition-colors">
+<td class="py-3.5 px-space-lg flex items-center gap-3">
+<span class="w-6 h-6 rounded-full bg-surface-container flex items-center justify-center font-label-sm text-label-sm text-bordeaux-primary font-bold">4</span>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-ink-text">Noz-moscada e Especiarias</span>
+<span class="font-label-sm text-label-sm text-text-muted">Blend aromático exclusivo artesanal</span>
+</div>
+</td>
+<td class="py-3.5 px-4 font-tabular-data-md text-tabular-data-md text-text-muted">INS-0094-ESP</td>
+<td class="py-3.5 px-4 font-tabular-data-md text-tabular-data-md text-right font-medium">6,00 g/kg</td>
+<td class="py-3.5 px-4 font-tabular-data-lg text-tabular-data-lg text-right font-bold text-ink-text">0,60%</td>
+<td class="py-3.5 px-space-lg font-tabular-data-md text-tabular-data-md text-right text-bordeaux-primary font-bold">0,600 kg</td>
+</tr>
+<!-- Item 5 -->
+<tr class="hover:bg-surface-canvas/60 transition-colors">
+<td class="py-3.5 px-space-lg flex items-center gap-3">
+<span class="w-6 h-6 rounded-full bg-surface-container flex items-center justify-center font-label-sm text-label-sm text-bordeaux-primary font-bold">5</span>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-ink-text">Água Gelada com Gelo Picado</span>
+<span class="font-label-sm text-label-sm text-text-muted">Emulsificação térmica sob 4°C no cutter</span>
+</div>
+</td>
+<td class="py-3.5 px-4 font-tabular-data-md text-tabular-data-md text-text-muted">INS-0002-H2O</td>
+<td class="py-3.5 px-4 font-tabular-data-md text-tabular-data-md text-right font-medium">50,00 g/kg</td>
+<td class="py-3.5 px-4 font-tabular-data-lg text-tabular-data-lg text-right font-bold text-ink-text">5,00%</td>
+<td class="py-3.5 px-space-lg font-tabular-data-md text-tabular-data-md text-right text-bordeaux-primary font-bold">5,000 kg</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Strict Auto-Sum Validator Footer -->
+<div class="p-space-md bg-surface-container-low flex flex-col sm:flex-row items-center justify-between gap-space-md">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-status-success text-[24px]">verified</span>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-ink-text">Verificador Automático de Soma Ponderada</span>
+<span class="font-body-md text-body-md text-text-muted">90,00% (Massa-Base Cárnea) + 10,00% (Insumos Adicionados) = 100,00%</span>
+</div>
+</div>
+<div class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-card shadow-sm">
+<span class="w-2.5 h-2.5 rounded-full bg-status-success"></span>
+<span class="font-tabular-data-lg text-tabular-data-lg font-bold text-status-success">100,00%</span>
+<span class="font-label-sm text-label-sm text-status-success font-bold uppercase tracking-wider">[Válido ✓]</span>
+</div>
+</div>
+</div>
+<!-- Production Rules & Permitted Packaging Types -->
+<div class="bg-surface-card rounded-xl p-space-lg shadow-sm flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-bordeaux-primary text-[22px]">fact_check</span>
+<span class="font-title-lg text-title-lg text-ink-text">Formatos e Tipos Permitidos para este Sabor</span>
+</div>
+<span class="font-label-sm text-label-sm px-2.5 py-1 rounded bg-surface-canvas text-text-muted font-bold">Diretriz DIPOA-04</span>
+</div>
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-space-sm">
+<!-- Manta -->
+<div class="p-space-sm rounded-lg bg-surface-canvas flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-bordeaux-primary text-[20px]">layers</span>
+<span class="font-title-md text-title-md text-ink-text">Manta</span>
+</div>
+<span class="material-symbols-outlined text-status-success text-[18px]">check_circle</span>
+</div>
+<!-- Linguiça -->
+<div class="p-space-sm rounded-lg bg-surface-canvas flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-bordeaux-primary text-[20px]">trip_origin</span>
+<span class="font-title-md text-title-md text-ink-text">Linguiça</span>
+</div>
+<span class="material-symbols-outlined text-status-success text-[18px]">check_circle</span>
+</div>
+<!-- Granel -->
+<div class="p-space-sm rounded-lg bg-surface-canvas flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-bordeaux-primary text-[20px]">all_inbox</span>
+<span class="font-title-md text-title-md text-ink-text">Granel</span>
+</div>
+<span class="material-symbols-outlined text-status-success text-[18px]">check_circle</span>
+</div>
+<!-- Hambúrguer -->
+<div class="p-space-sm rounded-lg bg-surface-canvas flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-bordeaux-primary text-[20px]">lunch_dining</span>
+<span class="font-title-md text-title-md text-ink-text">Hambúrguer</span>
+</div>
+<span class="material-symbols-outlined text-status-success text-[18px]">check_circle</span>
+</div>
+</div>
+<div class="p-3 rounded-lg bg-badge-warning-bg flex items-center gap-3">
+<span class="material-symbols-outlined text-badge-warning-text text-[20px]">info</span>
+<p class="font-body-md text-body-md text-badge-warning-text">
+<strong>Regra de Engenharia de Produto:</strong> A formatação em <span class="underline font-semibold">Hambúrguer</span> é estritamente permitida para o sabor <em>Tradicional</em> e para a linha de <em>Sabores de Bragança</em>. O sistema rejeita ordens de embutimento de hambúrguer para os demais sabores.
+            </p>
+</div>
+</div>
+</div>
+<!-- Right Panel: Meat Profiles Overview & Operational Tools (4 Cols) -->
+<div class="lg:col-span-4 flex flex-col gap-space-lg">
+<!-- Flavor Card with Visual Texture -->
+<div class="bg-surface-card rounded-xl overflow-hidden shadow-sm flex flex-col">
+<div class="relative h-44 w-full bg-cover bg-center" data-alt="Close up artisanal charcuterie seasoned pork sausage mix resting in a commercial stainless steel bowl with fresh whole spices, cracked black peppercorns, sea salt and freshly minced garlic, food manufacturing industrial studio lighting with rich dark wine red reflections." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCZiCef30rBoM2KmhPJPHPXxjmpWngvBMZsQ6lk-jNWAVCM5idB9COK7JH-8oo69lwTuW4hNBRtv5m1HJ_DxnfT_5GhWeZb7SBg90pS3ssrzgfXcGGtdVClP4NerZ2IrR-Jy3MO0Q8fq0dp8Iyp92Pb5aVamnIw3LYhuecTXuKv6-WJarXp4dqYII9I-G2Vw5BBO7kDpEXVXHkOR95qtSAfTgLUWaBAvYH2bqhR26s05GV70r1sECGUMg')">
+<div class="absolute inset-0 bg-gradient-to-t from-wine-deep via-wine-deep/40 to-transparent"></div>
+<div class="absolute bottom-3 left-4 right-4 flex items-end justify-between">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-white/70 uppercase tracking-widest">Sabor Padrão Artesanal</span>
+<span class="font-headline-sm text-headline-sm text-on-primary">Linguiça Tradicional</span>
+</div>
+<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-white/20 text-on-primary backdrop-blur-sm">L-TRAD-01</span>
+</div>
+</div>
+<div class="p-space-md flex flex-col gap-2">
+<div class="flex items-center justify-between text-text-muted">
+<span class="font-label-sm text-label-sm">Classificação DIPOA:</span>
+<span class="font-tabular-data-md text-tabular-data-md text-ink-text font-semibold">Linguiça Tipo Toscana</span>
+</div>
+<div class="flex items-center justify-between text-text-muted">
+<span class="font-label-sm text-label-sm">Tempo Recomendado de Cura:</span>
+<span class="font-tabular-data-md text-tabular-data-md text-ink-text font-semibold">18 a 24 horas (0-2°C)</span>
+</div>
+<div class="flex items-center justify-between text-text-muted">
+<span class="font-label-sm text-label-sm">Tripa Homologada:</span>
+<span class="font-tabular-data-md text-tabular-data-md text-ink-text font-semibold">Suína Natural 28/32mm</span>
+</div>
+</div>
+</div>
+<!-- 3 Standard Meat Profiles Directory Card -->
+<div class="bg-surface-card rounded-xl p-space-lg shadow-sm flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-bordeaux-primary text-[22px]">inventory</span>
+<h3 class="font-title-lg text-title-lg text-ink-text">Perfis de Carne (3)</h3>
+</div>
+<span class="font-label-sm text-label-sm text-text-muted uppercase">Matriz de Cortes</span>
+</div>
+<div class="flex flex-col gap-space-sm">
+<!-- Profile 1: Active in this formula -->
+<div class="p-space-md rounded-lg bg-surface-container flex flex-col gap-2 relative overflow-hidden">
+<div class="flex items-center justify-between">
+<span class="font-title-md text-title-md text-ink-text font-bold">1. Blend Padrão</span>
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-bordeaux-primary text-on-primary">Em Uso Nesta Versão</span>
+</div>
+<p class="font-body-md text-body-md text-text-muted">
+                50% Pernil Suíno Desossado + 50% Copa-Lombo Suína Selecionada.
+              </p>
+<div class="flex items-center justify-between font-label-sm text-label-sm pt-1 text-ink-text">
+<span class="text-text-muted">Gordura Estimada: <strong>18 - 20%</strong></span>
+<span class="text-status-success font-bold">Padrão Ouro</span>
+</div>
+</div>
+<!-- Profile 2: Blend Panceta -->
+<div class="p-space-md rounded-lg bg-surface-canvas flex flex-col gap-2 hover:bg-surface-container-low transition-colors">
+<div class="flex items-center justify-between">
+<span class="font-title-md text-title-md text-ink-text font-semibold">2. Blend Panceta</span>
+<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-surface-container-highest text-ink-text">Disponível</span>
+</div>
+<p class="font-body-md text-body-md text-text-muted">
+                50% Pernil Suíno Desossado + 50% Panceta Suína com Pele Removida.
+              </p>
+<div class="flex items-center justify-between font-label-sm text-label-sm pt-1 text-ink-text">
+<span class="text-text-muted">Gordura Estimada: <strong>26 - 29%</strong></span>
+<span class="text-text-muted font-medium">Uso: Sabores Defumados</span>
+</div>
+</div>
+<!-- Profile 3: Blend Bovino -->
+<div class="p-space-md rounded-lg bg-surface-canvas flex flex-col gap-2 hover:bg-surface-container-low transition-colors">
+<div class="flex items-center justify-between">
+<span class="font-title-md text-title-md text-ink-text font-semibold">3. Blend Bovino</span>
+<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-surface-container-highest text-ink-text">Disponível</span>
+</div>
+<p class="font-body-md text-body-md text-text-muted">
+                50% Pernil Suíno Desossado + 50% Dianteiro Bovino (Acém/Peito).
+              </p>
+<div class="flex items-center justify-between font-label-sm text-label-sm pt-1 text-ink-text">
+<span class="text-text-muted">Gordura Estimada: <strong>14 - 17%</strong></span>
+<span class="text-text-muted font-medium">Uso: Sabores Especiais</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Quick Ingredient Stock & Lot Health -->
+<div class="bg-surface-card rounded-xl p-space-lg shadow-sm flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<span class="font-title-lg text-title-lg text-ink-text">Disponibilidade dos Insumos</span>
+<span class="material-symbols-outlined text-status-success text-[20px]">check_circle</span>
+</div>
+<div class="flex flex-col gap-2">
+<div class="flex justify-between items-center text-[13px]">
+<span class="text-text-muted font-label-md text-label-md">Sal c/ Nitrito (Lote #N-998)</span>
+<span class="font-tabular-data-md text-tabular-data-md font-bold text-ink-text">380,0 kg</span>
+</div>
+<div class="w-full bg-surface-canvas rounded-full h-2 overflow-hidden">
+<div class="bg-status-success h-full rounded-full w-[85%]"></div>
+</div>
+<div class="flex justify-between items-center text-[13px] mt-2">
+<span class="text-text-muted font-label-md text-label-md">Alho Moído (Lote #ALH-204)</span>
+<span class="font-tabular-data-md text-tabular-data-md font-bold text-ink-text">145,0 kg</span>
+</div>
+<div class="w-full bg-surface-canvas rounded-full h-2 overflow-hidden">
+<div class="bg-status-success h-full rounded-full w-[65%]"></div>
+</div>
+<div class="flex justify-between items-center text-[13px] mt-2">
+<span class="text-text-muted font-label-md text-label-md">Noz-moscada / Blend (Lote #NZ-88)</span>
+<span class="font-tabular-data-md text-tabular-data-md font-bold text-ink-text">64,0 kg</span>
+</div>
+<div class="w-full bg-surface-canvas rounded-full h-2 overflow-hidden">
+<div class="bg-status-success h-full rounded-full w-[45%]"></div>
+</div>
+</div>
+<div class="pt-2">
+<button class="w-full py-2.5 rounded bg-surface-container text-ink-text hover:bg-surface-container-highest transition-colors font-label-md text-label-md flex items-center justify-center gap-2" type="button">
+<span class="material-symbols-outlined text-[18px]">inventory_2</span>
+<span>Requisitar Abastecimento ao Almoxarifado</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div></main></div></body></html>

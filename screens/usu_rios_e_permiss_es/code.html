@@ -1,0 +1,644 @@
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_dashboard" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..700&amp;family=Work+Sans:ital,wght@0,400..700;1,400..700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"surface-tint":"#b4271c","on-secondary-container":"#71150f","error":"#ba1a1a","on-primary-fixed-variant":"#910906","text-muted":"#5C5150","tertiary":"#402800","tertiary-container":"#5d3c00","on-tertiary-fixed":"#291800","on-primary-container":"#ff9283","badge-warning-text":"#4A2C00","amber-warning":"#D99311","surface-container-lowest":"#ffffff","surface-dim":"#ffcfc9","tertiary-fixed-dim":"#ffb94e","inverse-primary":"#ffb4a9","bordeaux-primary":"#8C0303","secondary":"#a43b2f","primary-container":"#8c0303","outline":"#8e706b","surface-variant":"#ffdad5","on-secondary-fixed":"#410001","inverse-surface":"#54201a","on-error-container":"#93000a","surface-container-low":"#fff0ee","on-tertiary-container":"#eaa224","surface":"#fff8f7","on-primary":"#ffffff","primary":"#630001","error-container":"#ffdad6","on-surface-variant":"#5a413d","primary-fixed":"#ffdad5","outline-variant":"#e2beb9","badge-error-bg":"#FDE8E8","badge-warning-bg":"#FFF2D6","on-tertiary-fixed-variant":"#624000","alert-critical":"#D90404","background":"#fff8f7","on-error":"#ffffff","on-surface":"#390b08","on-primary-fixed":"#410000","inverse-on-surface":"#ffedea","surface-container-high":"#ffe2de","on-background":"#390b08","secondary-fixed":"#ffdad5","surface-card":"#FFFFFF","on-secondary":"#ffffff","secondary-container":"#fd7d6c","badge-error-text":"#8C0303","on-tertiary":"#ffffff","surface-bright":"#fff8f7","status-info":"#205A85","on-secondary-fixed-variant":"#84231a","tertiary-fixed":"#ffddb2","surface-canvas":"#F8F6F4","ink-text":"#260101","status-success":"#176B45","wine-deep":"#590202","surface-container-highest":"#ffdad5","surface-container":"#ffe9e6","secondary-fixed-dim":"#ffb4a9","border-subtle":"#E8E1DF","primary-fixed-dim":"#ffb4a9"},borderRadius:{DEFAULT:"0.25rem",lg:"0.5rem",xl:"0.75rem",full:"9999px"},spacing:{margin:"1rem","space-md":"1rem","space-lg":"1.5rem",gutter:"1rem","space-2xl":"3rem","gutter-desktop":"1.5rem","margin-desktop":"2rem","space-sm":"0.5rem","space-xs":"0.25rem","margin-tablet":"1.5rem","gutter-tablet":"1.25rem","space-xl":"2rem"},fontFamily:{"title-lg":["Work Sans"],"body-lg":["Work Sans"],"label-md":["Work Sans"],"body-md":["Work Sans"],"tabular-data-md":["Work Sans"],"tabular-data-lg":["Work Sans"],"display-lg":["\"Source Serif 4\""],"headline-md":["\"Source Serif 4\""],"title-md":["Work Sans"],"label-sm":["Work Sans"],"headline-sm":["\"Source Serif 4\""],"display-lg-mobile":["\"Source Serif 4\""]},fontSize:{"title-lg":["18px",{lineHeight:"24px",fontWeight:"600"}],"body-lg":["16px",{lineHeight:"24px",fontWeight:"400"}],"label-md":["13px",{lineHeight:"16px",letterSpacing:"0.02em",fontWeight:"600"}],"body-md":["14px",{lineHeight:"20px",fontWeight:"400"}],"tabular-data-md":["14px",{lineHeight:"18px",fontWeight:"500"}],"tabular-data-lg":["20px",{lineHeight:"24px",fontWeight:"600"}],"display-lg":["32px",{lineHeight:"40px",letterSpacing:"-0.02em",fontWeight:"700"}],"headline-md":["24px",{lineHeight:"32px",fontWeight:"600"}],"title-md":["16px",{lineHeight:"22px",fontWeight:"600"}],"label-sm":["11px",{lineHeight:"14px",letterSpacing:"0.04em",fontWeight:"600"}],"headline-sm":["20px",{lineHeight:"28px",fontWeight:"600"}],"display-lg-mobile":["26px",{lineHeight:"32px",letterSpacing:"-0.01em",fontWeight:"700"}]}}}};</script></head><body class="bg-surface-canvas font-body-md text-ink-text"><aside class="fixed left-0 top-0 h-full w-64 bg-wine-deep z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="flex flex-col"><div class="h-16 px-space-md flex items-center gap-space-sm border-b border-white/10"><img alt="Controle de Produção Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1U9DfQfAxBlZvtkowarJvsfYc8nVYfn9str_2tQpl4P5et-vaZqf1KW6w4ImrwRSdPI0x4GzyI4QsT3liajzYJRgWcz7p0Kc5kIBmbYXS_msgnarUhXWH78W5y04NeMw014O9Xlk4H-buFywm74tKpt_BoLD5IaoOOAivptXu2lPYMeA8j1PIEFz5ryT3PyRdhX1Wvczzxwzl_P-xTtwKcb8F9MdWmCOKX0EH_ol5HJFRga1l2x2T2WD1Ua"><div class="flex flex-col"><span class="font-title-md text-title-md text-on-primary leading-tight">SGP Industrial</span><span class="font-label-sm text-label-sm text-white/70 uppercase tracking-wider">Chão de Fábrica</span></div></div><nav class="flex flex-col gap-1 p-space-sm overflow-y-auto" data-active-classes="bg-bordeaux-primary text-on-primary font-bold shadow-sm"><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="visao-geral" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">grid_view</span><span class="font-label-md text-label-md">Visão Geral</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/20 text-on-primary">Painel</span></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="planejamento" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">calendar_today</span><span class="font-label-md text-label-md">Planejamento</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-badge-warning-bg text-badge-warning-text">PCP</span></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="cadastros-e-formulacoes" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">menu_book</span><span class="font-label-md text-label-md">Cadastros &amp; Fórmulas</span></div></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="separacao-de-insumos" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">scale</span><span class="font-label-md text-label-md">Separação Insumos</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-badge-warning-bg text-badge-warning-text">3 Pend</span></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="producao" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">precision_manufacturing</span><span class="font-label-md text-label-md">Produção</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/20 text-on-primary">L-1</span></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="estoque-e-acompanhamento" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">inventory_2</span><span class="font-label-md text-label-md">Estoque &amp; Cura</span></div></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="pedidos-e-expedicao" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">local_shipping</span><span class="font-label-md text-label-md">Pedidos &amp; Expedição</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-badge-warning-bg text-badge-warning-text">8 Lotes</span></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="faturamento" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">receipt_long</span><span class="font-label-md text-label-md">Faturamento</span></div></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="usuarios-e-permissoes" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">manage_accounts</span><span class="font-label-md text-label-md">Usuários &amp; Acessos</span></div></a></nav></div><div class="p-space-sm border-t border-white/10 flex flex-col gap-2"><div class="flex items-center justify-between px-2 text-white/70"><span class="font-label-sm text-label-sm">Terminal ID</span><span class="font-tabular-data-md text-tabular-data-md text-on-primary">TRM-04</span></div><div class="flex items-center gap-2 px-2 py-1.5 rounded bg-white/10"><span class="w-2 h-2 rounded-full bg-status-success"></span><span class="font-label-sm text-label-sm text-on-primary">Balança RS232 Conectada</span></div></div></aside><div class="pl-64"><header class="fixed top-0 left-64 right-0 h-16 bg-surface-card shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-space-lg"><div class="flex items-center gap-space-md"><img alt="Controle de Produção Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1U9DfQfAxBlZvtkowarJvsfYc8nVYfn9str_2tQpl4P5et-vaZqf1KW6w4ImrwRSdPI0x4GzyI4QsT3liajzYJRgWcz7p0Kc5kIBmbYXS_msgnarUhXWH78W5y04NeMw014O9Xlk4H-buFywm74tKpt_BoLD5IaoOOAivptXu2lPYMeA8j1PIEFz5ryT3PyRdhX1Wvczzxwzl_P-xTtwKcb8F9MdWmCOKX0EH_ol5HJFRga1l2x2T2WD1Ua"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-[18px] text-text-muted">today</span><span class="font-tabular-data-md text-tabular-data-md text-ink-text font-semibold">24/10/2024</span></div><span class="text-border-subtle">|</span><div class="flex items-center gap-2"><span class="inline-flex items-center px-2 py-0.5 rounded font-label-sm text-label-sm bg-badge-warning-bg text-badge-warning-text">Turno Manhã</span><span class="font-body-md text-body-md text-text-muted">Linha 1 - Embutimento</span></div></div><div class="flex items-center gap-space-md"><div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-canvas"><span class="w-2.5 h-2.5 rounded-full bg-status-success animate-pulse"></span><span class="font-label-md text-label-md text-status-success">SISTEMA ONLINE</span></div><div class="h-6 w-px bg-border-subtle"></div><div class="flex items-center gap-space-sm"><div class="flex flex-col text-right"><span class="font-title-md text-title-md text-ink-text leading-none">Carlos M.</span><span class="font-label-sm text-label-sm text-text-muted leading-tight">Supervisor Industrial</span></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="w-full pt-16 bg-surface-canvas min-h-screen"><div class="flex flex-col w-full p-space-md lg:p-space-xl gap-space-lg">
+<!-- Top Stats & Identity Bar -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-space-md">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-label-sm font-label-sm bg-badge-warning-bg text-badge-warning-text uppercase tracking-wider">Módulo de Segurança Industrial</span>
+<span class="text-text-muted font-label-sm">•</span>
+<span class="text-text-muted font-label-sm">Supabase Auth &amp; RLS Vinculados</span>
+</div>
+<h1 class="font-headline-md text-headline-md text-ink-text tracking-tight">Gestão de Usuários e Acessos por Tela</h1>
+<p class="font-body-md text-body-md text-text-muted max-w-2xl">
+        Conceda ou restrinja o acesso direto às telas operacionais do sistema. Administradores possuem acesso total irrestrito.
+      </p>
+</div>
+<!-- Quick Stats Bento Strip -->
+<div class="flex items-center gap-3">
+<div class="bg-surface-card px-4 py-2.5 rounded-lg shadow-sm flex items-center gap-3">
+<span class="material-symbols-outlined text-bordeaux-primary text-[24px]">group</span>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-text-muted">Total de Contas</span>
+<span class="font-tabular-data-lg text-tabular-data-lg text-ink-text leading-tight">24 Operadores</span>
+</div>
+</div>
+<div class="bg-surface-card px-4 py-2.5 rounded-lg shadow-sm flex items-center gap-3">
+<span class="material-symbols-outlined text-status-success text-[24px]">verified_user</span>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-text-muted">Sessões Ativas</span>
+<span class="font-tabular-data-lg text-tabular-data-lg text-status-success leading-tight">5 Terminais</span>
+</div>
+</div>
+<button class="inline-flex items-center justify-center gap-2 px-5 min-h-[44px] rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md text-title-md shadow-sm transition-colors cursor-pointer" onclick="document.getElementById('inviteModal').classList.remove('hidden')">
+<span class="material-symbols-outlined text-[20px]">person_add</span>
+<span>+ Convidar Novo Usuário</span>
+</button>
+</div>
+</div>
+<!-- Operational Metric Tiles -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-space-md">
+<div class="bg-surface-card p-4 rounded-xl shadow-sm flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-text-muted uppercase">Acesso Total</span>
+<span class="font-tabular-data-lg text-tabular-data-lg text-ink-text mt-1">2 Supervisores</span>
+<span class="font-label-sm text-label-sm text-status-info mt-1">RLS: Full-Bypass Admin</span>
+</div>
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[22px]">admin_panel_settings</span>
+</div>
+</div>
+<div class="bg-surface-card p-4 rounded-xl shadow-sm flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-text-muted uppercase">Chão de Fábrica</span>
+<span class="font-tabular-data-lg text-tabular-data-lg text-ink-text mt-1">16 Operadores</span>
+<span class="font-label-sm text-label-sm text-badge-warning-text mt-1">Telas: Separação e Embutimento</span>
+</div>
+<div class="w-10 h-10 rounded-lg bg-badge-warning-bg flex items-center justify-center text-badge-warning-text">
+<span class="material-symbols-outlined text-[22px]">precision_manufacturing</span>
+</div>
+</div>
+<div class="bg-surface-card p-4 rounded-xl shadow-sm flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-text-muted uppercase">Logística &amp; Cura</span>
+<span class="font-tabular-data-lg text-tabular-data-lg text-ink-text mt-1">4 Usuários</span>
+<span class="font-label-sm text-label-sm text-status-success mt-1">Expedição e Estoque</span>
+</div>
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[22px]">inventory_2</span>
+</div>
+</div>
+<div class="bg-surface-card p-4 rounded-xl shadow-sm flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-text-muted uppercase">Auditoria de Políticas</span>
+<span class="font-tabular-data-lg text-tabular-data-lg text-status-success mt-1">100% Sincronizado</span>
+<span class="font-label-sm text-label-sm text-text-muted mt-1">Última checagem: 10 min</span>
+</div>
+<div class="w-10 h-10 rounded-lg bg-surface-canvas flex items-center justify-center text-status-success">
+<span class="material-symbols-outlined text-[22px]">verified</span>
+</div>
+</div>
+</div>
+<!-- Main Grid: Users Table + Active Inspector Matrix Drawer/Card -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-space-lg items-start">
+<!-- User Listing Column -->
+<div class="xl:col-span-8 flex flex-col gap-space-md">
+<!-- Search & Filters -->
+<div class="bg-surface-card p-3 rounded-lg shadow-sm flex flex-wrap items-center justify-between gap-3">
+<div class="flex items-center gap-2 bg-surface-canvas px-3 py-1.5 rounded-lg flex-1 min-w-[240px]">
+<span class="material-symbols-outlined text-text-muted text-[20px]">search</span>
+<input class="bg-transparent border-0 outline-none text-body-md font-body-md text-ink-text w-full placeholder:text-text-muted" placeholder="Buscar por colaborador, e-mail ou setor..." type="text">
+</div>
+<div class="flex items-center gap-2">
+<div class="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-surface-canvas text-ink-text font-label-md text-label-md cursor-pointer hover:bg-surface-container">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+<span>Função: Todos</span>
+</div>
+<div class="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-surface-canvas text-ink-text font-label-md text-label-md cursor-pointer hover:bg-surface-container">
+<span class="material-symbols-outlined text-[18px]">toggle_on</span>
+<span>Status: Ativos</span>
+</div>
+</div>
+</div>
+<!-- Main Data Table Container -->
+<div class="bg-surface-card rounded-xl shadow-sm overflow-hidden flex flex-col">
+<div class="px-5 py-4 bg-surface-canvas flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-bordeaux-primary text-[20px]">badge</span>
+<span class="font-title-md text-title-md text-ink-text">Colaboradores Credenciados</span>
+</div>
+<span class="font-label-sm text-label-sm text-text-muted">Mostrando 5 de 5 operadores no turno</span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-wine-deep text-on-primary">
+<th class="py-3.5 px-4 font-label-md text-label-md">Colaborador / Nome</th>
+<th class="py-3.5 px-4 font-label-md text-label-md">E-mail Corporativo</th>
+<th class="py-3.5 px-4 font-label-md text-label-md">Papel / Função</th>
+<th class="py-3.5 px-4 font-label-md text-label-md">Telas Permitidas</th>
+<th class="py-3.5 px-4 font-label-md text-label-md text-right">Último Acesso</th>
+<th class="py-3.5 px-4 font-label-md text-label-md text-center">Status</th>
+<th class="py-3.5 px-4 font-label-md text-label-md text-right">Ações</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-border-subtle/0">
+<!-- User 1: Carlos Mendes (Admin) -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-3.5 px-4">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-bordeaux-primary text-on-primary flex items-center justify-center font-title-md text-title-md font-bold">
+                      CM
+                    </div>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-ink-text">Carlos Mendes</span>
+<span class="font-label-sm text-label-sm text-text-muted">Crachá #0012</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-4">
+<span class="font-body-md text-body-md text-ink-text">carlos.mendes@fabrica.interna</span>
+</td>
+<td class="py-3.5 px-4">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-label-sm font-label-sm bg-surface-container-high text-primary font-semibold">
+<span class="material-symbols-outlined text-[14px]">shield_person</span>
+                    Supervisor Industrial
+                  </span>
+</td>
+<td class="py-3.5 px-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-label-sm font-label-sm bg-surface-container text-ink-text font-bold">
+<span class="w-2 h-2 rounded-full bg-bordeaux-primary"></span>
+                    Todas as Telas (Acesso Total)
+                  </span>
+</td>
+<td class="py-3.5 px-4 text-right">
+<span class="font-tabular-data-md text-tabular-data-md text-ink-text font-semibold">Hoje às 07:15</span>
+<div class="font-label-sm text-label-sm text-text-muted">Terminal TRM-01</div>
+</td>
+<td class="py-3.5 px-4 text-center">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-label-sm font-label-sm bg-badge-warning-bg text-status-success font-bold">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                    Ativo
+                  </span>
+</td>
+<td class="py-3.5 px-4 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="min-h-[44px] min-w-[44px] rounded-lg hover:bg-surface-canvas flex items-center justify-center text-text-muted hover:text-ink-text transition-colors" title="Editar Permissões">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="min-h-[44px] min-w-[44px] rounded-lg hover:bg-badge-error-bg flex items-center justify-center text-text-muted hover:text-error transition-colors" title="Desativar Colaborador">
+<span class="material-symbols-outlined text-[20px]">block</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- User 2: Gilberto Santos (Selected - Active Inspection Tier) -->
+<tr class="bg-surface-container-low transition-colors shadow-[inset_3px_0_0_#8C0303]">
+<td class="py-3.5 px-4">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-surface-variant text-ink-text flex items-center justify-center font-title-md text-title-md font-bold">
+                      GS
+                    </div>
+<div class="flex flex-col">
+<div class="flex items-center gap-1.5">
+<span class="font-title-md text-title-md text-bordeaux-primary font-bold">Gilberto Santos</span>
+<span class="material-symbols-outlined text-[16px] text-bordeaux-primary">radio_button_checked</span>
+</div>
+<span class="font-label-sm text-label-sm text-text-muted">Crachá #0452</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-4">
+<span class="font-body-md text-body-md text-ink-text">gilberto.s@fabrica.interna</span>
+</td>
+<td class="py-3.5 px-4">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-label-sm font-label-sm bg-badge-warning-bg text-badge-warning-text font-semibold">
+<span class="material-symbols-outlined text-[14px]">tune</span>
+                    Operador de Embutimento
+                  </span>
+</td>
+<td class="py-3.5 px-4">
+<div class="flex flex-wrap gap-1">
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-label-sm bg-surface-card text-ink-text shadow-sm">Separação</span>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-label-sm bg-surface-card text-ink-text shadow-sm">Produção</span>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-label-sm bg-surface-card text-ink-text shadow-sm">Estoque</span>
+</div>
+</td>
+<td class="py-3.5 px-4 text-right">
+<span class="font-tabular-data-md text-tabular-data-md text-ink-text font-semibold">Hoje às 07:30</span>
+<div class="font-label-sm text-label-sm text-text-muted">Terminal TRM-04</div>
+</td>
+<td class="py-3.5 px-4 text-center">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-label-sm font-label-sm bg-badge-warning-bg text-status-success font-bold">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                    Ativo
+                  </span>
+</td>
+<td class="py-3.5 px-4 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="min-h-[44px] min-w-[44px] rounded-lg bg-surface-card text-bordeaux-primary flex items-center justify-center shadow-sm" title="Em Edição">
+<span class="material-symbols-outlined text-[20px]">tune</span>
+</button>
+<button class="min-h-[44px] min-w-[44px] rounded-lg hover:bg-badge-error-bg flex items-center justify-center text-text-muted hover:text-error transition-colors" title="Desativar">
+<span class="material-symbols-outlined text-[20px]">block</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- User 3: Roberto Dias -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-3.5 px-4">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-surface-canvas text-ink-text flex items-center justify-center font-title-md text-title-md font-bold">
+                      RD
+                    </div>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-ink-text">Roberto Dias</span>
+<span class="font-label-sm text-label-sm text-text-muted">Crachá #0311</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-4">
+<span class="font-body-md text-body-md text-ink-text">roberto.d@fabrica.interna</span>
+</td>
+<td class="py-3.5 px-4">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-label-sm font-label-sm bg-surface-container text-ink-text font-semibold">
+<span class="material-symbols-outlined text-[14px]">scale</span>
+                    Pesagem e Insumos
+                  </span>
+</td>
+<td class="py-3.5 px-4">
+<div class="flex flex-wrap gap-1">
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-label-sm bg-surface-canvas text-ink-text">Cadastros</span>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-label-sm bg-surface-canvas text-ink-text">Separação</span>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-label-sm bg-surface-canvas text-ink-text">Produção</span>
+</div>
+</td>
+<td class="py-3.5 px-4 text-right">
+<span class="font-tabular-data-md text-tabular-data-md text-ink-text font-semibold">Hoje às 07:45</span>
+<div class="font-label-sm text-label-sm text-text-muted">Terminal TRM-02</div>
+</td>
+<td class="py-3.5 px-4 text-center">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-label-sm font-label-sm bg-badge-warning-bg text-status-success font-bold">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                    Ativo
+                  </span>
+</td>
+<td class="py-3.5 px-4 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="min-h-[44px] min-w-[44px] rounded-lg hover:bg-surface-canvas flex items-center justify-center text-text-muted hover:text-ink-text transition-colors" title="Editar Permissões">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="min-h-[44px] min-w-[44px] rounded-lg hover:bg-badge-error-bg flex items-center justify-center text-text-muted hover:text-error transition-colors" title="Desativar">
+<span class="material-symbols-outlined text-[20px]">block</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- User 4: Mariana Torres -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-3.5 px-4">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-surface-canvas text-ink-text flex items-center justify-center font-title-md text-title-md font-bold">
+                      MT
+                    </div>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-ink-text">Mariana Torres</span>
+<span class="font-label-sm text-label-sm text-text-muted">Crachá #0884</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-4">
+<span class="font-body-md text-body-md text-ink-text">mariana.t@fabrica.interna</span>
+</td>
+<td class="py-3.5 px-4">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-label-sm font-label-sm bg-surface-container text-ink-text font-semibold">
+<span class="material-symbols-outlined text-[14px]">all_inbox</span>
+                    Embalagem e Vácuo
+                  </span>
+</td>
+<td class="py-3.5 px-4">
+<div class="flex flex-wrap gap-1">
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-label-sm bg-surface-canvas text-ink-text">Produção</span>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-label-sm bg-surface-canvas text-ink-text">Estoque</span>
+</div>
+</td>
+<td class="py-3.5 px-4 text-right">
+<span class="font-tabular-data-md text-tabular-data-md text-ink-text font-semibold">Hoje às 08:00</span>
+<div class="font-label-sm text-label-sm text-text-muted">Terminal TRM-06</div>
+</td>
+<td class="py-3.5 px-4 text-center">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-label-sm font-label-sm bg-badge-warning-bg text-status-success font-bold">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                    Ativo
+                  </span>
+</td>
+<td class="py-3.5 px-4 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="min-h-[44px] min-w-[44px] rounded-lg hover:bg-surface-canvas flex items-center justify-center text-text-muted hover:text-ink-text transition-colors" title="Editar Permissões">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="min-h-[44px] min-w-[44px] rounded-lg hover:bg-badge-error-bg flex items-center justify-center text-text-muted hover:text-error transition-colors" title="Desativar">
+<span class="material-symbols-outlined text-[20px]">block</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- User 5: Juliana Lima -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-3.5 px-4">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-surface-canvas text-ink-text flex items-center justify-center font-title-md text-title-md font-bold">
+                      JL
+                    </div>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-ink-text">Juliana Lima</span>
+<span class="font-label-sm text-label-sm text-text-muted">Crachá #0672</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-4">
+<span class="font-body-md text-body-md text-ink-text">juliana.l@fabrica.interna</span>
+</td>
+<td class="py-3.5 px-4">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-label-sm font-label-sm bg-surface-container text-ink-text font-semibold">
+<span class="material-symbols-outlined text-[14px]">local_shipping</span>
+                    Expedição e Faturamento
+                  </span>
+</td>
+<td class="py-3.5 px-4">
+<div class="flex flex-wrap gap-1">
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-label-sm bg-surface-canvas text-ink-text">Estoque</span>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-label-sm bg-surface-canvas text-ink-text">Pedidos</span>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-label-sm bg-surface-canvas text-ink-text">Faturamento</span>
+</div>
+</td>
+<td class="py-3.5 px-4 text-right">
+<span class="font-tabular-data-md text-tabular-data-md text-ink-text font-semibold">Hoje às 08:10</span>
+<div class="font-label-sm text-label-sm text-text-muted">Terminal TRM-03</div>
+</td>
+<td class="py-3.5 px-4 text-center">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-label-sm font-label-sm bg-badge-warning-bg text-status-success font-bold">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                    Ativo
+                  </span>
+</td>
+<td class="py-3.5 px-4 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="min-h-[44px] min-w-[44px] rounded-lg hover:bg-surface-canvas flex items-center justify-center text-text-muted hover:text-ink-text transition-colors" title="Editar Permissões">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="min-h-[44px] min-w-[44px] rounded-lg hover:bg-badge-error-bg flex items-center justify-center text-text-muted hover:text-error transition-colors" title="Desativar">
+<span class="material-symbols-outlined text-[20px]">block</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Table Footer / Audit trail stamp -->
+<div class="p-4 bg-surface-canvas flex flex-col sm:flex-row items-center justify-between gap-3 text-text-muted font-label-sm text-label-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-status-success">security</span>
+<span>Controle estrito por rota e RLS ativo. Alterações entram em vigor imediatamente após salvar.</span>
+</div>
+<span class="font-tabular-data-md text-tabular-data-md">Políticas RLS: v2.4</span>
+</div>
+</div>
+<!-- Factory Floor Context Callout -->
+<div class="bg-surface-card p-4 rounded-xl shadow-sm flex items-start gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-canvas flex items-center justify-center text-bordeaux-primary shrink-0">
+<span class="material-symbols-outlined text-[24px]">terminal</span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="font-title-md text-title-md text-ink-text">Regra Operacional do MVP (Acesso por Tela)</span>
+<p class="font-body-md text-body-md text-text-muted">
+            Em conformidade com a especificação técnica, este módulo adota <strong>segregação por rota/tela de trabalho</strong>. Ao liberar uma tela para o colaborador, todas as interações e formulários internos daquela tela tornam-se disponíveis para o turno, eliminando fricção de permissão em micro-ações.
+          </p>
+</div>
+</div>
+</div>
+<!-- Permission Matrix Inspector Panel (Selected: Gilberto Santos) -->
+<div class="xl:col-span-4 flex flex-col gap-space-md">
+<div class="bg-surface-card rounded-xl shadow-sm overflow-hidden sticky top-20">
+<!-- Inspector Header -->
+<div class="p-space-md bg-wine-deep text-on-primary flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-[24px]">lock_person</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-white/70 uppercase">Matriz de Telas</span>
+<span class="font-headline-sm text-headline-sm leading-tight">Definição de Acessos</span>
+</div>
+</div>
+<span class="inline-flex items-center px-2 py-0.5 rounded text-label-sm font-label-sm bg-bordeaux-primary text-on-primary">Editando</span>
+</div>
+<!-- Selected User Target Card -->
+<div class="p-4 bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-bordeaux-primary text-on-primary flex items-center justify-center font-title-md text-title-md font-bold">
+              GS
+            </div>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-ink-text leading-tight">Gilberto Santos</span>
+<span class="font-label-sm text-label-sm text-text-muted">gilberto.s@fabrica.interna</span>
+</div>
+</div>
+<span class="font-label-sm text-label-sm font-semibold text-bordeaux-primary bg-surface-card px-2.5 py-1 rounded shadow-sm">
+            3 Telas Selecionadas
+          </span>
+</div>
+<!-- Screens Checkbox Matrix -->
+<div class="p-space-md flex flex-col gap-2.5">
+<div class="flex items-center justify-between pb-1">
+<span class="font-label-md text-label-md text-ink-text uppercase tracking-wider">Telas Disponíveis no Sistema</span>
+<button class="text-bordeaux-primary hover:text-wine-deep font-label-sm text-label-sm font-bold cursor-pointer" onclick="toggleAllScreens()" type="button">
+              Marcar/Desmarcar
+            </button>
+</div>
+<!-- Screen List -->
+<div class="flex flex-col gap-1.5" id="screenCheckboxList">
+<!-- Item 1: Visão Geral -->
+<label class="flex items-center justify-between min-h-[44px] p-2.5 rounded-lg bg-surface-canvas hover:bg-surface-container transition-colors cursor-pointer select-none">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px] text-text-muted">grid_view</span>
+<span class="font-title-md text-title-md text-ink-text">Visão Geral</span>
+</div>
+<input class="w-5 h-5 rounded accent-bordeaux-primary cursor-pointer" type="checkbox">
+</label>
+<!-- Item 2: Planejamento -->
+<label class="flex items-center justify-between min-h-[44px] p-2.5 rounded-lg bg-surface-canvas hover:bg-surface-container transition-colors cursor-pointer select-none">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px] text-text-muted">calendar_today</span>
+<span class="font-title-md text-title-md text-ink-text">Planejamento</span>
+</div>
+<input class="w-5 h-5 rounded accent-bordeaux-primary cursor-pointer" type="checkbox">
+</label>
+<!-- Item 3: Cadastros e Formulações -->
+<label class="flex items-center justify-between min-h-[44px] p-2.5 rounded-lg bg-surface-canvas hover:bg-surface-container transition-colors cursor-pointer select-none">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px] text-text-muted">menu_book</span>
+<span class="font-title-md text-title-md text-ink-text">Cadastros e Formulações</span>
+</div>
+<input class="w-5 h-5 rounded accent-bordeaux-primary cursor-pointer" type="checkbox">
+</label>
+<!-- Item 4: Separação de Insumos (CHECKED) -->
+<label class="flex items-center justify-between min-h-[44px] p-2.5 rounded-lg bg-surface-container-high transition-colors cursor-pointer select-none">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px] text-bordeaux-primary">scale</span>
+<span class="font-title-md text-title-md text-ink-text font-semibold">Separação de Insumos</span>
+</div>
+<input checked="" class="w-5 h-5 rounded accent-bordeaux-primary cursor-pointer" type="checkbox">
+</label>
+<!-- Item 5: Produção (CHECKED) -->
+<label class="flex items-center justify-between min-h-[44px] p-2.5 rounded-lg bg-surface-container-high transition-colors cursor-pointer select-none">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px] text-bordeaux-primary">precision_manufacturing</span>
+<span class="font-title-md text-title-md text-ink-text font-semibold">Produção</span>
+</div>
+<input checked="" class="w-5 h-5 rounded accent-bordeaux-primary cursor-pointer" type="checkbox">
+</label>
+<!-- Item 6: Estoque e Acompanhamento (CHECKED) -->
+<label class="flex items-center justify-between min-h-[44px] p-2.5 rounded-lg bg-surface-container-high transition-colors cursor-pointer select-none">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px] text-bordeaux-primary">inventory_2</span>
+<span class="font-title-md text-title-md text-ink-text font-semibold">Estoque e Acompanhamento</span>
+</div>
+<input checked="" class="w-5 h-5 rounded accent-bordeaux-primary cursor-pointer" type="checkbox">
+</label>
+<!-- Item 7: Pedidos e Expedição -->
+<label class="flex items-center justify-between min-h-[44px] p-2.5 rounded-lg bg-surface-canvas hover:bg-surface-container transition-colors cursor-pointer select-none">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px] text-text-muted">local_shipping</span>
+<span class="font-title-md text-title-md text-ink-text">Pedidos e Expedição</span>
+</div>
+<input class="w-5 h-5 rounded accent-bordeaux-primary cursor-pointer" type="checkbox">
+</label>
+<!-- Item 8: Faturamento -->
+<label class="flex items-center justify-between min-h-[44px] p-2.5 rounded-lg bg-surface-canvas hover:bg-surface-container transition-colors cursor-pointer select-none">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px] text-text-muted">receipt_long</span>
+<span class="font-title-md text-title-md text-ink-text">Faturamento</span>
+</div>
+<input class="w-5 h-5 rounded accent-bordeaux-primary cursor-pointer" type="checkbox">
+</label>
+<!-- Item 9: Usuários e Permissões -->
+<label class="flex items-center justify-between min-h-[44px] p-2.5 rounded-lg bg-surface-canvas hover:bg-surface-container transition-colors cursor-pointer select-none">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px] text-text-muted">manage_accounts</span>
+<span class="font-title-md text-title-md text-ink-text">Usuários e Permissões</span>
+</div>
+<input class="w-5 h-5 rounded accent-bordeaux-primary cursor-pointer" type="checkbox">
+</label>
+</div>
+<!-- Architecture & Security Note -->
+<div class="p-3.5 rounded-lg bg-surface-canvas flex items-start gap-2.5 my-2">
+<span class="material-symbols-outlined text-status-info text-[20px] shrink-0 mt-0.5">verified_user</span>
+<p class="font-label-sm text-label-sm text-text-muted leading-relaxed">
+<strong class="text-ink-text font-bold">Nota de Arquitetura:</strong> As permissões selecionadas são aplicadas diretamente no Supabase Row Level Security (RLS) e nas políticas de autenticação, garantindo proteção aos dados e rotas da API.
+            </p>
+</div>
+<!-- Actions -->
+<div class="flex items-center gap-3 pt-2">
+<button class="flex-1 min-h-[48px] rounded-lg bg-surface-canvas hover:bg-surface-container text-ink-text font-title-md text-title-md transition-colors cursor-pointer" type="button">
+              Cancelar
+            </button>
+<button class="flex-[1.5] min-h-[48px] rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md text-title-md flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer" onclick="savePermissionsToast()" type="button">
+<span class="material-symbols-outlined text-[20px]">save</span>
+<span>Salvar Permissões</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Invitation Modal (Hidden by default, triggered by CTA) -->
+<div class="hidden fixed inset-0 bg-ink-text/50 z-50 flex items-center justify-center p-4 backdrop-blur-xs" id="inviteModal">
+<div class="bg-surface-card rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col animate-fade-in">
+<div class="p-5 bg-wine-deep text-on-primary flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-[24px]">person_add</span>
+<span class="font-headline-sm text-headline-sm">Convidar Novo Usuário</span>
+</div>
+<button class="min-h-[44px] min-w-[44px] rounded-lg text-white/80 hover:bg-white/10 flex items-center justify-center cursor-pointer" onclick="document.getElementById('inviteModal').classList.add('hidden')">
+<span class="material-symbols-outlined text-[24px]">close</span>
+</button>
+</div>
+<div class="p-6 flex flex-col gap-4">
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-ink-text">Nome Completo do Colaborador</label>
+<input class="w-full min-h-[44px] px-3.5 rounded-lg bg-surface-canvas border-0 outline-none text-body-md font-body-md text-ink-text focus:ring-2 focus:ring-bordeaux-primary" placeholder="Ex: Lucas Pinheiro" type="text">
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-ink-text">E-mail Corporativo</label>
+<input class="w-full min-h-[44px] px-3.5 rounded-lg bg-surface-canvas border-0 outline-none text-body-md font-body-md text-ink-text focus:ring-2 focus:ring-bordeaux-primary" placeholder="lucas.p@fabrica.interna" type="email">
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-ink-text">Cargo / Função</label>
+<select class="w-full min-h-[44px] px-3 rounded-lg bg-surface-canvas border-0 outline-none text-body-md font-body-md text-ink-text cursor-pointer">
+<option>Operador de Embutimento</option>
+<option>Pesagem e Insumos</option>
+<option>Embalagem e Vácuo</option>
+<option>Expedição e Logística</option>
+<option>Supervisor de Turno</option>
+</select>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-ink-text">Perfil Base</label>
+<select class="w-full min-h-[44px] px-3 rounded-lg bg-surface-canvas border-0 outline-none text-body-md font-body-md text-ink-text cursor-pointer">
+<option>Operador Padrão (3 Telas)</option>
+<option>Auditor de Qualidade</option>
+<option>Administrador Total</option>
+</select>
+</div>
+</div>
+<div class="p-3 bg-surface-container rounded-lg flex items-center gap-2.5">
+<span class="material-symbols-outlined text-bordeaux-primary text-[20px]">mark_email_read</span>
+<span class="font-label-sm text-label-sm text-ink-text">O colaborador receberá um convite por e-mail com link para criação de credencial de acesso seguro.</span>
+</div>
+</div>
+<div class="p-4 bg-surface-canvas flex items-center justify-end gap-3">
+<button class="px-4 min-h-[44px] rounded-lg bg-surface-card hover:bg-surface-container text-ink-text font-title-md text-title-md cursor-pointer" onclick="document.getElementById('inviteModal').classList.add('hidden')">
+          Cancelar
+        </button>
+<button class="px-5 min-h-[44px] rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md text-title-md flex items-center gap-2 cursor-pointer shadow-sm" onclick="document.getElementById('inviteModal').classList.add('hidden')">
+<span class="material-symbols-outlined text-[18px]">send</span>
+<span>Enviar Convite</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Operational Toast Notification Feedback Container -->
+<div class="fixed bottom-6 right-6 z-50 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none" id="saveToast">
+<div class="bg-wine-deep text-on-primary px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3">
+<span class="material-symbols-outlined text-status-success text-[24px]">verified</span>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md leading-tight">Permissões Sincronizadas</span>
+<span class="font-label-sm text-label-sm text-white/80">Políticas Supabase RLS atualizadas para Gilberto Santos.</span>
+</div>
+</div>
+</div>
+</div>
+<script>
+  function toggleAllScreens() {
+    const checkboxes = document.querySelectorAll('#screenCheckboxList input[type="checkbox"]');
+    const anyUnchecked = Array.from(checkboxes).some(cb => !cb.checked);
+    checkboxes.forEach(cb => {
+      cb.checked = anyUnchecked;
+      const label = cb.closest('label');
+      if (anyUnchecked) {
+        label.classList.add('bg-surface-container-high');
+        label.classList.remove('bg-surface-canvas');
+      } else {
+        label.classList.remove('bg-surface-container-high');
+        label.classList.add('bg-surface-canvas');
+      }
+    });
+  }
+
+  function savePermissionsToast() {
+    const toast = document.getElementById('saveToast');
+    toast.classList.remove('translate-y-24', 'opacity-0');
+    toast.classList.add('translate-y-0', 'opacity-100');
+    setTimeout(() => {
+      toast.classList.remove('translate-y-0', 'opacity-100');
+      toast.classList.add('translate-y-24', 'opacity-0');
+    }, 3200);
+  }
+
+  // Visual sync for active checkboxes
+  document.querySelectorAll('#screenCheckboxList input[type="checkbox"]').forEach(input => {
+    input.addEventListener('change', (e) => {
+      const parentLabel = e.target.closest('label');
+      if (e.target.checked) {
+        parentLabel.classList.add('bg-surface-container-high');
+        parentLabel.classList.remove('bg-surface-canvas');
+      } else {
+        parentLabel.classList.remove('bg-surface-container-high');
+        parentLabel.classList.add('bg-surface-canvas');
+      }
+    });
+  });
+</script></main></div></body></html>

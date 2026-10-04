@@ -1,0 +1,686 @@
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_dashboard" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..700&amp;family=Work+Sans:ital,wght@0,400..700;1,400..700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"surface-tint":"#b4271c","on-secondary-container":"#71150f","error":"#ba1a1a","on-primary-fixed-variant":"#910906","text-muted":"#5C5150","tertiary":"#402800","tertiary-container":"#5d3c00","on-tertiary-fixed":"#291800","on-primary-container":"#ff9283","badge-warning-text":"#4A2C00","amber-warning":"#D99311","surface-container-lowest":"#ffffff","surface-dim":"#ffcfc9","tertiary-fixed-dim":"#ffb94e","inverse-primary":"#ffb4a9","bordeaux-primary":"#8C0303","secondary":"#a43b2f","primary-container":"#8c0303","outline":"#8e706b","surface-variant":"#ffdad5","on-secondary-fixed":"#410001","inverse-surface":"#54201a","on-error-container":"#93000a","surface-container-low":"#fff0ee","on-tertiary-container":"#eaa224","surface":"#fff8f7","on-primary":"#ffffff","primary":"#630001","error-container":"#ffdad6","on-surface-variant":"#5a413d","primary-fixed":"#ffdad5","outline-variant":"#e2beb9","badge-error-bg":"#FDE8E8","badge-warning-bg":"#FFF2D6","on-tertiary-fixed-variant":"#624000","alert-critical":"#D90404","background":"#fff8f7","on-error":"#ffffff","on-surface":"#390b08","on-primary-fixed":"#410000","inverse-on-surface":"#ffedea","surface-container-high":"#ffe2de","on-background":"#390b08","secondary-fixed":"#ffdad5","surface-card":"#FFFFFF","on-secondary":"#ffffff","secondary-container":"#fd7d6c","badge-error-text":"#8C0303","on-tertiary":"#ffffff","surface-bright":"#fff8f7","status-info":"#205A85","on-secondary-fixed-variant":"#84231a","tertiary-fixed":"#ffddb2","surface-canvas":"#F8F6F4","ink-text":"#260101","status-success":"#176B45","wine-deep":"#590202","surface-container-highest":"#ffdad5","surface-container":"#ffe9e6","secondary-fixed-dim":"#ffb4a9","border-subtle":"#E8E1DF","primary-fixed-dim":"#ffb4a9"},borderRadius:{DEFAULT:"0.25rem",lg:"0.5rem",xl:"0.75rem",full:"9999px"},spacing:{margin:"1rem","space-md":"1rem","space-lg":"1.5rem",gutter:"1rem","space-2xl":"3rem","gutter-desktop":"1.5rem","margin-desktop":"2rem","space-sm":"0.5rem","space-xs":"0.25rem","margin-tablet":"1.5rem","gutter-tablet":"1.25rem","space-xl":"2rem"},fontFamily:{"title-lg":["Work Sans"],"body-lg":["Work Sans"],"label-md":["Work Sans"],"body-md":["Work Sans"],"tabular-data-md":["Work Sans"],"tabular-data-lg":["Work Sans"],"display-lg":["\"Source Serif 4\""],"headline-md":["\"Source Serif 4\""],"title-md":["Work Sans"],"label-sm":["Work Sans"],"headline-sm":["\"Source Serif 4\""],"display-lg-mobile":["\"Source Serif 4\""]},fontSize:{"title-lg":["18px",{lineHeight:"24px",fontWeight:"600"}],"body-lg":["16px",{lineHeight:"24px",fontWeight:"400"}],"label-md":["13px",{lineHeight:"16px",letterSpacing:"0.02em",fontWeight:"600"}],"body-md":["14px",{lineHeight:"20px",fontWeight:"400"}],"tabular-data-md":["14px",{lineHeight:"18px",fontWeight:"500"}],"tabular-data-lg":["20px",{lineHeight:"24px",fontWeight:"600"}],"display-lg":["32px",{lineHeight:"40px",letterSpacing:"-0.02em",fontWeight:"700"}],"headline-md":["24px",{lineHeight:"32px",fontWeight:"600"}],"title-md":["16px",{lineHeight:"22px",fontWeight:"600"}],"label-sm":["11px",{lineHeight:"14px",letterSpacing:"0.04em",fontWeight:"600"}],"headline-sm":["20px",{lineHeight:"28px",fontWeight:"600"}],"display-lg-mobile":["26px",{lineHeight:"32px",letterSpacing:"-0.01em",fontWeight:"700"}]}}}};</script></head><body class="bg-surface-canvas font-body-md text-ink-text"><aside class="fixed left-0 top-0 h-full w-64 bg-wine-deep z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="flex flex-col"><div class="h-16 px-space-md flex items-center gap-space-sm border-b border-white/10"><img alt="Controle de Produção Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1U9DfQfAxBlZvtkowarJvsfYc8nVYfn9str_2tQpl4P5et-vaZqf1KW6w4ImrwRSdPI0x4GzyI4QsT3liajzYJRgWcz7p0Kc5kIBmbYXS_msgnarUhXWH78W5y04NeMw014O9Xlk4H-buFywm74tKpt_BoLD5IaoOOAivptXu2lPYMeA8j1PIEFz5ryT3PyRdhX1Wvczzxwzl_P-xTtwKcb8F9MdWmCOKX0EH_ol5HJFRga1l2x2T2WD1Ua"><div class="flex flex-col"><span class="font-title-md text-title-md text-on-primary leading-tight">SGP Industrial</span><span class="font-label-sm text-label-sm text-white/70 uppercase tracking-wider">Chão de Fábrica</span></div></div><nav class="flex flex-col gap-1 p-space-sm overflow-y-auto" data-active-classes="bg-bordeaux-primary text-on-primary font-bold shadow-sm"><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="visao-geral" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">grid_view</span><span class="font-label-md text-label-md">Visão Geral</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/20 text-on-primary">Painel</span></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="planejamento" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">calendar_today</span><span class="font-label-md text-label-md">Planejamento</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-badge-warning-bg text-badge-warning-text">PCP</span></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="cadastros-e-formulacoes" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">menu_book</span><span class="font-label-md text-label-md">Cadastros &amp; Fórmulas</span></div></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="separacao-de-insumos" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">scale</span><span class="font-label-md text-label-md">Separação Insumos</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-badge-warning-bg text-badge-warning-text">3 Pend</span></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="producao" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">precision_manufacturing</span><span class="font-label-md text-label-md">Produção</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/20 text-on-primary">L-1</span></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="estoque-e-acompanhamento" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">inventory_2</span><span class="font-label-md text-label-md">Estoque &amp; Cura</span></div></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="pedidos-e-expedicao" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">local_shipping</span><span class="font-label-md text-label-md">Pedidos &amp; Expedição</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-badge-warning-bg text-badge-warning-text">8 Lotes</span></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="faturamento" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">receipt_long</span><span class="font-label-md text-label-md">Faturamento</span></div></a><a class="flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors" data-path="usuarios-e-permissoes" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">manage_accounts</span><span class="font-label-md text-label-md">Usuários &amp; Acessos</span></div></a></nav></div><div class="p-space-sm border-t border-white/10 flex flex-col gap-2"><div class="flex items-center justify-between px-2 text-white/70"><span class="font-label-sm text-label-sm">Terminal ID</span><span class="font-tabular-data-md text-tabular-data-md text-on-primary">TRM-04</span></div><div class="flex items-center gap-2 px-2 py-1.5 rounded bg-white/10"><span class="w-2 h-2 rounded-full bg-status-success"></span><span class="font-label-sm text-label-sm text-on-primary">Balança RS232 Conectada</span></div></div></aside><div class="pl-64"><header class="fixed top-0 left-64 right-0 h-16 bg-surface-card shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-space-lg"><div class="flex items-center gap-space-md"><img alt="Controle de Produção Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1U9DfQfAxBlZvtkowarJvsfYc8nVYfn9str_2tQpl4P5et-vaZqf1KW6w4ImrwRSdPI0x4GzyI4QsT3liajzYJRgWcz7p0Kc5kIBmbYXS_msgnarUhXWH78W5y04NeMw014O9Xlk4H-buFywm74tKpt_BoLD5IaoOOAivptXu2lPYMeA8j1PIEFz5ryT3PyRdhX1Wvczzxwzl_P-xTtwKcb8F9MdWmCOKX0EH_ol5HJFRga1l2x2T2WD1Ua"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-[18px] text-text-muted">today</span><span class="font-tabular-data-md text-tabular-data-md text-ink-text font-semibold">24/10/2024</span></div><span class="text-border-subtle">|</span><div class="flex items-center gap-2"><span class="inline-flex items-center px-2 py-0.5 rounded font-label-sm text-label-sm bg-badge-warning-bg text-badge-warning-text">Turno Manhã</span><span class="font-body-md text-body-md text-text-muted">Linha 1 - Embutimento</span></div></div><div class="flex items-center gap-space-md"><div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-canvas"><span class="w-2.5 h-2.5 rounded-full bg-status-success animate-pulse"></span><span class="font-label-md text-label-md text-status-success">SISTEMA ONLINE</span></div><div class="h-6 w-px bg-border-subtle"></div><div class="flex items-center gap-space-sm"><div class="flex flex-col text-right"><span class="font-title-md text-title-md text-ink-text leading-none">Carlos M.</span><span class="font-label-sm text-label-sm text-text-muted leading-tight">Supervisor Industrial</span></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="w-full pt-16 bg-surface-canvas min-h-screen"><div class="flex flex-col w-full">
+<!-- INDUSTRIAL TOP BANNER & OPERATIONAL DIRECTIVE -->
+<div class="px-space-lg pt-space-lg pb-space-sm flex flex-col xl:flex-row xl:items-center justify-between gap-space-md">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-space-sm">
+<span class="inline-flex items-center justify-center w-7 h-7 rounded bg-bordeaux-primary text-on-primary font-bold text-[12px]">OP</span>
+<span class="font-tabular-data-lg text-tabular-data-lg text-ink-text font-bold tracking-tight">OP-2026-094</span>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full font-label-sm text-label-sm bg-surface-container-high text-wine-deep uppercase tracking-wider font-semibold">Linha 1 • Charcutaria Artesanal</span>
+</div>
+<div class="flex items-center gap-2">
+<h1 class="font-headline-md text-headline-md text-ink-text">Controle de Bateladas &amp; Fluxo de Porções Fracionadas</h1>
+</div>
+</div>
+<!-- Official Rule Alert Card -->
+<div class="flex items-start gap-space-sm bg-badge-warning-bg p-space-sm rounded-xl max-w-xl shadow-sm">
+<span class="material-symbols-outlined text-amber-warning text-[24px] shrink-0">verified</span>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-badge-warning-text uppercase tracking-wider">Regra Crítica de Rastreabilidade</span>
+<p class="font-body-md text-body-md text-ink-text leading-tight mt-0.5">
+          A <strong class="text-bordeaux-primary font-bold">data em que a massa fica pronta</strong> é a data-base oficial e perpétua para o cálculo da validade legal de todos os produtos acabados desta ordem.
+        </p>
+</div>
+</div>
+</div>
+<div class="p-space-lg flex flex-col gap-space-xl">
+<!-- 1. SEÇÃO SUPERIOR: BATELADAS DE MASSA-BASE (MAX 150 KG) -->
+<div class="flex flex-col gap-space-md">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-bordeaux-primary text-[24px]">blender</span>
+<div>
+<h2 class="font-title-lg text-title-lg text-ink-text leading-tight">Bateladas de Massa-Base (Capacidade Nominal 150,00 kg)</h2>
+<p class="font-body-md text-body-md text-text-muted">Perfil de Carne Ativo: <span class="font-semibold text-ink-text">Blend Padrão (Pernil Suíno 50% + Copa-Lombo 50%)</span></p>
+</div>
+</div>
+<div class="flex items-center gap-space-sm">
+<span class="font-label-sm text-label-sm uppercase text-text-muted">Carga Total Planejada:</span>
+<span class="font-tabular-data-lg text-tabular-data-lg text-wine-deep bg-surface-card px-3 py-1 rounded shadow-sm">450,00 kg</span>
+</div>
+</div>
+<!-- Grid of 3 Bateladas -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
+<!-- Batelada #01: MASSA PRONTA -->
+<div class="relative bg-surface-card rounded-xl p-space-md shadow-sm flex flex-col justify-between overflow-hidden">
+<div class="absolute top-0 left-0 right-0 h-1.5 bg-status-success"></div>
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<span class="font-tabular-data-lg text-tabular-data-lg text-ink-text font-bold">Batelada #01</span>
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#E3F3EA] text-status-success font-label-md text-label-md">
+<span class="w-2 h-2 rounded-full bg-status-success"></span>
+                Massa Pronta
+              </span>
+</div>
+<div class="flex items-baseline justify-between mt-1">
+<span class="font-display-lg text-display-lg text-ink-text">150,00 <span class="text-title-md font-body-md text-text-muted">kg</span></span>
+<span class="font-label-sm text-label-sm text-status-success font-bold uppercase tracking-wider">Mistura Concluída</span>
+</div>
+<!-- Insumos & Lotes -->
+<div class="bg-surface-canvas rounded-lg p-2.5 flex flex-col gap-1.5 text-body-md font-body-md">
+<div class="flex items-center justify-between text-ink-text">
+<span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-bordeaux-primary"></span> Pernil 50%:</span>
+<span class="font-tabular-data-md text-tabular-data-md font-semibold">75,00 kg <span class="text-text-muted font-normal">(Lote C-8841)</span></span>
+</div>
+<div class="flex items-center justify-between text-ink-text">
+<span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-bordeaux-primary"></span> Copa 50%:</span>
+<span class="font-tabular-data-md text-tabular-data-md font-semibold">75,00 kg <span class="text-text-muted font-normal">(Lote C-8842)</span></span>
+</div>
+</div>
+</div>
+<div class="mt-space-md pt-space-sm bg-surface-container-low -mx-space-md -mb-space-md p-space-sm flex flex-col gap-1">
+<div class="flex items-center justify-between text-ink-text">
+<span class="font-label-sm text-label-sm uppercase text-text-muted">Data-Base Validade:</span>
+<span class="font-tabular-data-md text-tabular-data-md font-bold text-wine-deep">24/09/2026 07:45</span>
+</div>
+<div class="flex items-center justify-between text-text-muted">
+<span class="font-label-sm text-label-sm">Responsável Misturador:</span>
+<span class="font-body-md text-body-md text-ink-text font-medium">Arnaldo K.</span>
+</div>
+</div>
+</div>
+<!-- Batelada #02: EM CURA -->
+<div class="relative bg-surface-card rounded-xl p-space-md shadow-sm flex flex-col justify-between overflow-hidden">
+<div class="absolute top-0 left-0 right-0 h-1.5 bg-amber-warning"></div>
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<span class="font-tabular-data-lg text-tabular-data-lg text-ink-text font-bold">Batelada #02</span>
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-badge-warning-bg text-badge-warning-text font-label-md text-label-md">
+<span class="material-symbols-outlined text-[16px] animate-spin">timelapse</span>
+                Em Cura Fria
+              </span>
+</div>
+<div class="flex items-baseline justify-between mt-1">
+<span class="font-display-lg text-display-lg text-ink-text">150,00 <span class="text-title-md font-body-md text-text-muted">kg</span></span>
+<span class="font-tabular-data-md text-tabular-data-md text-badge-warning-text font-bold">Tempo Restante: ~35 min</span>
+</div>
+<div class="bg-surface-canvas rounded-lg p-2.5 flex flex-col gap-1.5 text-body-md font-body-md">
+<div class="flex items-center justify-between text-ink-text">
+<span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-amber-warning"></span> Pernil 50%:</span>
+<span class="font-tabular-data-md text-tabular-data-md font-semibold">75,00 kg <span class="text-text-muted font-normal">(Lote C-8843)</span></span>
+</div>
+<div class="flex items-center justify-between text-ink-text">
+<span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-amber-warning"></span> Copa 50%:</span>
+<span class="font-tabular-data-md text-tabular-data-md font-semibold">75,00 kg <span class="text-text-muted font-normal">(Lote C-8844)</span></span>
+</div>
+</div>
+</div>
+<div class="mt-space-md pt-space-sm bg-surface-container-low -mx-space-md -mb-space-md p-space-sm flex flex-col gap-1">
+<div class="flex items-center justify-between text-ink-text">
+<span class="font-label-sm text-label-sm uppercase text-text-muted">Ciclo Térmico:</span>
+<span class="font-tabular-data-md text-tabular-data-md font-medium text-ink-text">08:30 → 10:30 (Câmara 02)</span>
+</div>
+<!-- Dynamic Mini Progress -->
+<div class="w-full bg-border-subtle h-2 rounded-full overflow-hidden mt-1">
+<div class="bg-amber-warning h-full rounded-full" style="width: 70%;"></div>
+</div>
+</div>
+</div>
+<!-- Batelada #03: EM PESAGEM DE CORTES -->
+<div class="relative bg-surface-card rounded-xl p-space-md shadow-sm flex flex-col justify-between overflow-hidden opacity-95">
+<div class="absolute top-0 left-0 right-0 h-1.5 bg-outline-variant"></div>
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<span class="font-tabular-data-lg text-tabular-data-lg text-ink-text font-bold">Batelada #03</span>
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-canvas text-text-muted font-label-md text-label-md">
+<span class="material-symbols-outlined text-[16px]">scale</span>
+                Pesagem de Cortes
+              </span>
+</div>
+<div class="flex items-baseline justify-between mt-1">
+<span class="font-display-lg text-display-lg text-text-muted">--,-- <span class="text-title-md font-body-md text-text-muted">/ 150 kg</span></span>
+<span class="font-label-sm text-label-sm text-status-info font-bold uppercase tracking-wider">Em Preparo</span>
+</div>
+<div class="bg-surface-canvas rounded-lg p-2.5 flex flex-col gap-1.5 text-body-md font-body-md">
+<div class="flex items-center justify-between text-text-muted">
+<span>Pernil Selecionado:</span>
+<span class="font-tabular-data-md text-tabular-data-md font-semibold text-ink-text">Aguardando Moagem</span>
+</div>
+<div class="flex items-center justify-between text-text-muted">
+<span>Copa-Lombo em Cubos:</span>
+<span class="font-tabular-data-md text-tabular-data-md font-semibold text-ink-text">Balança TRM-04 Livre</span>
+</div>
+</div>
+</div>
+<div class="mt-space-md pt-space-sm bg-surface-container-low -mx-space-md -mb-space-md p-space-sm flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase text-text-muted">Sequência de Produção:</span>
+<span class="font-tabular-data-md text-tabular-data-md font-medium text-ink-text">Prioridade 3 no Moedor</span>
+</div>
+</div>
+</div>
+</div>
+<!-- 2. SEÇÃO PRINCIPAL: QUADRO OPERACIONAL DE PORÇÕES (30 KG) NAS 3 ETAPAS -->
+<div class="flex flex-col gap-space-md">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-space-sm">
+<div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-bordeaux-primary text-[24px]">alt_route</span>
+<h2 class="font-title-lg text-title-lg text-ink-text leading-tight">Quadro Operacional de Fluxo Contínuo por Porção (30,00 kg)</h2>
+</div>
+<p class="font-body-md text-body-md text-text-muted mt-0.5">
+            Processamento assíncrono independente: a etapa de <strong class="text-ink-text">Vácuo</strong> inicia imediatamente por porção sem bloqueio pelo restante do lote.
+          </p>
+</div>
+<!-- Legend / Pipeline visual flow indicator -->
+<div class="hidden lg:flex items-center gap-3 bg-surface-card px-4 py-2 rounded-xl shadow-sm text-label-md font-label-md">
+<div class="flex items-center gap-1.5 text-ink-text">
+<span class="w-6 h-6 rounded-full bg-surface-container flex items-center justify-center font-bold text-wine-deep text-[11px]">1</span>
+<span>Embutimento</span>
+</div>
+<span class="material-symbols-outlined text-text-muted text-[16px]">arrow_forward</span>
+<div class="flex items-center gap-1.5 text-ink-text">
+<span class="w-6 h-6 rounded-full bg-surface-container flex items-center justify-center font-bold text-wine-deep text-[11px]">2</span>
+<span>Vácuo</span>
+</div>
+<span class="material-symbols-outlined text-text-muted text-[16px]">arrow_forward</span>
+<div class="flex items-center gap-1.5 text-ink-text">
+<span class="w-6 h-6 rounded-full bg-surface-container flex items-center justify-center font-bold text-wine-deep text-[11px]">3</span>
+<span>Rotulagem</span>
+</div>
+</div>
+</div>
+<!-- PORÇÕES CARD STACK / INTERACTION BOARD -->
+<div class="flex flex-col gap-space-md">
+<!-- PORÇÃO P-01: (Vácuo em Andamento, Embutimento Concluído) -->
+<div class="bg-surface-card rounded-xl p-space-md shadow-sm transition-all">
+<div class="flex flex-col lg:flex-row lg:items-center justify-between pb-space-sm mb-space-sm gap-2 bg-surface-canvas -mx-space-md -mt-space-md p-space-md rounded-t-xl">
+<div class="flex items-center gap-3 flex-wrap">
+<span class="inline-flex items-center justify-center px-3 py-1 rounded bg-bordeaux-primary text-on-primary font-tabular-data-lg text-tabular-data-lg font-bold">
+                P-01
+              </span>
+<div>
+<span class="font-title-md text-title-md text-ink-text">Tradicional Artesanal</span>
+<span class="font-body-md text-body-md text-text-muted ml-2">Capacidade Meta: 30,00 kg (Batelada #01)</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm uppercase tracking-wider bg-badge-warning-bg text-badge-warning-text px-2.5 py-1 rounded-full font-bold flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-amber-warning animate-pulse"></span>
+                Em Vácuo Contínuo
+              </span>
+</div>
+</div>
+<!-- 3 Stages Grid for P-01 -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
+<!-- Etapa 1: Embutimento (CONCLUÍDO) -->
+<div class="bg-surface-canvas rounded-lg p-space-md flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-md text-label-md text-text-muted uppercase">1. Embutimento (Canhão)</span>
+<span class="inline-flex items-center gap-1 font-label-sm text-label-sm text-status-success font-bold">
+<span class="material-symbols-outlined text-[18px]">check_circle</span> Concluído
+                  </span>
+</div>
+<div class="flex items-baseline justify-between mt-1">
+<span class="font-tabular-data-lg text-tabular-data-lg font-bold text-ink-text">30,10 kg</span>
+<span class="font-label-sm text-label-sm text-status-success">+0,1 kg real</span>
+</div>
+<p class="font-body-md text-body-md text-text-muted mt-2">
+                  Operador: <span class="font-semibold text-ink-text">Gilberto S.</span><br>
+                  Duração: <span class="font-tabular-data-md text-tabular-data-md text-ink-text font-medium">22 min</span>
+</p>
+</div>
+<div class="mt-space-md pt-space-xs text-label-sm font-label-sm text-text-muted flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-status-success">lock</span>
+                Massa transferida p/ esteira
+              </div>
+</div>
+<!-- Etapa 2: Vácuo (EM PRODUÇÃO - CRONÔMETRO ATIVO) -->
+<div class="bg-surface-card rounded-lg p-space-md flex flex-col justify-between shadow-sm">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-md text-label-md text-wine-deep font-bold uppercase">2. Vácuo (Câmara Dupla)</span>
+<span class="inline-flex items-center gap-1 font-label-sm text-label-sm bg-badge-warning-bg text-badge-warning-text px-2 py-0.5 rounded-full font-bold">
+<span class="material-symbols-outlined text-[16px] animate-spin">sync</span> Em Execução
+                  </span>
+</div>
+<div class="flex items-center justify-between my-2 bg-surface-canvas p-2.5 rounded-lg">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-text-muted uppercase">Tempo de Ciclo</span>
+<span class="font-tabular-data-lg text-tabular-data-lg text-wine-deep font-bold tracking-wider" id="timer-p01">20m 31s</span>
+</div>
+<div class="text-right">
+<span class="font-label-sm text-label-sm text-text-muted uppercase">Colaboradores</span>
+<span class="font-body-md text-body-md text-ink-text block font-medium">Mariana T. &amp; Lucas F.</span>
+</div>
+</div>
+</div>
+<!-- Big tactile touch button -->
+<button class="mt-space-sm w-full min-h-[48px] bg-bordeaux-primary hover:bg-wine-deep active:scale-[0.98] text-on-primary font-title-md text-title-md rounded-lg flex items-center justify-center gap-2 shadow-sm transition-all" onclick="handleFinishStage('P-01', 'Vácuo')">
+<span class="material-symbols-outlined text-[20px]">task_alt</span>
+                Finalizar Etapa Vácuo
+              </button>
+</div>
+<!-- Etapa 3: Rotulagem (AGUARDANDO) -->
+<div class="bg-surface-canvas rounded-lg p-space-md flex flex-col justify-between opacity-80">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-md text-label-md text-text-muted uppercase">3. Rotulagem &amp; Lote</span>
+<span class="inline-flex items-center gap-1 font-label-sm text-label-sm text-text-muted">
+<span class="material-symbols-outlined text-[16px]">hourglass_empty</span> Aguardando
+                  </span>
+</div>
+<p class="font-body-md text-body-md text-text-muted mt-2">
+                  Aguardando liberação da câmara de vácuo para termo-selagem e impressão de lote gravado.
+                </p>
+</div>
+<button class="mt-space-md w-full min-h-[48px] bg-surface-container text-text-muted font-label-md text-label-md rounded-lg cursor-not-allowed flex items-center justify-center gap-1" disabled="">
+<span class="material-symbols-outlined text-[18px]">lock</span>
+                Aguardando Término do Vácuo
+              </button>
+</div>
+</div>
+</div>
+<!-- PORÇÃO P-02: (Embutimento Pronto, Vácuo Pendente com Botão Iniciar) -->
+<div class="bg-surface-card rounded-xl p-space-md shadow-sm transition-all">
+<div class="flex flex-col lg:flex-row lg:items-center justify-between pb-space-sm mb-space-sm gap-2 bg-surface-canvas -mx-space-md -mt-space-md p-space-md rounded-t-xl">
+<div class="flex items-center gap-3 flex-wrap">
+<span class="inline-flex items-center justify-center px-3 py-1 rounded bg-secondary text-on-primary font-tabular-data-lg text-tabular-data-lg font-bold">
+                P-02
+              </span>
+<div>
+<span class="font-title-md text-title-md text-ink-text">Tradicional Artesanal</span>
+<span class="font-body-md text-body-md text-text-muted ml-2">Capacidade Meta: 30,00 kg (Batelada #01)</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm uppercase tracking-wider bg-surface-container-high text-wine-deep px-2.5 py-1 rounded-full font-bold flex items-center gap-1">
+                Fila de Vácuo Liberada
+              </span>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
+<!-- Etapa 1: Embutimento (CONCLUÍDO) -->
+<div class="bg-surface-canvas rounded-lg p-space-md flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-md text-label-md text-text-muted uppercase">1. Embutimento</span>
+<span class="inline-flex items-center gap-1 font-label-sm text-label-sm text-status-success font-bold">
+<span class="material-symbols-outlined text-[18px]">check_circle</span> Concluído
+                  </span>
+</div>
+<div class="flex items-baseline justify-between mt-1">
+<span class="font-tabular-data-lg text-tabular-data-lg font-bold text-ink-text">29,80 kg</span>
+<span class="font-label-sm text-label-sm text-text-muted">-0,2 kg desvio</span>
+</div>
+<p class="font-body-md text-body-md text-text-muted mt-2">
+                  Operador: <span class="font-semibold text-ink-text">Gilberto S.</span><br>
+                  Bandejas higienizadas prontas p/ selar.
+                </p>
+</div>
+<div class="mt-space-md pt-space-xs text-label-sm font-label-sm text-status-success flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">inventory_2</span>
+                Na esteira de entrada do vácuo
+              </div>
+</div>
+<!-- Etapa 2: Vácuo (PENDENTE - BOTÃO DE AÇÃO GRANDE) -->
+<div class="bg-surface-container-low rounded-lg p-space-md flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-md text-label-md text-wine-deep font-bold uppercase">2. Vácuo (Câmara Dupla)</span>
+<span class="inline-flex items-center gap-1 font-label-sm text-label-sm bg-surface-card text-ink-text px-2 py-0.5 rounded font-bold">
+                    Pronto p/ Início
+                  </span>
+</div>
+<p class="font-body-md text-body-md text-ink-text mt-1">
+                  A porção P-01 já está finalizando selagem secundária. Você pode carregar o segundo berço da seladora agora.
+                </p>
+</div>
+<!-- Action Button -->
+<button class="mt-space-md w-full min-h-[48px] bg-bordeaux-primary hover:bg-wine-deep active:scale-[0.98] text-on-primary font-title-md text-title-md rounded-lg flex items-center justify-center gap-2 shadow-sm transition-all" onclick="handleStartStage('P-02', 'Vácuo')">
+<span class="material-symbols-outlined text-[20px]">play_arrow</span>
+                Iniciar Vácuo (P-02)
+              </button>
+</div>
+<!-- Etapa 3: Rotulagem (PENDENTE) -->
+<div class="bg-surface-canvas rounded-lg p-space-md flex flex-col justify-between opacity-60">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-md text-label-md text-text-muted uppercase">3. Rotulagem &amp; Lote</span>
+<span class="font-label-sm text-label-sm text-text-muted">Pendente</span>
+</div>
+<p class="font-body-md text-body-md text-text-muted">Aguardando fila de vácuo.</p>
+</div>
+<span class="font-label-sm text-label-sm text-text-muted">Fila posterior</span>
+</div>
+</div>
+</div>
+<!-- PORÇÃO P-03: (Embutimento Em Produção) -->
+<div class="bg-surface-card rounded-xl p-space-md shadow-sm transition-all">
+<div class="flex flex-col lg:flex-row lg:items-center justify-between pb-space-sm mb-space-sm gap-2 bg-surface-canvas -mx-space-md -mt-space-md p-space-md rounded-t-xl">
+<div class="flex items-center gap-3 flex-wrap">
+<span class="inline-flex items-center justify-center px-3 py-1 rounded bg-secondary text-on-primary font-tabular-data-lg text-tabular-data-lg font-bold">
+                P-03
+              </span>
+<div>
+<span class="font-title-md text-title-md text-ink-text">Tradicional Artesanal</span>
+<span class="font-body-md text-body-md text-text-muted ml-2">Capacidade Meta: 30,00 kg (Batelada #01)</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm uppercase tracking-wider bg-badge-warning-bg text-badge-warning-text px-2.5 py-1 rounded-full font-bold flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-amber-warning animate-ping"></span>
+                Embutindo no Canhão
+              </span>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
+<!-- Etapa 1: Embutimento (EM ANDAMENTO COM TIMER & BOTAO FINALIZAR) -->
+<div class="bg-surface-card rounded-lg p-space-md flex flex-col justify-between shadow-sm">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-md text-label-md text-wine-deep font-bold uppercase">1. Embutimento (Canhão)</span>
+<span class="inline-flex items-center gap-1 font-label-sm text-label-sm bg-badge-warning-bg text-badge-warning-text px-2 py-0.5 rounded-full font-bold">
+<span class="material-symbols-outlined text-[16px] animate-spin">timelapse</span> Operando
+                  </span>
+</div>
+<div class="bg-surface-canvas p-2.5 rounded-lg flex items-center justify-between my-2">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-text-muted uppercase">Tempo de Canhão</span>
+<span class="font-tabular-data-lg text-tabular-data-lg text-wine-deep font-bold" id="timer-p03">14m 26s</span>
+</div>
+<div class="text-right">
+<span class="font-label-sm text-label-sm text-text-muted uppercase">Operador Responsável</span>
+<span class="font-body-md text-body-md text-ink-text font-medium">Gilberto S.</span>
+</div>
+</div>
+</div>
+<!-- Button to Finish Embutimento with real weight prompt -->
+<button class="mt-space-sm w-full min-h-[48px] bg-bordeaux-primary hover:bg-wine-deep active:scale-[0.98] text-on-primary font-title-md text-title-md rounded-lg flex items-center justify-center gap-2 shadow-sm transition-all" onclick="openWeightModal('P-03')">
+<span class="material-symbols-outlined text-[20px]">scale</span>
+                Finalizar Embutimento
+              </button>
+</div>
+<!-- Etapa 2: Vácuo (PENDENTE) -->
+<div class="bg-surface-canvas rounded-lg p-space-md flex flex-col justify-between opacity-70">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-md text-label-md text-text-muted uppercase">2. Vácuo</span>
+<span class="font-label-sm text-label-sm text-text-muted">Aguardando Massa</span>
+</div>
+<p class="font-body-md text-body-md text-text-muted">Embutimento em curso. Entrará na fila assim que pesado.</p>
+</div>
+<span class="font-label-sm text-label-sm text-text-muted">Etapa 2 Bloqueada</span>
+</div>
+<!-- Etapa 3: Rotulagem (PENDENTE) -->
+<div class="bg-surface-canvas rounded-lg p-space-md flex flex-col justify-between opacity-60">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-md text-label-md text-text-muted uppercase">3. Rotulagem</span>
+<span class="font-label-sm text-label-sm text-text-muted">Aguardando</span>
+</div>
+<p class="font-body-md text-body-md text-text-muted">Aguardando etapas anteriores.</p>
+</div>
+<span class="font-label-sm text-label-sm text-text-muted">Etapa 3 Bloqueada</span>
+</div>
+</div>
+</div>
+<!-- PORÇÃO P-04: (Calabresa Nobre 30 kg - Pendente Geral) -->
+<div class="bg-surface-card rounded-xl p-space-md shadow-sm transition-all">
+<div class="flex flex-col lg:flex-row lg:items-center justify-between pb-space-sm mb-space-sm gap-2 bg-surface-canvas -mx-space-md -mt-space-md p-space-md rounded-t-xl">
+<div class="flex items-center gap-3 flex-wrap">
+<span class="inline-flex items-center justify-center px-3 py-1 rounded bg-tertiary-container text-on-tertiary font-tabular-data-lg text-tabular-data-lg font-bold">
+                P-04
+              </span>
+<div>
+<span class="font-title-md text-title-md text-ink-text">Calabresa Nobre Defumada</span>
+<span class="font-body-md text-body-md text-text-muted ml-2">Planejado: 30,00 kg (Blend de Condimentação C-4)</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm uppercase tracking-wider bg-surface-container-high text-ink-text px-2.5 py-1 rounded-full font-bold flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-status-success"></span>
+                Massa Liberada da Cura
+              </span>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
+<!-- Etapa 1: Embutimento (LIBERADO PARA INICIAR) -->
+<div class="bg-surface-container-low rounded-lg p-space-md flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-md text-label-md text-wine-deep font-bold uppercase">1. Embutimento</span>
+<span class="inline-flex items-center gap-1 font-label-sm text-label-sm bg-[#E3F3EA] text-status-success px-2 py-0.5 rounded font-bold">
+                    Pronto p/ Abastecer
+                  </span>
+</div>
+<p class="font-body-md text-body-md text-ink-text mt-1">
+                  Tripa natural calibre 28/30 hidratada. Funil calibrado.
+                </p>
+</div>
+<!-- Big Touch Button -->
+<button class="mt-space-md w-full min-h-[48px] bg-bordeaux-primary hover:bg-wine-deep active:scale-[0.98] text-on-primary font-title-md text-title-md rounded-lg flex items-center justify-center gap-2 shadow-sm transition-all" onclick="handleStartStage('P-04', 'Embutimento')">
+<span class="material-symbols-outlined text-[20px]">play_arrow</span>
+                Iniciar Embutimento (P-04)
+              </button>
+</div>
+<!-- Etapa 2: Vácuo (PENDENTE) -->
+<div class="bg-surface-canvas rounded-lg p-space-md flex flex-col justify-between opacity-60">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-md text-label-md text-text-muted uppercase">2. Vácuo</span>
+<span class="font-label-sm text-label-sm text-text-muted">Aguardando</span>
+</div>
+<p class="font-body-md text-body-md text-text-muted">Aguardando finalização do embutimento.</p>
+</div>
+<span class="font-label-sm text-label-sm text-text-muted">Sequência de Fila</span>
+</div>
+<!-- Etapa 3: Rotulagem (PENDENTE) -->
+<div class="bg-surface-canvas rounded-lg p-space-md flex flex-col justify-between opacity-60">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-md text-label-md text-text-muted uppercase">3. Rotulagem</span>
+<span class="font-label-sm text-label-sm text-text-muted">Aguardando</span>
+</div>
+<p class="font-body-md text-body-md text-text-muted">Rótulos modelo 'Calabresa Defumada 500g' pré-carregados no dispenser.</p>
+</div>
+<span class="font-label-sm text-label-sm text-text-muted">Fila posterior</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- 3. RESUMO DE RENDIMENTO E SOBRA OPERACIONAL DA OP -->
+<div class="bg-surface-card rounded-xl p-space-lg shadow-sm">
+<div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-space-md pb-space-md">
+<div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-bordeaux-primary text-[24px]">analytics</span>
+<h3 class="font-headline-sm text-headline-sm text-ink-text">Balanço de Massa &amp; Destinação de Sobra Técnica</h3>
+</div>
+<p class="font-body-md text-body-md text-text-muted mt-1">
+            Consolidação das 3 Bateladas de 150 kg (Total OP: 450,00 kg de massa blendada pura).
+          </p>
+</div>
+<!-- Tag of Status -->
+<span class="inline-flex items-center gap-2 bg-[#E3F3EA] text-status-success px-3.5 py-1.5 rounded-full font-label-md text-label-md font-bold">
+<span class="material-symbols-outlined text-[18px]">verified</span>
+          Dentro da Margem Operacional (~9,46% / Meta ≤10%)
+        </span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-space-lg pt-space-md">
+<!-- Total Porcionado em Linha -->
+<div class="flex flex-col p-space-md bg-surface-canvas rounded-xl">
+<span class="font-label-md text-label-md text-text-muted uppercase">Massa Embutida em Porções (OP Ativa)</span>
+<div class="flex items-baseline gap-2 mt-1">
+<span class="font-display-lg text-display-lg text-ink-text">407,40</span>
+<span class="font-title-md text-title-md text-text-muted">kg</span>
+</div>
+<p class="font-body-md text-body-md text-text-muted mt-2">
+            Distribuídos nas porções P-01 a P-14 do sequenciamento programado.
+          </p>
+</div>
+<!-- Sobra Real Medida -->
+<div class="flex flex-col p-space-md bg-surface-container rounded-xl">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-wine-deep uppercase font-bold">Sobra Real Medida</span>
+<span class="material-symbols-outlined text-bordeaux-primary text-[20px]">scale</span>
+</div>
+<div class="flex items-baseline gap-2 mt-1">
+<span class="font-display-lg text-display-lg text-bordeaux-primary font-bold">42,60</span>
+<span class="font-title-md text-title-md text-bordeaux-primary font-semibold">kg</span>
+</div>
+<p class="font-body-md text-body-md text-ink-text mt-2 font-medium">
+            Massa Blend+ residual higienicamente recolhida do fim de canhão e esteiras frias.
+          </p>
+</div>
+<!-- Destino Confirmado e Vínculo Regulatório -->
+<div class="flex flex-col justify-between p-space-md bg-surface-canvas rounded-xl">
+<div>
+<div class="flex items-center gap-1.5 text-status-success font-label-md text-label-md uppercase font-bold">
+<span class="material-symbols-outlined text-[18px]">inventory</span> Destino Oficial Vinculado
+            </div>
+<div class="mt-1">
+<span class="font-title-md text-title-md text-ink-text">Lote Acabado: "Tradicional Granel - Lanchonete"</span>
+</div>
+<p class="font-body-md text-body-md text-text-muted mt-1 leading-snug">
+              Encaminhado para envase gastronômico institucional com embalagem primária de 5 kg.
+            </p>
+</div>
+<div class="mt-space-md pt-2 bg-surface-card p-2 rounded-lg flex items-center justify-between text-label-sm font-label-sm text-ink-text">
+<span>Data-Base Herdada:</span>
+<span class="font-tabular-data-md text-tabular-data-md font-bold text-wine-deep">24/09/2026 (OP-2026-094)</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- MODAL TÁTIL DE CONFIRMAÇÃO DE PESO REAL (Touch Friendly para Luvas) -->
+<div class="fixed inset-0 z-50 bg-ink-text/60 backdrop-blur-sm hidden flex items-center justify-center p-4" id="weight-modal">
+<div class="bg-surface-card rounded-2xl max-w-lg w-full p-space-lg shadow-2xl flex flex-col gap-space-md">
+<div class="flex items-center justify-between pb-space-sm bg-surface-canvas -mx-space-lg -mt-space-lg p-space-lg rounded-t-2xl">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-bordeaux-primary text-[28px]">balance</span>
+<div>
+<h4 class="font-title-lg text-title-lg text-ink-text" id="modal-portion-title">Confirmar Pesagem: Porção P-03</h4>
+<span class="font-label-sm text-label-sm text-text-muted">Registro em balança calibrada de chão de fábrica</span>
+</div>
+</div>
+<button class="w-10 h-10 rounded-full hover:bg-white flex items-center justify-center text-text-muted active:scale-95" onclick="closeWeightModal()">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<div class="flex flex-col gap-space-sm">
+<label class="font-label-md text-label-md text-ink-text uppercase tracking-wider">Peso Real Aferido no Canhão (kg)</label>
+<!-- Large Numeric Touch Input -->
+<div class="relative flex items-center">
+<input class="w-full text-right pr-16 pl-4 py-3 bg-surface-canvas text-display-lg font-tabular-data-lg text-ink-text rounded-xl focus:outline-none focus:bg-white font-bold" id="input-real-weight" step="0.01" type="number" value="30.00">
+<span class="absolute right-4 font-tabular-data-lg text-tabular-data-lg text-text-muted font-bold pointer-events-none">kg</span>
+</div>
+<!-- Quick adjust buttons for gloved operators -->
+<div class="grid grid-cols-4 gap-2 mt-2">
+<button class="min-h-[44px] bg-surface-container hover:bg-surface-container-high rounded-lg font-tabular-data-md text-tabular-data-md font-bold text-ink-text active:scale-95" onclick="adjustWeight(-0.5)">-0.5 kg</button>
+<button class="min-h-[44px] bg-surface-container hover:bg-surface-container-high rounded-lg font-tabular-data-md text-tabular-data-md font-bold text-ink-text active:scale-95" onclick="adjustWeight(-0.1)">-0.1 kg</button>
+<button class="min-h-[44px] bg-surface-container hover:bg-surface-container-high rounded-lg font-tabular-data-md text-tabular-data-md font-bold text-ink-text active:scale-95" onclick="adjustWeight(+0.1)">+0.1 kg</button>
+<button class="min-h-[44px] bg-surface-container hover:bg-surface-container-high rounded-lg font-tabular-data-md text-tabular-data-md font-bold text-ink-text active:scale-95" onclick="adjustWeight(+0.5)">+0.5 kg</button>
+</div>
+</div>
+<div class="bg-surface-container-low p-3 rounded-xl flex items-center justify-between text-body-md font-body-md">
+<span class="text-text-muted">Desvio tolerável da porção:</span>
+<span class="font-tabular-data-md text-tabular-data-md text-status-success font-semibold">± 1,00 kg (29,00 a 31,00 kg)</span>
+</div>
+<!-- Action Footer with large touch targets -->
+<div class="grid grid-cols-2 gap-space-sm pt-space-xs">
+<button class="min-h-[48px] bg-surface-container hover:bg-surface-container-high text-ink-text font-title-md text-title-md rounded-xl active:scale-[0.98] transition-all" onclick="closeWeightModal()">
+          Cancelar
+        </button>
+<button class="min-h-[48px] bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md text-title-md rounded-xl shadow-md active:scale-[0.98] transition-all flex items-center justify-center gap-2" onclick="confirmWeightSubmit()">
+<span class="material-symbols-outlined text-[20px]">check</span>
+          Confirmar &amp; Liberar
+        </button>
+</div>
+</div>
+</div>
+<!-- TOAST FEEDBACK ALERT -->
+<div class="fixed bottom-6 right-6 z-50 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none" id="industrial-toast">
+<div class="bg-ink-text text-on-primary px-5 py-3.5 rounded-xl shadow-2xl flex items-center gap-3">
+<span class="material-symbols-outlined text-status-success text-[24px]" id="toast-icon">check_circle</span>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md" id="toast-title">Ação Registrada</span>
+<span class="font-body-md text-body-md text-white/80" id="toast-desc">Fluxo operacional atualizado em tempo real.</span>
+</div>
+</div>
+</div>
+</div>
+<script>
+  // Dynamic Timers for Factory Terminals
+  let timerP01Sec = 14 * 60 + 20;
+  let timerP03Sec = 8 * 60 + 15;
+
+  setInterval(() => {
+    timerP01Sec++;
+    timerP03Sec++;
+
+    const p01El = document.getElementById('timer-p01');
+    const p03El = document.getElementById('timer-p03');
+
+    if (p01El) {
+      const m = Math.floor(timerP01Sec / 60);
+      const s = timerP01Sec % 60;
+      p01El.textContent = `${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+    }
+
+    if (p03El) {
+      const m = Math.floor(timerP03Sec / 60);
+      const s = timerP03Sec % 60;
+      p03El.textContent = `${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+    }
+  }, 1000);
+
+  // Modal State Handling
+  let currentActivePortion = 'P-03';
+
+  function openWeightModal(portionId) {
+    currentActivePortion = portionId;
+    const titleEl = document.getElementById('modal-portion-title');
+    if (titleEl) {
+      titleEl.textContent = `Confirmar Pesagem: Porção ${portionId}`;
+    }
+    const modal = document.getElementById('weight-modal');
+    modal.classList.remove('hidden');
+  }
+
+  function closeWeightModal() {
+    const modal = document.getElementById('weight-modal');
+    modal.classList.add('hidden');
+  }
+
+  function adjustWeight(delta) {
+    const input = document.getElementById('input-real-weight');
+    let val = parseFloat(input.value) || 30.00;
+    val = Math.max(1, (val + delta));
+    input.value = val.toFixed(2);
+  }
+
+  function confirmWeightSubmit() {
+    const input = document.getElementById('input-real-weight');
+    const val = input.value;
+    closeWeightModal();
+    showToast(`Porção ${currentActivePortion} Finalizada`, `Embutimento registrado com ${val} kg real. Liberada para Vácuo.`);
+  }
+
+  function handleStartStage(portion, stage) {
+    showToast(`${stage} Iniciado`, `Porção ${portion} entrou no fluxo ativo de ${stage}.`);
+  }
+
+  function handleFinishStage(portion, stage) {
+    showToast(`${stage} Concluído`, `Porção ${portion} finalizou ${stage} e avançou para a Rotulagem.`);
+  }
+
+  function showToast(title, desc) {
+    const toast = document.getElementById('industrial-toast');
+    const titleEl = document.getElementById('toast-title');
+    const descEl = document.getElementById('toast-desc');
+
+    titleEl.textContent = title;
+    descEl.textContent = desc;
+
+    toast.classList.remove('translate-y-24', 'opacity-0', 'pointer-events-none');
+    toast.classList.add('translate-y-0', 'opacity-100');
+
+    setTimeout(() => {
+      toast.classList.add('translate-y-24', 'opacity-0', 'pointer-events-none');
+      toast.classList.remove('translate-y-0', 'opacity-100');
+    }, 3800);
+  }
+</script></main></div></body></html>
