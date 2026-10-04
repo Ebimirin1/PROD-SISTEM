@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SGP Industrial — Controle de Produção</title>
+
+  <!-- Google Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..700&family=Work+Sans:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface-tint": "#b4271c",
+            "on-secondary-container": "#71150f",
+            "error": "#ba1a1a",
+            "on-primary-fixed-variant": "#910906",
+            "text-muted": "#5C5150",
+            "tertiary": "#402800",
+            "tertiary-container": "#5d3c00",
+            "on-tertiary-fixed": "#291800",
+            "on-primary-container": "#ff9283",
+            "badge-warning-text": "#4A2C00",
+            "amber-warning": "#D99311",
+            "surface-container-lowest": "#ffffff",
+            "surface-dim": "#ffcfc9",
+            "tertiary-fixed-dim": "#ffb94e",
+            "inverse-primary": "#ffb4a9",
+            "bordeaux-primary": "#8C0303",
+            "secondary": "#a43b2f",
+            "primary-container": "#8c0303",
+            "outline": "#8e706b",
+            "surface-variant": "#ffdad5",
+            "on-secondary-fixed": "#410001",
+            "inverse-surface": "#54201a",
+            "on-error-container": "#93000a",
+            "surface-container-low": "#fff0ee",
+            "on-tertiary-container": "#eaa224",
+            "surface": "#fff8f7",
+            "on-primary": "#ffffff",
+            "primary": "#630001",
+            "error-container": "#ffdad6",
+            "on-surface-variant": "#5a413d",
+            "primary-fixed": "#ffdad5",
+            "outline-variant": "#e2beb9",
+            "badge-error-bg": "#FDE8E8",
+            "badge-warning-bg": "#FFF2D6",
+            "on-tertiary-fixed-variant": "#624000",
+            "alert-critical": "#D90404",
+            "background": "#fff8f7",
+            "on-error": "#ffffff",
+            "on-surface": "#390b08",
+            "on-primary-fixed": "#410000",
+            "inverse-on-surface": "#ffedea",
+            "surface-container-high": "#ffe2de",
+            "on-background": "#390b08",
+            "secondary-fixed": "#ffdad5",
+            "surface-card": "#FFFFFF",
+            "on-secondary": "#ffffff",
+            "secondary-container": "#fd7d6c",
+            "badge-error-text": "#8C0303",
+            "on-tertiary": "#ffffff",
+            "surface-bright": "#fff8f7",
+            "status-info": "#205A85",
+            "on-secondary-fixed-variant": "#84231a",
+            "tertiary-fixed": "#ffddb2",
+            "surface-canvas": "#F8F6F4",
+            "ink-text": "#260101",
+            "status-success": "#176B45",
+            "wine-deep": "#590202",
+            "surface-container-highest": "#ffdad5",
+            "surface-container": "#ffe9e6",
+            "secondary-fixed-dim": "#ffb4a9",
+            "border-subtle": "#E8E1DF",
+            "primary-fixed-dim": "#ffb4a9"
+          },
+          borderRadius: {
+            DEFAULT: "0.25rem",
+            lg: "0.5rem",
+            xl: "0.75rem",
+            full: "9999px"
+          },
+          spacing: {
+            margin: "1rem",
+            "space-md": "1rem",
+            "space-lg": "1.5rem",
+            gutter: "1rem",
+            "space-2xl": "3rem",
+            "gutter-desktop": "1.5rem",
+            "margin-desktop": "2rem",
+            "space-sm": "0.5rem",
+            "space-xs": "0.25rem",
+            "margin-tablet": "1.5rem",
+            "gutter-tablet": "1.25rem",
+            "space-xl": "2rem"
+          },
+          fontFamily: {
+            "title-lg": ["Work Sans", "sans-serif"],
+            "body-lg": ["Work Sans", "sans-serif"],
+            "label-md": ["Work Sans", "sans-serif"],
+            "body-md": ["Work Sans", "sans-serif"],
+            "tabular-data-md": ["Work Sans", "sans-serif"],
+            "tabular-data-lg": ["Work Sans", "sans-serif"],
+            "display-lg": ['"Source Serif 4"', "serif"],
+            "headline-md": ['"Source Serif 4"', "serif"],
+            "title-md": ["Work Sans", "sans-serif"],
+            "label-sm": ["Work Sans", "sans-serif"],
+            "headline-sm": ['"Source Serif 4"', "serif"],
+            "display-lg-mobile": ['"Source Serif 4"', "serif"]
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Supabase JS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    @layer base {
+      html, body { margin: 0; padding: 0; }
+      body { overscroll-behavior: none; }
+    }
+    ::-webkit-scrollbar { display: none; }
+  </style>
+</head>
+<body class="bg-surface-canvas font-body-md text-ink-text min-h-screen">
+
+  <!-- Modal de Autenticação -->
+  <div id="login-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-surface-card rounded-2xl shadow-xl border border-border-subtle max-w-md w-full p-space-lg flex flex-col gap-space-md">
+      <div class="flex flex-col items-center text-center gap-2">
+        <div class="w-12 h-12 rounded-full bg-wine-deep flex items-center justify-center text-on-primary mb-1">
+          <span class="material-symbols-outlined text-[28px]">factory</span>
+        </div>
+        <h2 class="font-headline-sm text-headline-sm text-ink-text">SGP Industrial</h2>
+        <p class="font-body-md text-body-md text-text-muted">Acesse com suas credenciais autorizadas</p>
+      </div>
+
+      <form id="login-form" class="flex flex-col gap-space-md">
+        <div class="flex flex-col gap-1">
+          <label class="font-label-md text-label-md text-ink-text" for="login-email">E-mail</label>
+          <input type="email" id="login-email" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text focus:outline-none focus:border-bordeaux-primary transition-colors" placeholder="seu.email@exemplo.com">
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="font-label-md text-label-md text-ink-text" for="login-password">Senha</label>
+          <input type="password" id="login-password" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text focus:outline-none focus:border-bordeaux-primary transition-colors" placeholder="••••••••">
+        </div>
+
+        <div id="login-error" class="hidden p-3 rounded-lg bg-badge-error-bg text-badge-error-text text-xs font-medium"></div>
+
+        <button type="submit" id="login-submit-btn" class="min-h-[44px] w-full rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md transition-all shadow-sm active:scale-98 flex items-center justify-center gap-2">
+          <span>Entrar no Sistema</span>
+          <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Estrutura Principal da Aplicação -->
+  <div id="app-container" class="hidden min-h-screen">
+    <!-- Sidebar Navigation -->
+    <aside class="fixed left-0 top-0 h-full w-64 bg-wine-deep z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+      <div class="flex flex-col">
+        <div class="h-16 px-space-md flex items-center gap-space-sm border-b border-white/10">
+          <span class="material-symbols-outlined text-on-primary text-[28px]">factory</span>
+          <div class="flex flex-col">
+            <span class="font-title-md text-title-md text-on-primary leading-tight">SGP Industrial</span>
+            <span class="font-label-sm text-label-sm text-white/70 uppercase tracking-wider">Chão de Fábrica</span>
+          </div>
+        </div>
+
+        <nav id="sidebar-nav" class="flex flex-col gap-1 p-space-sm overflow-y-auto">
+          <!-- Links de Navegação serão preenchidos dinamicamente pelo JS -->
+        </nav>
+      </div>
+
+      <div class="p-space-sm border-t border-white/10 flex flex-col gap-2">
+        <div class="flex items-center justify-between px-2 text-white/70">
+          <span class="font-label-sm text-label-sm">Status</span>
+          <span class="font-tabular-data-md text-tabular-data-md text-on-primary">ONLINE</span>
+        </div>
+        <button id="logout-btn" class="min-h-[40px] px-3 rounded-lg bg-white/10 hover:bg-white/20 text-on-primary font-label-md flex items-center justify-center gap-2 transition-colors">
+          <span class="material-symbols-outlined text-[18px]">logout</span>
+          <span>Sair da Conta</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Workspace Area -->
+    <div class="pl-64">
+      <header class="fixed top-0 left-64 right-0 h-16 bg-surface-card shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-space-lg">
+        <div class="flex items-center gap-space-md">
+          <span class="material-symbols-outlined text-[20px] text-bordeaux-primary">precision_manufacturing</span>
+          <span id="current-screen-title" class="font-title-lg text-title-lg text-ink-text">Visão Geral</span>
+        </div>
+
+        <div class="flex items-center gap-space-md">
+          <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-canvas">
+            <span class="w-2.5 h-2.5 rounded-full bg-status-success animate-pulse"></span>
+            <span class="font-label-md text-label-md text-status-success">SISTEMA ONLINE</span>
+          </div>
+          <div class="h-6 w-px bg-border-subtle"></div>
+          <div class="flex items-center gap-space-sm">
+            <div class="flex flex-col text-right">
+              <span id="user-display-name" class="font-title-md text-title-md text-ink-text leading-none">Usuário</span>
+              <span id="user-role-label" class="font-label-sm text-label-sm text-text-muted leading-tight">Operador</span>
+            </div>
+            <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary font-bold">
+              <span class="material-symbols-outlined text-[18px]">person</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main id="main-content" class="w-full pt-16 bg-surface-canvas min-h-screen p-space-lg max-w-[1720px] mx-auto">
+        <!-- Renderização dinâmica das visões -->
+      </main>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
