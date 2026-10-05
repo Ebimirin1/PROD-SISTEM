@@ -138,19 +138,25 @@ async function loadOPs() {
   const container = document.getElementById('ops-list-container');
   if (!container) return;
 
-  const { data: ops, error } = await supabase
-    .from('production_orders')
-    .select(`
-      *,
-      vw_production_order_totals (planned_total_kg, produced_total_kg),
-      vw_production_order_status (status),
-      production_demands (
-        id, planned_kg, destination_key, requested_product_type, requested_conservation,
-        flavors (name),
-        formula_versions (id, base_mass_pct, meat_profile_id, formula_ingredients (ratio_pct, unit, ingredients(name)))
-      )
-    `)
-    .order('created_at', { ascending: false });
+  const [
+    { data: ops, error },
+    { data: totalsData },
+    { data: statusData }
+  ] = await Promise.all([
+    supabase
+      .from('production_orders')
+      .select(`
+        *,
+        production_demands (
+          id, planned_kg, destination_key, requested_product_type, requested_conservation,
+          flavors (name),
+          formula_versions (id, base_mass_pct, meat_profile_id, formula_ingredients (ratio_pct, unit, ingredients(name)))
+        )
+      `)
+      .order('created_at', { ascending: false }),
+    supabase.from('vw_production_order_totals').select('*'),
+    supabase.from('vw_production_order_status').select('*')
+  ]);
 
   if (error) {
     container.innerHTML = `<div class="p-4 bg-badge-error-bg text-badge-error-text rounded-lg">Erro ao carregar OPs: ${error.message}</div>`;
@@ -169,12 +175,24 @@ async function loadOPs() {
     return;
   }
 
+  const totalsMap = (totalsData || []).reduce((acc, t) => {
+    acc[t.production_order_id] = t;
+    return acc;
+  }, {});
+
+  const statusMap = (statusData || []).reduce((acc, s) => {
+    acc[s.production_order_id] = s;
+    return acc;
+  }, {});
+
   container.innerHTML = `
     <div class="flex flex-col gap-space-lg">
       ${ops.map(op => {
-        const plannedKg = op.vw_production_order_totals?.[0]?.planned_total_kg || 0;
-        const producedKg = op.vw_production_order_totals?.[0]?.produced_total_kg || 0;
-        const opStatus = op.vw_production_order_status?.[0]?.status || 'draft';
+        const totals = totalsMap[op.id] || {};
+        const statusObj = statusMap[op.id] || {};
+        const plannedKg = totals.planned_total_kg || 0;
+        const producedKg = totals.produced_total_kg || 0;
+        const opStatus = statusObj.status || 'draft';
         const generated = op.generated_at != null;
 
         return `
@@ -501,7 +519,7 @@ async function loadMeatOrders() {
     container.innerHTML = '';
     container.appendChild(renderEmptyState({
       icon: 'shopping_cart',
-      title: 'Nenhum Pedido de Carne',
+      title: 'Nenum Pedido de Carne',
       description: 'Registre o recebimento de cortes suínos/bovinos e seus lotes para abastecer as OPs.',
       actionText: 'Novo Pedido de Carne',
       onAction: () => document.getElementById('add-meat-order-btn')?.click()
