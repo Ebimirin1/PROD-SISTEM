@@ -93,6 +93,87 @@ async function renderOPsTab() {
         </form>
       </div>
 
+      <!-- Form/Modal para Adicionar Linha de Demanda -->
+      <div id="demand-form-container" class="hidden bg-surface-card p-space-lg rounded-xl border border-border-subtle shadow-sm flex flex-col gap-space-md">
+        <h3 class="font-title-lg text-title-lg text-ink-text">Adicionar Linha de Demanda à OP</h3>
+        <form id="demand-form" class="flex flex-col gap-space-md">
+          <input type="hidden" id="demand-op-id">
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+            <!-- Campo Obrigatório: Selecione o Sabor -->
+            <div class="flex flex-col gap-1">
+              <label class="font-label-md text-ink-text font-bold" for="demand-flavor-select">Sabor <span class="text-alert-critical">*</span></label>
+              <select id="demand-flavor-select" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold focus:outline-none focus:border-bordeaux-primary">
+                <option value="" disabled selected>Selecione o sabor</option>
+              </select>
+            </div>
+
+            <!-- Campo Obrigatório: Peso Pretendido -->
+            <div class="flex flex-col gap-1">
+              <label class="font-label-md text-ink-text font-bold" for="demand-planned-kg">Quantidade Pretendida (kg) <span class="text-alert-critical">*</span></label>
+              <input type="number" step="0.001" min="0.001" id="demand-planned-kg" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold focus:outline-none focus:border-bordeaux-primary" placeholder="Ex: 50.000">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
+            <!-- Destino -->
+            <div class="flex flex-col gap-1">
+              <label class="font-label-md text-ink-text" for="demand-destination-select">Destino / Canal</label>
+              <select id="demand-destination-select" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text">
+                <option value="emporio" selected>Empório</option>
+                <option value="lanchonete">Lanchonete</option>
+                <option value="atacado">Atacado</option>
+                <option value="outro">Outro</option>
+              </select>
+            </div>
+
+            <!-- Parceiro/Cliente Especifico -->
+            <div class="flex flex-col gap-1">
+              <label class="font-label-md text-ink-text" for="demand-partner-select">Cliente / Parceiro (Obrigatório para Atacado)</label>
+              <select id="demand-partner-select" class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text">
+                <option value="">Geral / Nenhum Parceiro Específico</option>
+              </select>
+            </div>
+
+            <!-- Tipo Solicitado -->
+            <div class="flex flex-col gap-1">
+              <label class="font-label-md text-ink-text" for="demand-product-type-select">Tipo de Produto Solicitado</label>
+              <select id="demand-product-type-select" class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text">
+                <option value="linguica" selected>Linguiça</option>
+                <option value="manta">Manta</option>
+                <option value="massa">Massa</option>
+                <option value="granel">Granel</option>
+                <option value="hamburguer">Hambúrguer</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+            <!-- Conservação -->
+            <div class="flex flex-col gap-1">
+              <label class="font-label-md text-ink-text" for="demand-conservation-select">Conservação</label>
+              <select id="demand-conservation-select" class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text">
+                <option value="resfriado" selected>Resfriado</option>
+                <option value="congelado">Congelado</option>
+              </select>
+            </div>
+
+            <!-- Observações -->
+            <div class="flex flex-col gap-1">
+              <label class="font-label-md text-ink-text" for="demand-notes">Observações da Linha</label>
+              <input type="text" id="demand-notes" class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text" placeholder="Ex: Pedido especial do cliente">
+            </div>
+          </div>
+
+          <div id="demand-form-error" class="hidden p-3 rounded-lg bg-badge-error-bg text-badge-error-text text-xs font-bold"></div>
+
+          <div class="flex items-center gap-2 justify-end">
+            <button type="button" id="demand-cancel-btn" class="min-h-[44px] px-4 rounded-lg bg-surface-canvas hover:bg-surface-variant text-ink-text font-title-md">Cancelar</button>
+            <button type="submit" id="demand-submit-btn" class="min-h-[44px] px-5 rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md">Salvar Demanda</button>
+          </div>
+        </form>
+      </div>
+
       <div id="ops-list-container"></div>
     </div>
   `;
@@ -104,6 +185,7 @@ async function renderOPsTab() {
     document.getElementById('op-date').value = today;
     document.getElementById('op-mass-ready-date').value = today;
     document.getElementById('op-form-container')?.classList.remove('hidden');
+    document.getElementById('demand-form-container')?.classList.add('hidden');
   });
 
   document.getElementById('op-cancel-btn')?.addEventListener('click', () => {
@@ -131,7 +213,115 @@ async function renderOPsTab() {
     }
   });
 
+  setupDemandForm();
   loadOPs();
+}
+
+function setupDemandForm() {
+  const cancelBtn = document.getElementById('demand-cancel-btn');
+  const formContainer = document.getElementById('demand-form-container');
+  const form = document.getElementById('demand-form');
+  const errorDiv = document.getElementById('demand-form-error');
+
+  cancelBtn?.addEventListener('click', () => {
+    formContainer?.classList.add('hidden');
+  });
+
+  const destSelect = document.getElementById('demand-destination-select');
+  const partnerSelect = document.getElementById('demand-partner-select');
+
+  destSelect?.addEventListener('change', () => {
+    if (destSelect.value === 'atacado') {
+      partnerSelect?.setAttribute('required', 'true');
+    } else {
+      partnerSelect?.removeAttribute('required');
+    }
+  });
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorDiv?.classList.add('hidden');
+
+    const opId = document.getElementById('demand-op-id').value;
+    const flavorId = document.getElementById('demand-flavor-select').value;
+    const plannedKg = parseFloat(document.getElementById('demand-planned-kg').value);
+    const destinationKey = document.getElementById('demand-destination-select').value;
+    const partnerId = document.getElementById('demand-partner-select').value || null;
+    const productType = document.getElementById('demand-product-type-select').value;
+    const conservation = document.getElementById('demand-conservation-select').value;
+    const notes = document.getElementById('demand-notes').value.trim();
+
+    // 1. Validação estrita: Sabor deve ser selecionado
+    if (!flavorId) {
+      if (errorDiv) {
+        errorDiv.innerText = 'Selecione obrigatoriamente um sabor da lista.';
+        errorDiv.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (isNaN(plannedKg) || plannedKg <= 0) {
+      if (errorDiv) {
+        errorDiv.innerText = 'Informe uma quantidade pretendida válida maior que zero.';
+        errorDiv.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (destinationKey === 'atacado' && !partnerId) {
+      if (errorDiv) {
+        errorDiv.innerText = 'Para o destino Atacado, selecione obrigatoriamente um Cliente / Parceiro.';
+        errorDiv.classList.remove('hidden');
+      }
+      return;
+    }
+
+    try {
+      // 2. Buscar versão ativa da formulação para o sabor escolhido
+      const { data: activeVersion, error: vErr } = await supabase
+        .from('formula_versions')
+        .select('id')
+        .eq('flavor_id', flavorId)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (vErr) {
+        throw new Error(`Erro ao verificar formulação do sabor: ${vErr.message}`);
+      }
+
+      if (!activeVersion) {
+        const selectedOption = document.querySelector(`#demand-flavor-select option[value="${flavorId}"]`);
+        const flavorName = selectedOption ? selectedOption.textContent : 'selecionado';
+        throw new Error(`O sabor "${flavorName}" não possui uma receita/formulação ATIVA. Por favor, acesse a tela "Cadastros & Fórmulas" e ative uma receita para este sabor.`);
+      }
+
+      // 3. Salvar demanda no banco
+      const { error: insertErr } = await supabase.from('production_demands').insert({
+        production_order_id: opId,
+        flavor_id: flavorId,
+        formula_version_id: activeVersion.id,
+        destination_key: destinationKey,
+        destination_partner_id: partnerId,
+        requested_product_type: productType,
+        requested_conservation: conservation,
+        planned_kg: plannedKg,
+        notes: notes || null
+      });
+
+      if (insertErr) throw insertErr;
+
+      showNotification('Demanda adicionada com sucesso à OP!', 'success');
+      formContainer?.classList.add('hidden');
+      loadOPs();
+    } catch (err) {
+      if (errorDiv) {
+        errorDiv.innerText = err.message;
+        errorDiv.classList.remove('hidden');
+      } else {
+        showNotification(err.message, 'error');
+      }
+    }
+  });
 }
 
 async function loadOPs() {
@@ -159,7 +349,7 @@ async function loadOPs() {
   ]);
 
   if (error) {
-    container.innerHTML = `<div class="p-4 bg-badge-error-bg text-badge-error-text rounded-lg">Erro ao carregar OPs: ${error.message}</div>`;
+    container.innerHTML = `<div class="p-4 bg-badge-error-bg text-badge-error-text rounded-lg font-bold">Erro ao carregar OPs: ${error.message}</div>`;
     return;
   }
 
@@ -249,7 +439,7 @@ async function loadOPs() {
                       ? `<tr><td colspan="5" class="py-3 px-3 text-center text-text-muted">Nenhuma demanda lançada nesta OP.</td></tr>`
                       : (op.production_demands || []).map(d => `
                         <tr>
-                          <td class="py-2 px-3 font-bold text-bordeaux-primary">${d.flavors?.name}</td>
+                          <td class="py-2 px-3 font-bold text-bordeaux-primary">${d.flavors?.name || 'Sabor Não Identificado'}</td>
                           <td class="py-2 px-3 uppercase">${d.destination_key}</td>
                           <td class="py-2 px-3 capitalize">${d.requested_product_type || '—'}</td>
                           <td class="py-2 px-3 capitalize">${d.requested_conservation || '—'}</td>
@@ -279,50 +469,65 @@ async function loadOPs() {
     });
   });
 
-  // Listener para abrir modal/prompt de adicionar demanda
+  // Listener para abrir modal de adicionar demanda
   container.querySelectorAll('.add-demand-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const opId = e.currentTarget.dataset.opid;
-      await promptAddDemand(opId);
+      await openAddDemandModal(opId);
     });
   });
 }
 
-async function promptAddDemand(production_order_id) {
-  const { data: flavors } = await supabase.from('flavors').select('id, name').eq('active', true);
-  const { data: partners } = await supabase.from('partners').select('id, name, partner_type').eq('active', true);
+async function openAddDemandModal(production_order_id) {
+  const formContainer = document.getElementById('demand-form-container');
+  const errorDiv = document.getElementById('demand-form-error');
+  const flavorSelect = document.getElementById('demand-flavor-select');
+  const partnerSelect = document.getElementById('demand-partner-select');
+
+  if (errorDiv) errorDiv.classList.add('hidden');
+  document.getElementById('demand-op-id').value = production_order_id;
+  document.getElementById('demand-planned-kg').value = '';
+  document.getElementById('demand-notes').value = '';
+
+  // 1. Buscar os sabores ativos no Supabase com tratamento estrito de erro/vazio
+  const { data: flavors, error: fErr } = await supabase
+    .from('flavors')
+    .select('id, name')
+    .eq('active', true)
+    .order('name');
+
+  if (fErr) {
+    showNotification(`Erro ao consultar sabores: ${fErr.message}`, 'error');
+    return;
+  }
 
   if (!flavors || flavors.length === 0) {
-    showNotification('Cadastre sabores ativos antes de lançar demandas.', 'error');
+    showNotification('Ainda não há sabores cadastrados. Por favor, cadastre os sabores na tela "Cadastros & Fórmulas" antes de adicionar demandas.', 'warning');
     return;
   }
 
-  // Buscar versão ativa para cada sabor
-  const flavorId = flavors[0].id;
-  const { data: activeVersion } = await supabase.from('formula_versions').select('id').eq('flavor_id', flavorId).eq('status', 'active').maybeSingle();
+  // 2. Preencher a lista de sabores sem pré-selecionar nenhum (mantendo o placeholder desabilitado)
+  flavorSelect.innerHTML = `
+    <option value="" disabled selected>Selecione o sabor</option>
+    ${flavors.map(f => `<option value="${f.id}">${f.name}</option>`).join('')}
+  `;
 
-  if (!activeVersion) {
-    showNotification(`O sabor ${flavors[0].name} não possui uma formulação ATIVA. Ative uma receita nos cadastros.`, 'error');
-    return;
-  }
+  // 3. Buscar os parceiros/clientes ativos no Supabase
+  const { data: partners } = await supabase
+    .from('partners')
+    .select('id, name, partner_type')
+    .eq('active', true)
+    .order('name');
 
-  const planned_kg = parseFloat(prompt('Digite a quantidade pretendida em kg:', '50.00'));
-  if (isNaN(planned_kg) || planned_kg <= 0) return;
+  partnerSelect.innerHTML = `
+    <option value="">Geral / Nenhum Parceiro Específico</option>
+    ${(partners || []).map(p => `<option value="${p.id}">${p.name} (${p.partner_type.toUpperCase()})</option>`).join('')}
+  `;
 
-  try {
-    const { error } = await supabase.from('production_demands').insert({
-      production_order_id,
-      flavor_id: flavorId,
-      formula_version_id: activeVersion.id,
-      destination_key: 'emporio',
-      planned_kg
-    });
-    if (error) throw error;
-    showNotification('Demanda adicionada com sucesso!', 'success');
-    loadOPs();
-  } catch (err) {
-    showNotification(`Erro ao adicionar demanda: ${err.message}`, 'error');
-  }
+  // Exibir formulário
+  document.getElementById('op-form-container')?.classList.add('hidden');
+  formContainer?.classList.remove('hidden');
+  formContainer?.scrollIntoView({ behavior: 'smooth' });
 }
 
 // ----------------------------------------------------
@@ -519,7 +724,7 @@ async function loadMeatOrders() {
     container.innerHTML = '';
     container.appendChild(renderEmptyState({
       icon: 'shopping_cart',
-      title: 'Nenum Pedido de Carne',
+      title: 'Nenhum Pedido de Carne',
       description: 'Registre o recebimento de cortes suínos/bovinos e seus lotes para abastecer as OPs.',
       actionText: 'Novo Pedido de Carne',
       onAction: () => document.getElementById('add-meat-order-btn')?.click()
