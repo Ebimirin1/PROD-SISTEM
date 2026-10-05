@@ -32,9 +32,19 @@ async function loadOverviewMetrics() {
   const container = document.getElementById('overview-metrics-container');
   if (!container) return;
 
-  const { data: ops } = await supabase.from('production_orders').select('*, vw_production_order_totals(*), vw_production_order_status(*)');
-  const { data: lots } = await supabase.from('vw_inventory_by_flavor').select('*');
-  const { data: invoiceQueue } = await supabase.from('vw_invoice_queue').select('*');
+  const [
+    { data: ops },
+    { data: totalsData },
+    { data: statusData },
+    { data: lots },
+    { data: invoiceQueue }
+  ] = await Promise.all([
+    supabase.from('production_orders').select('*').order('created_at', { ascending: false }),
+    supabase.from('vw_production_order_totals').select('*'),
+    supabase.from('vw_production_order_status').select('*'),
+    supabase.from('vw_inventory_by_flavor').select('*'),
+    supabase.from('vw_invoice_queue').select('*')
+  ]);
 
   if (!ops || ops.length === 0) {
     container.innerHTML = '';
@@ -47,9 +57,20 @@ async function loadOverviewMetrics() {
     return;
   }
 
-  const activeOp = ops.find(o => o.vw_production_order_status?.[0]?.status === 'in_production') || ops[0];
-  const plannedKg = activeOp?.vw_production_order_totals?.[0]?.planned_total_kg || 0;
-  const producedKg = activeOp?.vw_production_order_totals?.[0]?.produced_total_kg || 0;
+  const statusMap = (statusData || []).reduce((acc, s) => {
+    acc[s.production_order_id] = s;
+    return acc;
+  }, {});
+
+  const totalsMap = (totalsData || []).reduce((acc, t) => {
+    acc[t.production_order_id] = t;
+    return acc;
+  }, {});
+
+  const activeOp = ops.find(o => statusMap[o.id]?.status === 'in_production') || ops[0];
+  const activeTotals = totalsMap[activeOp.id] || {};
+  const plannedKg = activeTotals.planned_total_kg || 0;
+  const producedKg = activeTotals.produced_total_kg || 0;
   const progressPct = plannedKg > 0 ? Math.min(100, Math.round((producedKg / plannedKg) * 100)) : 0;
 
   const totalStockKg = (lots || []).reduce((acc, item) => acc + Number(item.balance_kg), 0);
