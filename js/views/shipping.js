@@ -1,7 +1,7 @@
 import { supabase } from '../supabaseClient.js';
 import { showNotification, renderEmptyState, formatWeight, formatDate } from '../utils.js';
 
-// Módulo de Pedidos & Expedição (Separação por cliente, vinculo de lotes e transições de status)
+// Módulo de Pedidos & Expedição (Separação por cliente, vínculo de lotes e transições de status)
 export async function render(container) {
   container.innerHTML = `
     <div class="flex flex-col gap-space-lg">
@@ -21,21 +21,75 @@ export async function render(container) {
         <h3 class="font-title-lg text-title-lg text-ink-text">Criar Novo Pedido de Saída / Expedição</h3>
         <form id="shipment-form" class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
           <div class="flex flex-col gap-1">
-            <label class="font-label-md text-ink-text">Código do Pedido</label>
+            <label class="font-label-md text-ink-text" for="shipment-code">Código do Pedido</label>
             <input type="text" id="shipment-code" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold" placeholder="Ex: PED-2026-001">
           </div>
           <div class="flex flex-col gap-1">
-            <label class="font-label-md text-ink-text">Cliente / Parceiro</label>
+            <label class="font-label-md text-ink-text" for="shipment-customer-id">Cliente / Parceiro</label>
             <select id="shipment-customer-id" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text"></select>
           </div>
           <div class="flex flex-col gap-1">
-            <label class="font-label-md text-ink-text">Data do Pedido</label>
+            <label class="font-label-md text-ink-text" for="shipment-date">Data do Pedido</label>
             <input type="date" id="shipment-date" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text">
           </div>
 
           <div class="flex items-center gap-2 md:col-span-3 justify-end">
             <button type="button" id="shipment-cancel-btn" class="min-h-[44px] px-4 rounded-lg bg-surface-canvas hover:bg-surface-variant text-ink-text font-title-md">Cancelar</button>
             <button type="submit" class="min-h-[44px] px-5 rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md">Salvar Pedido</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Form/Modal para Adicionar Item/Linha ao Pedido de Saída -->
+      <div id="shipment-line-form-container" class="hidden bg-surface-card p-space-lg rounded-xl border border-border-subtle shadow-sm flex flex-col gap-space-md">
+        <h3 class="font-title-lg text-title-lg text-ink-text">Adicionar Item ao Pedido de Saída</h3>
+        <form id="shipment-line-form" class="flex flex-col gap-space-md">
+          <input type="hidden" id="line-shipment-order-id">
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+            <!-- Selección de Sabor Obrigatória -->
+            <div class="flex flex-col gap-1">
+              <label class="font-label-md text-ink-text font-bold" for="line-flavor-select">Sabor <span class="text-alert-critical">*</span></label>
+              <select id="line-flavor-select" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold focus:outline-none focus:border-bordeaux-primary">
+                <option value="" disabled selected>Selecione o sabor</option>
+              </select>
+            </div>
+
+            <!-- Quantidade em kg Obrigatória -->
+            <div class="flex flex-col gap-1">
+              <label class="font-label-md text-ink-text font-bold" for="line-requested-kg">Quantidade Solicitada (kg) <span class="text-alert-critical">*</span></label>
+              <input type="number" step="0.001" min="0.001" id="line-requested-kg" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold focus:outline-none focus:border-bordeaux-primary" placeholder="Ex: 20.000">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+            <!-- Tipo de Produto -->
+            <div class="flex flex-col gap-1">
+              <label class="font-label-md text-ink-text" for="line-product-type">Tipo de Produto</label>
+              <select id="line-product-type" class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text">
+                <option value="linguica" selected>Linguiça</option>
+                <option value="manta">Manta</option>
+                <option value="massa">Massa</option>
+                <option value="granel">Granel</option>
+                <option value="hamburguer">Hambúrguer</option>
+              </select>
+            </div>
+
+            <!-- Conservação -->
+            <div class="flex flex-col gap-1">
+              <label class="font-label-md text-ink-text" for="line-conservation">Conservação</label>
+              <select id="line-conservation" class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text">
+                <option value="resfriado" selected>Resfriado</option>
+                <option value="congelado">Congelado</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="shipment-line-error" class="hidden p-3 rounded-lg bg-badge-error-bg text-badge-error-text text-xs font-bold"></div>
+
+          <div class="flex items-center gap-2 justify-end">
+            <button type="button" id="line-cancel-btn" class="min-h-[44px] px-4 rounded-lg bg-surface-canvas hover:bg-surface-variant text-ink-text font-title-md">Cancelar</button>
+            <button type="submit" class="min-h-[44px] px-5 rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md">Adicionar Item</button>
           </div>
         </form>
       </div>
@@ -48,6 +102,7 @@ export async function render(container) {
     await populateShipmentCustomers();
     document.getElementById('shipment-code').value = `PED-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
     document.getElementById('shipment-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('shipment-line-form-container')?.classList.add('hidden');
     document.getElementById('shipment-form-container')?.classList.remove('hidden');
   });
 
@@ -76,7 +131,108 @@ export async function render(container) {
     }
   });
 
+  setupShipmentLineForm();
   loadShipmentOrders();
+}
+
+function setupShipmentLineForm() {
+  const cancelBtn = document.getElementById('line-cancel-btn');
+  const formContainer = document.getElementById('shipment-line-form-container');
+  const form = document.getElementById('shipment-line-form');
+  const errorDiv = document.getElementById('shipment-line-error');
+
+  cancelBtn?.addEventListener('click', () => {
+    formContainer?.classList.add('hidden');
+  });
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorDiv?.classList.add('hidden');
+
+    const orderId = document.getElementById('line-shipment-order-id').value;
+    const flavorId = document.getElementById('line-flavor-select').value;
+    const requestedKg = parseFloat(document.getElementById('line-requested-kg').value);
+    const productType = document.getElementById('line-product-type').value;
+    const conservation = document.getElementById('line-conservation').value;
+
+    if (!flavorId) {
+      if (errorDiv) {
+        errorDiv.innerText = 'Selecione obrigatoriamente um sabor da lista.';
+        errorDiv.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (isNaN(requestedKg) || requestedKg <= 0) {
+      if (errorDiv) {
+        errorDiv.innerText = 'Informe uma quantidade solicitada válida maior que zero.';
+        errorDiv.classList.remove('hidden');
+      }
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from('shipment_lines').insert({
+        shipment_order_id: orderId,
+        flavor_id: flavorId,
+        product_type: productType,
+        conservation: conservation,
+        requested_kg: requestedKg,
+        separated_kg: requestedKg,
+        status: 'pending'
+      });
+
+      if (error) throw error;
+
+      showNotification('Item adicionado ao pedido com sucesso!', 'success');
+      formContainer?.classList.add('hidden');
+      loadShipmentOrders();
+    } catch (err) {
+      if (errorDiv) {
+        errorDiv.innerText = err.message;
+        errorDiv.classList.remove('hidden');
+      } else {
+        showNotification(`Erro ao adicionar item: ${err.message}`, 'error');
+      }
+    }
+  });
+}
+
+async function openAddShipmentLineModal(shipment_order_id) {
+  const formContainer = document.getElementById('shipment-line-form-container');
+  const errorDiv = document.getElementById('shipment-line-error');
+  const flavorSelect = document.getElementById('line-flavor-select');
+
+  if (errorDiv) errorDiv.classList.add('hidden');
+  document.getElementById('line-shipment-order-id').value = shipment_order_id;
+  document.getElementById('line-requested-kg').value = '';
+
+  // 1. Consultar sabores ativos no Supabase
+  const { data: flavors, error: fErr } = await supabase
+    .from('flavors')
+    .select('id, name')
+    .eq('active', true)
+    .order('name');
+
+  if (fErr) {
+    showNotification(`Erro ao carregar sabores: ${fErr.message}`, 'error');
+    return;
+  }
+
+  if (!flavors || flavors.length === 0) {
+    showNotification('Ainda não há sabores cadastrados. Por favor, cadastre sabores na tela "Cadastros & Fórmulas" antes de adicionar itens.', 'warning');
+    return;
+  }
+
+  // 2. Preencher a lista de sabores sem pré-selecionar nenhum (mantendo o placeholder desabilitado)
+  flavorSelect.innerHTML = `
+    <option value="" disabled selected>Selecione o sabor</option>
+    ${flavors.map(f => `<option value="${f.id}">${f.name}</option>`).join('')}
+  `;
+
+  document.getElementById('shipment-form-container')?.classList.add('hidden');
+  formContainer?.classList.remove('hidden');
+  formContainer?.scrollIntoView({ behavior: 'smooth' });
 }
 
 async function populateShipmentCustomers() {
@@ -182,7 +338,7 @@ async function loadShipmentOrders() {
   container.querySelectorAll('.add-shipment-line-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const orderId = e.currentTarget.dataset.orderid;
-      await promptAddShipmentLine(orderId);
+      await openAddShipmentLineModal(orderId);
     });
   });
 
@@ -202,32 +358,4 @@ async function loadShipmentOrders() {
       }
     });
   });
-}
-
-async function promptAddShipmentLine(shipment_order_id) {
-  const { data: flavors } = await supabase.from('flavors').select('id, name').eq('active', true);
-  if (!flavors || flavors.length === 0) {
-    showNotification('Cadastre sabores ativos primeiro.', 'error');
-    return;
-  }
-
-  const requested_kg = parseFloat(prompt('Digite a quantidade solicitada em kg:', '20.00'));
-  if (isNaN(requested_kg) || requested_kg <= 0) return;
-
-  try {
-    const { error } = await supabase.from('shipment_lines').insert({
-      shipment_order_id,
-      flavor_id: flavors[0].id,
-      product_type: 'linguica',
-      conservation: 'resfriado',
-      requested_kg,
-      separated_kg: requested_kg,
-      status: 'pending'
-    });
-    if (error) throw error;
-    showNotification('Item adicionado ao pedido!', 'success');
-    loadShipmentOrders();
-  } catch (err) {
-    showNotification(`Erro ao adicionar item: ${err.message}`, 'error');
-  }
 }
