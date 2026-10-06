@@ -55,7 +55,7 @@ export async function render(container) {
               </select>
             </div>
 
-            <!-- Quantidade em kg Obrigatória -->
+            <!-- Quantidade Solicitada em kg -->
             <div class="flex flex-col gap-1">
               <label class="font-label-md text-ink-text font-bold" for="line-requested-kg">Quantidade Solicitada (kg) <span class="text-alert-critical">*</span></label>
               <input type="number" step="0.001" min="0.001" id="line-requested-kg" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold focus:outline-none focus:border-bordeaux-primary" placeholder="Ex: 20.000">
@@ -94,6 +94,38 @@ export async function render(container) {
         </form>
       </div>
 
+      <!-- Modal para Separar Item p/ NF (Confirmar Qtd Real Separada) -->
+      <div id="separate-line-modal-container" class="hidden bg-surface-card p-space-lg rounded-xl border border-border-subtle shadow-sm flex flex-col gap-space-md">
+        <h3 class="font-title-lg text-title-lg text-ink-text">Separar Item para NF (Faturamento)</h3>
+        <p class="font-body-md text-body-md text-text-muted">Informe a quantidade real pesada/separada para este item do pedido antes de enviar à fila de faturamento.</p>
+
+        <form id="separate-line-form" class="flex flex-col gap-space-md">
+          <input type="hidden" id="separate-line-id">
+          <input type="hidden" id="separate-requested-kg">
+
+          <div class="bg-surface-canvas p-space-md rounded-lg flex flex-col gap-1 border border-border-subtle">
+            <span class="font-body-md text-body-md text-text-muted">Item Solicitado: <strong id="separate-flavor-title" class="text-ink-text font-bold">Sabor</strong></span>
+            <span class="font-body-md text-body-md text-text-muted">Quantidade Solicitada no Pedido: <strong id="separate-requested-label" class="text-bordeaux-primary font-bold">0,000 kg</strong></span>
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="font-label-md text-ink-text font-bold" for="separate-actual-kg">Quantidade Real Separada (kg) <span class="text-alert-critical">*</span></label>
+            <input type="number" step="0.001" min="0.001" id="separate-actual-kg" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold text-lg focus:outline-none focus:border-bordeaux-primary" placeholder="Ex: 19.850">
+            <span class="text-xs text-text-muted">Pese os pacotes/caixas reais e digite o valor exato separado para a nota fiscal.</span>
+          </div>
+
+          <div id="separate-line-error" class="hidden p-3 rounded-lg bg-badge-error-bg text-badge-error-text text-xs font-bold"></div>
+
+          <div class="flex items-center gap-2 justify-end">
+            <button type="button" id="separate-cancel-btn" class="min-h-[44px] px-4 rounded-lg bg-surface-canvas hover:bg-surface-variant text-ink-text font-title-md">Cancelar</button>
+            <button type="submit" class="min-h-[44px] px-5 rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md flex items-center gap-2">
+              <span class="material-symbols-outlined text-[20px]">check_circle</span>
+              <span>Confirmar Separação p/ NF</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
       <div id="shipments-list-container"></div>
     </div>
   `;
@@ -103,6 +135,7 @@ export async function render(container) {
     document.getElementById('shipment-code').value = `PED-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
     document.getElementById('shipment-date').value = new Date().toISOString().split('T')[0];
     document.getElementById('shipment-line-form-container')?.classList.add('hidden');
+    document.getElementById('separate-line-modal-container')?.classList.add('hidden');
     document.getElementById('shipment-form-container')?.classList.remove('hidden');
   });
 
@@ -132,6 +165,7 @@ export async function render(container) {
   });
 
   setupShipmentLineForm();
+  setupSeparationModalForm();
   loadShipmentOrders();
 }
 
@@ -178,7 +212,7 @@ function setupShipmentLineForm() {
         product_type: productType,
         conservation: conservation,
         requested_kg: requestedKg,
-        separated_kg: requestedKg,
+        separated_kg: 0,
         status: 'pending'
       });
 
@@ -198,6 +232,84 @@ function setupShipmentLineForm() {
   });
 }
 
+function setupSeparationModalForm() {
+  const cancelBtn = document.getElementById('separate-cancel-btn');
+  const formContainer = document.getElementById('separate-line-modal-container');
+  const form = document.getElementById('separate-line-form');
+  const errorDiv = document.getElementById('separate-line-error');
+
+  cancelBtn?.addEventListener('click', () => {
+    formContainer?.classList.add('hidden');
+  });
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorDiv?.classList.add('hidden');
+
+    const lineId = document.getElementById('separate-line-id').value;
+    const requestedKg = parseFloat(document.getElementById('separate-requested-kg').value);
+    const actualSeparatedKg = parseFloat(document.getElementById('separate-actual-kg').value);
+
+    if (isNaN(actualSeparatedKg) || actualSeparatedKg <= 0) {
+      if (errorDiv) {
+        errorDiv.innerText = 'Informe a quantidade real separada em kg maior que zero.';
+        errorDiv.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (actualSeparatedKg > requestedKg) {
+      if (errorDiv) {
+        errorDiv.innerText = `A quantidade separada (${formatWeight(actualSeparatedKg)}) não pode exceder a quantidade solicitada no pedido (${formatWeight(requestedKg)}).`;
+        errorDiv.classList.remove('hidden');
+      }
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from('shipment_lines').update({
+        separated_kg: actualSeparatedKg,
+        status: 'separated_for_invoice'
+      }).eq('id', lineId);
+
+      if (error) throw error;
+
+      showNotification(`Item separado com sucesso (${formatWeight(actualSeparatedKg)}) e enviado para faturamento!`, 'success');
+      formContainer?.classList.add('hidden');
+      loadShipmentOrders();
+    } catch (err) {
+      if (errorDiv) {
+        errorDiv.innerText = err.message;
+        errorDiv.classList.remove('hidden');
+      } else {
+        showNotification(`Erro ao registrar separação: ${err.message}`, 'error');
+      }
+    }
+  });
+}
+
+async function openSeparateLineModal(line) {
+  const formContainer = document.getElementById('separate-line-modal-container');
+  const errorDiv = document.getElementById('separate-line-error');
+
+  if (errorDiv) errorDiv.classList.add('hidden');
+
+  document.getElementById('separate-line-id').value = line.id;
+  document.getElementById('separate-requested-kg').value = line.requested_kg;
+  document.getElementById('separate-flavor-title').innerText = line.flavors?.name || 'Sabor';
+  document.getElementById('separate-requested-label').innerText = formatWeight(line.requested_kg);
+
+  // Preencher campo com o valor já separado ou pré-preencher com solicitado
+  const defaultVal = line.separated_kg > 0 ? line.separated_kg : line.requested_kg;
+  document.getElementById('separate-actual-kg').value = defaultVal;
+
+  document.getElementById('shipment-form-container')?.classList.add('hidden');
+  document.getElementById('shipment-line-form-container')?.classList.add('hidden');
+
+  formContainer?.classList.remove('hidden');
+  formContainer?.scrollIntoView({ behavior: 'smooth' });
+}
+
 async function openAddShipmentLineModal(shipment_order_id) {
   const formContainer = document.getElementById('shipment-line-form-container');
   const errorDiv = document.getElementById('shipment-line-error');
@@ -207,7 +319,6 @@ async function openAddShipmentLineModal(shipment_order_id) {
   document.getElementById('line-shipment-order-id').value = shipment_order_id;
   document.getElementById('line-requested-kg').value = '';
 
-  // 1. Consultar sabores ativos no Supabase
   const { data: flavors, error: fErr } = await supabase
     .from('flavors')
     .select('id, name')
@@ -224,13 +335,14 @@ async function openAddShipmentLineModal(shipment_order_id) {
     return;
   }
 
-  // 2. Preencher a lista de sabores sem pré-selecionar nenhum (mantendo o placeholder desabilitado)
   flavorSelect.innerHTML = `
     <option value="" disabled selected>Selecione o sabor</option>
     ${flavors.map(f => `<option value="${f.id}">${f.name}</option>`).join('')}
   `;
 
   document.getElementById('shipment-form-container')?.classList.add('hidden');
+  document.getElementById('separate-line-modal-container')?.classList.add('hidden');
+
   formContainer?.classList.remove('hidden');
   formContainer?.scrollIntoView({ behavior: 'smooth' });
 }
@@ -302,7 +414,11 @@ async function loadShipmentOrders() {
                     </div>
 
                     <div class="flex items-center gap-4">
-                      <span class="font-bold text-bordeaux-primary">${formatWeight(line.separated_kg)} / ${formatWeight(line.requested_kg)}</span>
+                      <div class="flex flex-col text-right">
+                        <span class="text-text-muted text-[11px]">Solicitado: <strong>${formatWeight(line.requested_kg)}</strong></span>
+                        <span class="font-bold text-bordeaux-primary text-xs">Separado Real: <strong>${formatWeight(line.separated_kg)}</strong></span>
+                      </div>
+
                       <span class="px-2 py-0.5 rounded text-[10px] font-bold ${
                         line.status === 'delivered' ? 'bg-surface-container-low text-status-success' :
                         line.status === 'separated_for_invoice' ? 'bg-status-info text-white' :
@@ -312,7 +428,7 @@ async function loadShipmentOrders() {
                       </span>
 
                       ${line.status === 'pending' ? `
-                        <button class="advance-line-btn px-2.5 py-1 rounded bg-bordeaux-primary text-on-primary font-bold" data-lineid="${line.id}" data-status="separated_for_invoice">
+                        <button class="separate-for-invoice-btn px-3 py-1.5 rounded bg-bordeaux-primary text-on-primary font-bold hover:bg-wine-deep transition-colors" data-lineid="${line.id}">
                           Separar p/ NF
                         </button>
                       ` : line.status === 'separated_for_invoice' ? `
@@ -342,7 +458,21 @@ async function loadShipmentOrders() {
     });
   });
 
-  // Listener para avançar status do pedido
+  // Listener para abrir modal de separação p/ NF
+  container.querySelectorAll('.separate-for-invoice-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const lineId = e.currentTarget.dataset.lineid;
+      for (const order of orders) {
+        const foundLine = (order.shipment_lines || []).find(l => l.id === lineId);
+        if (foundLine) {
+          openSeparateLineModal(foundLine);
+          break;
+        }
+      }
+    });
+  });
+
+  // Listener para avançar status subsequente do pedido (doca -> entrega)
   container.querySelectorAll('.advance-line-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const lineId = e.currentTarget.dataset.lineid;
