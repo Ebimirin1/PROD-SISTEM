@@ -323,12 +323,13 @@ create table public.mass_base_batch_ingredient_inputs (
 );
 
 -- Uma porção operacional de até 30 kg alimenta separação e execução parcial.
+-- Uma porção operacional por sabor alimenta separação e execução.
 create table public.production_portions (
   id uuid primary key default gen_random_uuid(),
   production_order_id uuid not null references public.production_orders(id) on delete cascade,
   flavor_id uuid not null references public.flavors(id) on delete restrict,
   portion_no integer not null check (portion_no > 0),
-  planned_kg numeric(12,3) not null check (planned_kg > 0 and planned_kg <= 30),
+  planned_kg numeric(12,3) not null check (planned_kg > 0),
   created_at timestamptz not null default now(),
   unique (production_order_id, flavor_id, portion_no)
 );
