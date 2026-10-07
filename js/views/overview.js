@@ -2,16 +2,34 @@ import { supabase } from '../supabaseClient.js';
 import { renderEmptyState, formatWeight, formatDate } from '../utils.js';
 
 // Módulo de Visão Geral (Monitor Operacional Diário / Bento Grid)
-function getLocalDateString() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
+function getLocalDateString(dateObj = new Date()) {
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
-let currentFilterMode = 'all'; // 'all' (Visão Geral) ou 'day' (Por Dia)
+function getDefaultWeekRange() {
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0 is Sunday, 1 is Monday...
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + diffToMonday);
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  return {
+    start: getLocalDateString(monday),
+    end: getLocalDateString(sunday)
+  };
+}
+
+let currentFilterMode = 'all'; // 'all' (Visão Geral), 'day' (Por Dia) ou 'range' (Por Período / Semana)
 let currentSelectedDate = getLocalDateString();  // YYYY-MM-DD (Padrão: Data Local Hoje)
+const defaultWeekRange = getDefaultWeekRange();
+let currentStartDate = defaultWeekRange.start;
+let currentEndDate = defaultWeekRange.end;
 
 // Estado do Modal de Estoque por Sabor
 let modalAllFlavors = [];
@@ -38,20 +56,31 @@ export async function render(container) {
 
           <div class="h-6 w-px bg-border-subtle hidden md:block"></div>
 
-          <!-- Filtro Modo: Visão Geral vs Por Dia -->
-          <div class="flex items-center gap-2 bg-surface-canvas p-1 rounded-lg border border-border-subtle">
+          <!-- Filtro Modo: Visão Geral, Por Dia vs Por Período / Semana -->
+          <div class="flex items-center gap-1 bg-surface-canvas p-1 rounded-lg border border-border-subtle">
             <button id="filter-btn-all" class="px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}">
               Visão Geral
             </button>
             <button id="filter-btn-day" class="px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}">
               Por Dia
             </button>
+            <button id="filter-btn-range" class="px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}">
+              Por Período / Semana
+            </button>
           </div>
 
-          <!-- Seletor de Data (Exibido quando no modo Por Dia) -->
+          <!-- Seletor de Data Única (Exibido quando no modo Por Dia) -->
           <div id="date-picker-wrapper" class="${currentFilterMode === 'day' ? 'flex' : 'hidden'} items-center gap-2 bg-surface-canvas px-3 py-1.5 rounded-lg border border-border-subtle">
             <label for="overview-date-select" class="font-label-sm text-label-sm text-text-muted uppercase">Data:</label>
             <input type="date" id="overview-date-select" value="${currentSelectedDate}" class="bg-transparent font-title-md text-title-md text-bordeaux-primary font-bold focus:outline-none cursor-pointer">
+          </div>
+
+          <!-- Seletor de Período / Semana (Exibido quando no modo Por Período) -->
+          <div id="range-picker-wrapper" class="${currentFilterMode === 'range' ? 'flex' : 'hidden'} items-center gap-2 bg-surface-canvas px-3 py-1.5 rounded-lg border border-border-subtle flex-wrap">
+            <label for="overview-start-date" class="font-label-sm text-label-sm text-text-muted uppercase">De:</label>
+            <input type="date" id="overview-start-date" value="${currentStartDate}" class="bg-transparent font-title-md text-title-md text-bordeaux-primary font-bold focus:outline-none cursor-pointer">
+            <label for="overview-end-date" class="font-label-sm text-label-sm text-text-muted uppercase">Até:</label>
+            <input type="date" id="overview-end-date" value="${currentEndDate}" class="bg-transparent font-title-md text-title-md text-bordeaux-primary font-bold focus:outline-none cursor-pointer">
           </div>
 
           <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container-low text-status-success font-label-md text-label-md">
@@ -158,50 +187,77 @@ export async function render(container) {
 function setupFilterEventListeners(container) {
   const btnAll = container.querySelector('#filter-btn-all');
   const btnDay = container.querySelector('#filter-btn-day');
+  const btnRange = container.querySelector('#filter-btn-range');
   const dateWrapper = container.querySelector('#date-picker-wrapper');
+  const rangeWrapper = container.querySelector('#range-picker-wrapper');
   const dateSelect = container.querySelector('#overview-date-select');
+  const startDateInput = container.querySelector('#overview-start-date');
+  const endDateInput = container.querySelector('#overview-end-date');
   const refreshBtn = container.querySelector('#refresh-overview-btn');
   const refreshIcon = container.querySelector('#refresh-overview-icon');
 
-  if (btnAll) {
-    btnAll.addEventListener('click', () => {
-      if (currentFilterMode !== 'all') {
-        currentFilterMode = 'all';
-        btnAll.className = 'px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors bg-bordeaux-primary text-on-primary font-bold shadow-sm';
-        btnDay.className = 'px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors text-text-muted hover:text-ink-text';
-        if (dateWrapper) dateWrapper.classList.add('hidden');
-        loadOverviewData();
-      }
-    });
-  }
+  const updateButtonsStyle = () => {
+    if (btnAll) btnAll.className = `px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}`;
+    if (btnDay) btnDay.className = `px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}`;
+    if (btnRange) btnRange.className = `px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}`;
 
-  if (btnDay) {
-    btnDay.addEventListener('click', () => {
-      if (currentFilterMode !== 'day') {
-        currentFilterMode = 'day';
-        btnDay.className = 'px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors bg-bordeaux-primary text-on-primary font-bold shadow-sm';
-        btnAll.className = 'px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors text-text-muted hover:text-ink-text';
-        if (dateWrapper) dateWrapper.classList.remove('hidden');
-        loadOverviewData();
-      }
-    });
-  }
+    if (dateWrapper) dateWrapper.classList.toggle('hidden', currentFilterMode !== 'day');
+    if (rangeWrapper) rangeWrapper.classList.toggle('hidden', currentFilterMode !== 'range');
+  };
 
-  if (dateSelect) {
-    dateSelect.addEventListener('change', (e) => {
-      currentSelectedDate = e.target.value;
+  btnAll?.addEventListener('click', () => {
+    if (currentFilterMode !== 'all') {
+      currentFilterMode = 'all';
+      updateButtonsStyle();
       loadOverviewData();
-    });
-  }
+    }
+  });
 
-  if (refreshBtn) {
-    refreshBtn.addEventListener('click', () => {
-      if (refreshIcon) refreshIcon.classList.add('animate-spin');
-      loadOverviewData().finally(() => {
-        if (refreshIcon) refreshIcon.classList.remove('animate-spin');
-      });
+  btnDay?.addEventListener('click', () => {
+    if (currentFilterMode !== 'day') {
+      currentFilterMode = 'day';
+      updateButtonsStyle();
+      loadOverviewData();
+    }
+  });
+
+  btnRange?.addEventListener('click', () => {
+    if (currentFilterMode !== 'range') {
+      currentFilterMode = 'range';
+      updateButtonsStyle();
+      loadOverviewData();
+    }
+  });
+
+  dateSelect?.addEventListener('change', (e) => {
+    currentSelectedDate = e.target.value;
+    loadOverviewData();
+  });
+
+  startDateInput?.addEventListener('change', (e) => {
+    currentStartDate = e.target.value;
+    if (currentEndDate && currentStartDate > currentEndDate) {
+      currentEndDate = currentStartDate;
+      if (endDateInput) endDateInput.value = currentEndDate;
+    }
+    loadOverviewData();
+  });
+
+  endDateInput?.addEventListener('change', (e) => {
+    currentEndDate = e.target.value;
+    if (currentStartDate && currentEndDate < currentStartDate) {
+      currentStartDate = currentEndDate;
+      if (startDateInput) startDateInput.value = currentStartDate;
+    }
+    loadOverviewData();
+  });
+
+  refreshBtn?.addEventListener('click', () => {
+    if (refreshIcon) refreshIcon.classList.add('animate-spin');
+    loadOverviewData().finally(() => {
+      if (refreshIcon) refreshIcon.classList.remove('animate-spin');
     });
-  }
+  });
 }
 
 function setupProductionModalEventListeners(container) {
@@ -538,6 +594,8 @@ async function loadOverviewData() {
   let filteredOps = ops;
   if (currentFilterMode === 'day' && currentSelectedDate) {
     filteredOps = ops.filter(o => o.production_date === currentSelectedDate);
+  } else if (currentFilterMode === 'range' && currentStartDate && currentEndDate) {
+    filteredOps = ops.filter(o => o.production_date >= currentStartDate && o.production_date <= currentEndDate);
   }
 
   // Mapeamentos
@@ -581,8 +639,16 @@ function renderMetricsCards(container, filteredOps, totalsMap, statusMap, lots, 
       <article class="bg-surface-card rounded-xl p-space-md shadow-sm border border-border-subtle flex flex-col justify-between relative overflow-hidden">
         <div class="absolute top-0 left-0 right-0 h-1.5 bg-bordeaux-primary"></div>
         <div class="flex flex-col gap-1">
-          <span class="font-label-sm text-text-muted uppercase">${currentFilterMode === 'day' ? 'Monitoramento Diário' : 'Visão Geral Global'}</span>
-          <h2 class="font-headline-sm text-ink-text">${currentFilterMode === 'day' ? `Dia ${formatDate(currentSelectedDate)}` : `${filteredOps.length} OPs Mapeadas`}</h2>
+          <span class="font-label-sm text-text-muted uppercase">${
+            currentFilterMode === 'day' ? 'Monitoramento Diário' :
+            currentFilterMode === 'range' ? 'Monitoramento por Período / Semana' :
+            'Visão Geral Global'
+          }</span>
+          <h2 class="font-headline-sm text-ink-text">${
+            currentFilterMode === 'day' ? `Dia ${formatDate(currentSelectedDate)}` :
+            currentFilterMode === 'range' ? `${formatDate(currentStartDate)} a ${formatDate(currentEndDate)}` :
+            `${filteredOps.length} OPs Mapeadas`
+          }</h2>
           <div class="flex justify-between items-baseline mt-2">
             <span class="text-xs text-text-muted">Carga Planejada:</span>
             <span class="font-bold text-bordeaux-primary text-lg">${formatWeight(totalPlannedKg)}</span>
