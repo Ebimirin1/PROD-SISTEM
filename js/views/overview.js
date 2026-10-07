@@ -2,8 +2,16 @@ import { supabase } from '../supabaseClient.js';
 import { renderEmptyState, formatWeight, formatDate } from '../utils.js';
 
 // Módulo de Visão Geral (Monitor Operacional Diário / Bento Grid)
+function getLocalDateString() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 let currentFilterMode = 'all'; // 'all' (Visão Geral) ou 'day' (Por Dia)
-let currentSelectedDate = '';  // YYYY-MM-DD
+let currentSelectedDate = getLocalDateString();  // YYYY-MM-DD (Padrão: Data Local Hoje)
 
 // Estado do Modal de Estoque por Sabor
 let modalAllFlavors = [];
@@ -43,9 +51,7 @@ export async function render(container) {
           <!-- Seletor de Data (Exibido quando no modo Por Dia) -->
           <div id="date-picker-wrapper" class="${currentFilterMode === 'day' ? 'flex' : 'hidden'} items-center gap-2 bg-surface-canvas px-3 py-1.5 rounded-lg border border-border-subtle">
             <label for="overview-date-select" class="font-label-sm text-label-sm text-text-muted uppercase">Data:</label>
-            <select id="overview-date-select" class="bg-transparent font-title-md text-title-md text-bordeaux-primary font-bold focus:outline-none cursor-pointer">
-              <!-- Preenchido dinamicamente com datas de produção -->
-            </select>
+            <input type="date" id="overview-date-select" value="${currentSelectedDate}" class="bg-transparent font-title-md text-title-md text-bordeaux-primary font-bold focus:outline-none cursor-pointer">
           </div>
 
           <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container-low text-status-success font-label-md text-label-md">
@@ -522,13 +528,10 @@ async function loadOverviewData() {
     return;
   }
 
-  // Atualizar dropdown de datas de produção
-  const uniqueDates = [...new Set(ops.map(o => o.production_date).filter(Boolean))].sort().reverse();
+  // Atualizar campo de data de produção
   const dateSelect = document.getElementById('overview-date-select');
-  if (dateSelect) {
-    const prevVal = currentSelectedDate || uniqueDates[0] || '';
-    dateSelect.innerHTML = uniqueDates.map(d => `<option value="${d}" ${d === prevVal ? 'selected' : ''}>${formatDate(d)}</option>`).join('');
-    currentSelectedDate = dateSelect.value;
+  if (dateSelect && !dateSelect.value) {
+    dateSelect.value = currentSelectedDate;
   }
 
   // Filtrar OPs de acordo com o modo escolhido
