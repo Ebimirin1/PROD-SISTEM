@@ -911,12 +911,12 @@ function renderDailyProductionOrders(container, ops, portions, statusMap) {
                             </div>
                           </div>
 
-                          <!-- 3. Rotulados -->
+                          <!-- 3. Rotulados (Contagem Automática: 2,5x por kg) -->
                           <div class="p-3 bg-surface-canvas rounded-lg border border-border-subtle flex flex-col justify-between gap-1">
                             <div class="flex items-center justify-between">
                               <span class="font-label-sm text-label-sm text-text-muted uppercase font-bold flex items-center gap-1">
                                 <span class="material-symbols-outlined text-[16px] text-status-success">label</span>
-                                Rotulados
+                                Rotulados (2,5x/kg)
                               </span>
                               <span class="px-2 py-0.5 rounded text-[10px] font-bold ${
                                 rotulagemStats.status === 'completed' ? 'bg-surface-container-low text-status-success' :
@@ -926,8 +926,9 @@ function renderDailyProductionOrders(container, ops, portions, statusMap) {
                                 ${rotulagemStats.status === 'completed' ? 'Concluído' : rotulagemStats.status === 'in_progress' ? 'Executando' : 'Pendente'}
                               </span>
                             </div>
-                            <div class="mt-1">
+                            <div class="mt-1 flex items-baseline justify-between">
                               <span class="font-tabular-data-lg text-tabular-data-lg text-ink-text font-bold">${formatWeight(rotulagemStats.totalKg)}</span>
+                              <span class="text-xs font-bold text-status-success">${Math.round(rotulagemStats.totalKg * 2.5)} rótulos</span>
                             </div>
                             <div class="flex items-center gap-1 text-xs text-text-muted mt-1 border-t border-border-subtle pt-1">
                               <span class="material-symbols-outlined text-[14px]">schedule</span>
