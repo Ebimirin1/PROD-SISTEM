@@ -17,7 +17,7 @@ export async function render(container) {
         </a>
       </div>
 
-      <div id="separation-list-container"></div>
+      <div id="production-list-container"></div>
     </div>
   `;
 
