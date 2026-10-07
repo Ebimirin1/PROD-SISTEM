@@ -356,7 +356,7 @@ function renderProductionModalContent() {
 
     const runs = p.process_runs || [];
     for (const run of runs) {
-      if (run.stage === 'rotulagem' && run.status === 'completed' && run.actual_kg) {
+      if (run.stage === 'vacuo' && run.status === 'completed' && run.actual_kg) {
         acc[fId].actualKgProduced += Number(run.actual_kg);
       }
       if (run.status === 'completed') acc[fId].hasCompletedRuns = true;
