@@ -159,16 +159,36 @@ async function loadLabelingRuns() {
       }
 
       try {
+        const nowIso = new Date().toISOString();
+        const collabId = document.getElementById(`collab-rot-${runId}`)?.value;
+
+        // Fetch current run to preserve started_at if present
+        const { data: currentRun } = await supabase
+          .from('process_runs')
+          .select('started_at')
+          .eq('id', runId)
+          .maybeSingle();
+
+        const startedAt = currentRun?.started_at || nowIso;
+
         const { error } = await supabase
           .from('process_runs')
           .update({
             status: 'completed',
-            completed_at: new Date().toISOString(),
+            started_at: startedAt,
+            completed_at: nowIso,
             actual_kg: baseKg
           })
           .eq('id', runId);
 
         if (error) throw error;
+
+        if (collabId) {
+          await supabase.from('process_run_collaborators').upsert({
+            process_run_id: runId,
+            collaborator_id: collabId
+          });
+        }
 
         showNotification('Contagem e aplicação de rótulos confirmadas com sucesso!', 'success');
         loadLabelingRuns();
