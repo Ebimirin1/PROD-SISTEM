@@ -112,30 +112,25 @@ async function loadLabelingRuns() {
                 </div>
               </div>
 
-              <!-- Controles de Ação de Rotulagem -->
-              ${!isVacuoCompleted ? `
-                <div class="p-3 rounded-lg bg-surface-canvas text-text-muted text-xs italic border border-border-subtle flex items-center gap-2">
-                  <span class="material-symbols-outlined text-[18px]">lock</span>
-                  <span>Aguardando conclusão da etapa de Vácuo para liberar aplicação de rótulos.</span>
-                </div>
-              ` : isRotulagemCompleted ? `
+              <!-- Controles de Ação de Rotulagem (Liberado de forma independente) -->
+              ${isRotulagemCompleted ? `
                 <div class="p-3 rounded-lg bg-surface-container-low text-status-success text-xs font-bold border border-border-subtle flex items-center justify-between">
                   <span class="flex items-center gap-1">
                     <span class="material-symbols-outlined text-[18px]">check_circle</span>
-                    Lote de ${calculatedLabels} rótulos impresso e aplicado com sucesso.
+                    Lote de ${calculatedLabels} rótulos conferido e preparado.
                   </span>
                   <span class="text-[11px] font-normal text-text-muted">${formatDateTime(rotulagemRun?.completed_at)}</span>
                 </div>
               ` : `
                 <div class="flex flex-col gap-2 p-3 bg-surface-canvas rounded-lg border border-border-subtle text-xs">
                   <div class="flex items-center justify-between">
-                    <span class="font-bold text-ink-text">Confirmar Liberação e Rotulagem:</span>
-                    <span class="text-status-success font-bold">${calculatedLabels} Unidades</span>
+                    <span class="font-bold text-ink-text">Conferir e Preparar Embalagem / Rótulos:</span>
+                    <span class="text-status-success font-bold">${calculatedLabels} Rótulos</span>
                   </div>
 
                   <div class="flex items-center gap-2 mt-1">
                     <select id="collab-rot-${rotulagemRun?.id || p.id}" class="flex-1 px-2.5 py-1.5 rounded border border-border-subtle bg-surface-card text-xs font-bold">
-                      <option value="">Selecione o Operador de Rotulagem</option>
+                      <option value="">Selecione o Operador de Embalagem</option>
                       ${(collaborators || []).map(c => `<option value="${c.id}">${c.full_name}</option>`).join('')}
                     </select>
 
