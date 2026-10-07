@@ -1,19 +1,51 @@
 import { supabase } from '../supabaseClient.js';
 import { showNotification, renderEmptyState, formatWeight, formatDate } from '../utils.js';
 
-// Módulo de Estoque Acabado, Curas, Validades e Sobras Reais
+// Módulo de Estoque Acabado, Curas, Validades e Sobras Reais por Semana de Produção
+let currentSelectedWeek = 'all'; // 'all' ou 'Semana XX / YYYY'
+
+export function getISOWeekDetails(dateStr) {
+  if (!dateStr) return { weekNum: 0, year: 0, label: 'Sem Data' };
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return { weekNum: 0, year: 0, label: 'Sem Data' };
+
+  const target = new Date(d.valueOf());
+  const dayNr = (d.getDay() + 6) % 7;
+  target.setDate(target.getDate() - dayNr + 3);
+  const firstThursday = target.valueOf();
+  target.setMonth(0, 1);
+  if (target.getDay() !== 4) {
+    target.setMonth(0, 1 + ((4 - target.getDay() + 7) % 7));
+  }
+  const weekNum = 1 + Math.round((firstThursday - target.valueOf()) / 604800000);
+  const year = target.getFullYear();
+  return { weekNum, year, label: `Semana ${String(weekNum).padStart(2, '0')} / ${year}` };
+}
+
 export async function render(container) {
   container.innerHTML = `
     <div class="flex flex-col gap-space-lg">
-      <div class="flex flex-wrap items-center justify-between gap-space-md">
+      <div class="flex flex-wrap items-center justify-between gap-space-md bg-surface-card p-space-md rounded-xl border border-border-subtle shadow-sm">
         <div>
-          <h1 class="font-display-lg text-display-lg text-ink-text">Estoque & Acompanhamento de Validade</h1>
-          <p class="font-body-md text-body-md text-text-muted">Registro de lotes acabados, validade (+45 dias resfriado / +6 meses congelado), saldos e reaproveitamento de sobras.</p>
+          <h1 class="font-display-lg text-display-lg text-ink-text">Estoque & Acompanhamento por Semana</h1>
+          <p class="font-body-md text-body-md text-text-muted">Gestão de estoque real separado por semana de produção, acompanhamento de validade e saldos em câmara.</p>
         </div>
-        <button id="add-finished-lot-btn" class="min-h-[44px] px-5 rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md flex items-center gap-2 transition-colors shadow-sm">
-          <span class="material-symbols-outlined text-[20px]">add_circle</span>
-          <span>Dar Entrada de Lote Acabado</span>
-        </button>
+
+        <div class="flex items-center gap-space-sm flex-wrap">
+          <!-- Filtro Seletor de Semana de Produção -->
+          <div class="flex items-center gap-2 bg-surface-canvas px-3 py-1.5 rounded-lg border border-border-subtle">
+            <span class="material-symbols-outlined text-bordeaux-primary text-[20px]">calendar_view_week</span>
+            <label for="inventory-week-select" class="font-label-sm text-label-sm text-text-muted uppercase font-bold">Semana:</label>
+            <select id="inventory-week-select" class="bg-transparent font-title-md text-title-md text-bordeaux-primary font-bold focus:outline-none cursor-pointer">
+              <option value="all">Todas as Semanas</option>
+            </select>
+          </div>
+
+          <button id="add-finished-lot-btn" class="min-h-[44px] px-5 rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md flex items-center gap-2 transition-colors shadow-sm">
+            <span class="material-symbols-outlined text-[20px]">add_circle</span>
+            <span>Entrada Manual de Lote</span>
+          </button>
+        </div>
       </div>
 
       <!-- Form para Registrar Lote Acabado -->
@@ -122,7 +154,18 @@ export async function render(container) {
     }
   });
 
+  setupInventoryWeekFilter(container);
   loadInventory();
+}
+
+function setupInventoryWeekFilter(container) {
+  const weekSelect = container.querySelector('#inventory-week-select');
+  if (weekSelect) {
+    weekSelect.addEventListener('change', (e) => {
+      currentSelectedWeek = e.target.value;
+      loadInventory();
+    });
+  }
 }
 
 async function populateLotFlavors() {
@@ -137,10 +180,21 @@ async function loadInventory() {
   const container = document.getElementById('inventory-list-container');
   if (!container) return;
 
-  const { data: inventory, error } = await supabase.from('vw_inventory_by_flavor').select('*');
+  // Buscar saldos e datas de lotes acabados
+  const [
+    { data: inventory, error: invErr },
+    { data: lots, error: lotsErr }
+  ] = await Promise.all([
+    supabase.from('vw_inventory_by_flavor').select('*'),
+    supabase.from('finished_lots').select(`
+      id, lot_code, created_at, mass_ready_date, product_type, conservation, produced_kg,
+      flavors (id, name),
+      production_orders (production_date, order_code)
+    `).order('created_at', { ascending: false })
+  ]);
 
-  if (error) {
-    container.innerHTML = `<div class="p-4 bg-badge-error-bg text-badge-error-text rounded-lg">Erro ao carregar estoque: ${error.message}</div>`;
+  if (invErr || lotsErr) {
+    container.innerHTML = `<div class="p-4 bg-badge-error-bg text-badge-error-text rounded-lg">Erro ao carregar estoque por semana: ${(invErr || lotsErr)?.message}</div>`;
     return;
   }
 
@@ -149,39 +203,121 @@ async function loadInventory() {
     container.appendChild(renderEmptyState({
       icon: 'inventory_2',
       title: 'Estoque Acabado Vazio',
-      description: 'Dê entrada nos lotes acabados para visualizá-los e acompanhar as datas de validade.',
+      description: 'Conclua a etapa de Vácuo na produção ou dê entrada nos lotes acabados para alimentar o estoque por semana.',
       actionText: 'Dar Entrada no Primeiro Lote',
       onAction: () => document.getElementById('add-finished-lot-btn')?.click()
     }));
     return;
   }
 
+  // Agrupar itens por semana de produção
+  const lotsByLotCode = (lots || []).reduce((acc, l) => {
+    acc[l.lot_code] = l;
+    return acc;
+  }, {});
+
+  const weeksMap = {};
+
+  inventory.forEach(item => {
+    const lotObj = lotsByLotCode[item.lot_code] || {};
+    const prodDate = lotObj.production_orders?.production_date || lotObj.mass_ready_date || item.expiry_date || new Date().toISOString();
+    const weekInfo = getISOWeekDetails(prodDate);
+    const weekKey = weekInfo.label;
+
+    if (!weeksMap[weekKey]) {
+      weeksMap[weekKey] = {
+        weekLabel: weekKey,
+        totalBalanceKg: 0,
+        items: []
+      };
+    }
+
+    weeksMap[weekKey].totalBalanceKg += Number(item.balance_kg || 0);
+    weeksMap[weekKey].items.push({
+      ...item,
+      prodDate
+    });
+  });
+
+  const uniqueWeeks = Object.keys(weeksMap).sort().reverse();
+
+  // Preencher dropdown de semanas
+  const weekSelect = document.getElementById('inventory-week-select');
+  if (weekSelect) {
+    const prevVal = currentSelectedWeek || 'all';
+    weekSelect.innerHTML = `
+      <option value="all" ${prevVal === 'all' ? 'selected' : ''}>Todas as Semanas</option>
+      ${uniqueWeeks.map(w => `<option value="${w}" ${w === prevVal ? 'selected' : ''}>${w}</option>`).join('')}
+    `;
+    currentSelectedWeek = weekSelect.value;
+  }
+
+  // Filtrar semanas
+  let displayWeeks = uniqueWeeks;
+  if (currentSelectedWeek && currentSelectedWeek !== 'all') {
+    displayWeeks = displayWeeks.filter(w => w === currentSelectedWeek);
+  }
+
+  if (displayWeeks.length === 0) {
+    container.innerHTML = `
+      <div class="p-8 text-center text-text-muted text-xs italic bg-surface-card rounded-xl border border-border-subtle">
+        Nenhum lote de estoque encontrado para a semana selecionada.
+      </div>
+    `;
+    return;
+  }
+
   container.innerHTML = `
-    <div class="bg-surface-card rounded-xl shadow-sm border border-border-subtle overflow-hidden">
-      <table class="w-full text-left font-body-md">
-        <thead class="bg-surface-canvas text-ink-text font-title-md border-b border-border-subtle">
-          <tr>
-            <th class="py-3 px-4 font-semibold">Lote</th>
-            <th class="py-3 px-4 font-semibold">Sabor</th>
-            <th class="py-3 px-4 font-semibold">Tipo</th>
-            <th class="py-3 px-4 font-semibold">Conservação</th>
-            <th class="py-3 px-4 font-semibold">Validade Calculada</th>
-            <th class="py-3 px-4 font-semibold text-right">Saldo Atual (kg)</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-border-subtle text-ink-text">
-          ${inventory.map(item => `
-            <tr class="hover:bg-surface-canvas/60 transition-colors">
-              <td class="py-3 px-4 font-bold text-bordeaux-primary">${item.lot_code}</td>
-              <td class="py-3 px-4 font-bold">${item.flavor}</td>
-              <td class="py-3 px-4 capitalize">${item.product_type}</td>
-              <td class="py-3 px-4 capitalize">${item.conservation}</td>
-              <td class="py-3 px-4 font-bold text-text-muted">${formatDate(item.expiry_date)}</td>
-              <td class="py-3 px-4 text-right font-bold text-status-success">${formatWeight(item.balance_kg)}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
+    <div class="flex flex-col gap-space-lg">
+      ${displayWeeks.map(weekKey => {
+        const weekGroup = weeksMap[weekKey];
+
+        return `
+          <div class="bg-surface-card rounded-xl shadow-sm border border-border-subtle flex flex-col gap-space-md p-space-md">
+            <!-- Cabeçalho da Semana -->
+            <div class="flex flex-wrap items-center justify-between border-b border-border-subtle pb-space-xs gap-2">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-bordeaux-primary text-[22px]">calendar_view_week</span>
+                <h3 class="font-title-lg text-title-lg text-ink-text font-bold">${weekGroup.weekLabel}</h3>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="text-xs text-text-muted font-bold">${weekGroup.items.length} ${weekGroup.items.length === 1 ? 'lote' : 'lotes'}</span>
+                <span class="px-3 py-1 rounded-full text-xs font-bold bg-surface-container-low text-status-success border border-border-subtle">
+                  Saldo da Semana: ${formatWeight(weekGroup.totalBalanceKg)}
+                </span>
+              </div>
+            </div>
+
+            <!-- Tabela de Lotes da Semana -->
+            <div class="overflow-x-auto">
+              <table class="w-full text-left font-body-md text-xs">
+                <thead class="bg-surface-canvas text-ink-text font-title-md border-b border-border-subtle">
+                  <tr>
+                    <th class="py-2 px-3 font-semibold">Lote</th>
+                    <th class="py-2 px-3 font-semibold">Sabor</th>
+                    <th class="py-2 px-3 font-semibold">Tipo</th>
+                    <th class="py-2 px-3 font-semibold">Conservação</th>
+                    <th class="py-2 px-3 font-semibold">Validade Calculada</th>
+                    <th class="py-2 px-3 font-semibold text-right">Saldo Atual (kg)</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-border-subtle text-ink-text">
+                  ${weekGroup.items.map(item => `
+                    <tr class="hover:bg-surface-canvas/60 transition-colors">
+                      <td class="py-2.5 px-3 font-bold text-bordeaux-primary">${item.lot_code}</td>
+                      <td class="py-2.5 px-3 font-bold">${item.flavor}</td>
+                      <td class="py-2.5 px-3 capitalize">${item.product_type}</td>
+                      <td class="py-2.5 px-3 capitalize">${item.conservation}</td>
+                      <td class="py-2.5 px-3 font-bold text-text-muted">${formatDate(item.expiry_date)}</td>
+                      <td class="py-2.5 px-3 text-right font-bold text-status-success">${formatWeight(item.balance_kg)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }).join('')}
     </div>
   `;
 }
