@@ -10,7 +10,7 @@ export async function render(container) {
       <div class="flex flex-wrap items-center justify-between gap-space-md">
         <div>
           <h1 class="font-display-lg text-display-lg text-ink-text">Separação de Insumos e Especiarias</h1>
-          <p class="font-body-md text-body-md text-text-muted">Kits de insumos fracionados por porção de até 30 kg, conferência de pesagem na balança e registro de lotes/divergências.</p>
+          <p class="font-body-md text-body-md text-text-muted">Kits de insumos fracionados por lote total por sabor, conferência de pesagem na balança e registro de lotes/divergências.</p>
         </div>
 
         <!-- Filtros de Status de Separação -->

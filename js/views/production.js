@@ -8,7 +8,7 @@ export async function render(container) {
       <div class="flex flex-wrap items-center justify-between gap-space-md">
         <div>
           <h1 class="font-display-lg text-display-lg text-ink-text">Terminal de Execução de Produção</h1>
-          <p class="font-body-md text-body-md text-text-muted">Acompanhamento em tempo real por porção de 30 kg nas etapas de Embutimento e Vácuo (a etapa de Rotulagem é gerada automaticamente na tela "Contagem de Rótulos").</p>
+          <p class="font-body-md text-body-md text-text-muted">Acompanhamento em tempo real por lote total do sabor nas etapas de Embutimento e Vácuo (a etapa de Rotulagem é gerada automaticamente na tela "Contagem de Rótulos").</p>
         </div>
 
         <a href="#labeling" id="go-to-labeling-btn" class="px-4 py-2 rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-bold flex items-center gap-2 text-xs shadow-sm transition-colors">
