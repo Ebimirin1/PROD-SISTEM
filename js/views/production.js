@@ -216,18 +216,60 @@ function setupProductionEventListeners(container, collaborators) {
       }
 
       try {
-        const { error } = await supabase
+        // 1. Atualizar execução da etapa
+        const { data: run, error } = await supabase
           .from('process_runs')
           .update({
             status: 'completed',
             completed_at: new Date().toISOString(),
             actual_kg: actualKg
           })
-          .eq('id', runId);
+          .eq('id', runId)
+          .select('*, production_portions(*, production_orders(*))')
+          .single();
 
         if (error) throw error;
 
-        showNotification('Etapa concluída com sucesso!', 'success');
+        // 2. Se a etapa for 'vacuo', lançar o lote automaticamente no estoque acabado
+        if (run && run.stage === 'vacuo' && run.production_portions) {
+          const portion = run.production_portions;
+          const op = portion.production_orders || {};
+          const today = new Date().toISOString().split('T')[0];
+          const massReadyDate = op.mass_ready_date || op.production_date || today;
+          const orderCode = op.order_code || 'OP';
+          const lotCode = `LOT-VAC-${orderCode}-P${portion.portion_no || 1}`;
+
+          // Inserir lote acabado em finished_lots
+          const { data: newLot, error: lotErr } = await supabase
+            .from('finished_lots')
+            .insert({
+              production_order_id: portion.production_order_id,
+              flavor_id: portion.flavor_id,
+              lot_code: lotCode,
+              product_type: 'linguica',
+              conservation: 'resfriado',
+              mass_ready_date: massReadyDate,
+              produced_kg: actualKg
+            })
+            .select()
+            .single();
+
+          if (!lotErr && newLot) {
+            // Lançar movimento de entrada de estoque
+            await supabase.from('inventory_movements').insert({
+              finished_lot_id: newLot.id,
+              movement_type: 'production_entry',
+              quantity_delta_kg: actualKg,
+              reference_text: `Entrada Automática Vácuo (${orderCode})`
+            });
+            showNotification(`Etapa de Vácuo concluída! ${actualKg} kg adicionados automaticamente ao Estoque Acabado.`, 'success');
+          } else {
+            showNotification('Etapa de Vácuo concluída com sucesso!', 'success');
+          }
+        } else {
+          showNotification('Etapa concluída com sucesso!', 'success');
+        }
+
         loadProductionProcessRuns();
       } catch (err) {
         showNotification(`Erro ao concluir etapa: ${err.message}`, 'error');
