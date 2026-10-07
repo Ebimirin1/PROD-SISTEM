@@ -576,7 +576,7 @@ async function processGenerateOrders(production_order_id) {
       }
     }
 
-    // 3. Agrupar por Sabor para gerar Porções Operacionais de até 30 kg
+    // 3. Agrupar por Sabor para gerar Lote Total por Sabor (sem divisão forçada de 30kg)
     const flavorTotals = {};
     demands.forEach(d => {
       if (!flavorTotals[d.flavor_id]) flavorTotals[d.flavor_id] = 0;
@@ -588,7 +588,7 @@ async function processGenerateOrders(production_order_id) {
       let portionNo = 1;
 
       while (remaining > 0) {
-        const portionSize = Math.min(remaining, 30);
+        const portionSize = remaining; // Valor total do sabor no lote
         const { data: portion, error: pErr } = await supabase.from('production_portions').insert({
           production_order_id,
           flavor_id: flavorId,
