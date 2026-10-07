@@ -8,6 +8,7 @@ const SCREENS = [
   { key: 'catalogs', title: 'Cadastros & Fórmulas', icon: 'menu_book', path: 'js/views/catalogs.js' },
   { key: 'separation', title: 'Separação Insumos', icon: 'scale', path: 'js/views/separation.js' },
   { key: 'production', title: 'Produção', icon: 'precision_manufacturing', path: 'js/views/production.js' },
+  { key: 'labeling', title: 'Contagem de Rótulos', icon: 'label', path: 'js/views/labeling.js' },
   { key: 'inventory', title: 'Estoque & Cura', icon: 'inventory_2', path: 'js/views/inventory.js' },
   { key: 'shipping', title: 'Pedidos & Expedição', icon: 'local_shipping', path: 'js/views/shipping.js' },
   { key: 'billing', title: 'Faturamento', icon: 'receipt_long', path: 'js/views/billing.js' },

@@ -1,18 +1,23 @@
 import { supabase } from '../supabaseClient.js';
 import { showNotification, renderEmptyState, formatWeight, formatDateTime } from '../utils.js';
 
-// Módulo de Controle de Produção (Chão de Fábrica: Embutimento -> Vácuo -> Rotulagem por Porção)
+// Módulo de Controle de Produção (Chão de Fábrica: Embutimento e Vácuo por Porção)
 export async function render(container) {
   container.innerHTML = `
     <div class="flex flex-col gap-space-lg">
       <div class="flex flex-wrap items-center justify-between gap-space-md">
         <div>
           <h1 class="font-display-lg text-display-lg text-ink-text">Terminal de Execução de Produção</h1>
-          <p class="font-body-md text-body-md text-text-muted">Acompanhamento em tempo real por porção de 30 kg nas etapas de Embutimento, Vácuo e Rotulagem.</p>
+          <p class="font-body-md text-body-md text-text-muted">Acompanhamento em tempo real por porção de 30 kg nas etapas de Embutimento e Vácuo (a etapa de Rotulagem é gerada automaticamente na tela "Contagem de Rótulos").</p>
         </div>
+
+        <a href="#labeling" id="go-to-labeling-btn" class="px-4 py-2 rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-bold flex items-center gap-2 text-xs shadow-sm transition-colors">
+          <span class="material-symbols-outlined text-[18px]">label</span>
+          <span>Ir para Contagem de Rótulos</span>
+        </a>
       </div>
 
-      <div id="production-list-container"></div>
+      <div id="separation-list-container"></div>
     </div>
   `;
 
@@ -74,7 +79,7 @@ async function loadProductionProcessRuns() {
                 </div>
               </div>
 
-              <!-- Três Etapas Sequenciais -->
+              <!-- Etapas Sequenciais de Chão de Fábrica -->
               <div class="flex flex-col gap-2 mt-2">
                 <!-- 1. Embutimento -->
                 ${renderStageBox('Embutimento', embutimento, true, collaborators)}
@@ -82,8 +87,14 @@ async function loadProductionProcessRuns() {
                 <!-- 2. Vácuo (Liberado apenas se Embutimento concluído) -->
                 ${renderStageBox('Vácuo', vacuo, embutimento?.status === 'completed', collaborators)}
 
-                <!-- 3. Rotulagem (Liberada apenas se Vácuo concluído) -->
-                ${renderStageBox('Rotulagem', rotulagem, vacuo?.status === 'completed', collaborators)}
+                <!-- Banner Informativo para a Rotulagem -->
+                <div class="p-3 bg-surface-canvas rounded-lg border border-border-subtle flex items-center justify-between text-xs">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-bordeaux-primary text-[18px]">label</span>
+                    <span class="font-bold text-ink-text">Contagem de Rótulos (2,5x/kg • ~420g por unidade)</span>
+                  </div>
+                  <span class="text-text-muted italic">Gerido na aba Contagem de Rótulos</span>
+                </div>
               </div>
             </div>
           </div>

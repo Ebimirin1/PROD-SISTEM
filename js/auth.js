@@ -39,7 +39,7 @@ export async function getCurrentUser() {
 
   // Se for admin, concede todas as permissões
   if (appUser.is_admin) {
-    state.permissions = ['overview', 'planning', 'catalogs', 'separation', 'production', 'inventory', 'shipping', 'billing', 'users'];
+    state.permissions = ['overview', 'planning', 'catalogs', 'separation', 'production', 'labeling', 'inventory', 'shipping', 'billing', 'users'];
   } else {
     const { data: perms } = await supabase
       .from('user_screen_permissions')
