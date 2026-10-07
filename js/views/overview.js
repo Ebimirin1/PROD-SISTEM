@@ -577,7 +577,7 @@ async function loadOverviewData() {
     dailyOrdersSection.innerHTML = '';
     metricsContainer.appendChild(renderEmptyState({
       icon: 'grid_view',
-      title: 'Nenum Dado Operacional Registrado',
+      title: 'Nenhum Dado Operacional Registrado',
       description: 'Crie ordens de produção no módulo Planejamento para visualizar os indicadores do chão de fábrica.',
       actionText: null
     }));
@@ -631,7 +631,7 @@ function renderMetricsCards(container, filteredOps, totalsMap, statusMap, lots, 
   const overallProgressPct = totalPlannedKg > 0 ? Math.min(100, Math.round((totalProducedKg / totalPlannedKg) * 100)) : 0;
 
   const totalStockKg = (lots || []).reduce((acc, item) => acc + Number(item.balance_kg), 0);
-  const pendingInvoiceKg = (invoiceQueue || []).reduce((acc, item) => acc + Number(item.separated_kg), 0);
+  const pendingInvoiceOrdersCount = new Set((invoiceQueue || []).map(item => item.order_code)).size;
 
   container.innerHTML = `
     <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-space-md">
@@ -691,13 +691,13 @@ function renderMetricsCards(container, filteredOps, totalsMap, statusMap, lots, 
         </div>
       </article>
 
-      <!-- Card 4: Fila de Faturamento -->
+      <!-- Card 4: Fila de Faturamento (Quantidade de Pedidos) -->
       <article class="bg-surface-card rounded-xl p-space-md shadow-sm border border-border-subtle flex flex-col justify-between relative overflow-hidden">
         <div class="absolute top-0 left-0 right-0 h-1.5 bg-status-info"></div>
         <div class="flex flex-col gap-1">
           <span class="font-label-sm text-text-muted uppercase">Pronto para Faturamento</span>
-          <h2 class="font-headline-sm text-status-info">${formatWeight(pendingInvoiceKg)}</h2>
-          <span class="text-xs text-text-muted mt-2">Linhas na doca / fila fiscal</span>
+          <h2 class="font-headline-sm text-status-info">${pendingInvoiceOrdersCount} ${pendingInvoiceOrdersCount === 1 ? 'pedido' : 'pedidos'}</h2>
+          <span class="text-xs text-text-muted mt-2">${pendingInvoiceOrdersCount === 1 ? '1 pedido separado' : `${pendingInvoiceOrdersCount} pedidos separados`} na doca</span>
         </div>
       </article>
     </section>
