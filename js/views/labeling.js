@@ -1,8 +1,18 @@
 import { supabase } from '../supabaseClient.js';
-import { showNotification, renderEmptyState, formatWeight, formatDateTime } from '../utils.js';
+import { showNotification, renderEmptyState, formatWeight, formatDateTime, formatDate } from '../utils.js';
+
+let currentFilterMode = 'all'; // 'all', 'day', 'range'
+let selectedFilterDate = new Date().toISOString().split('T')[0];
+let selectedStartDate = new Date().toISOString().split('T')[0];
+let selectedEndDate = new Date().toISOString().split('T')[0];
 
 // Módulo de Contagem e Controle de Rótulos (2.5 rótulos por kg / ~420g por unidade)
 export async function render(container) {
+  const today = new Date().toISOString().split('T')[0];
+  if (!selectedFilterDate) selectedFilterDate = today;
+  if (!selectedStartDate) selectedStartDate = today;
+  if (!selectedEndDate) selectedEndDate = today;
+
   container.innerHTML = `
     <div class="flex flex-col gap-space-lg max-w-[1720px] mx-auto w-full">
       <div class="flex flex-wrap items-center justify-between gap-space-md bg-surface-card p-space-md rounded-xl border border-border-subtle shadow-sm">
@@ -20,11 +30,106 @@ export async function render(container) {
         </div>
       </div>
 
+      <!-- Barra de Filtros de Período / Dia (Igual à Visão Geral) -->
+      <div class="bg-surface-card p-4 rounded-xl border border-border-subtle shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-label-md text-text-muted flex items-center gap-1 mr-1">
+            <span class="material-symbols-outlined text-[18px]">filter_list</span>
+            <span>Filtrar Rótulos:</span>
+          </span>
+          <button id="lbl-filter-all" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+            Visão Geral
+          </button>
+          <button id="lbl-filter-day" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+            Por Dia
+          </button>
+          <button id="lbl-filter-range" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+            Por Período / Semana
+          </button>
+        </div>
+
+        <div id="lbl-date-controls" class="flex items-center gap-3 flex-wrap">
+          <!-- Renderizado dinamicamente -->
+        </div>
+      </div>
+
       <div id="labeling-list-container"></div>
     </div>
   `;
 
+  setupFilterControls();
   loadLabelingRuns();
+}
+
+function setupFilterControls() {
+  const btnAll = document.getElementById('lbl-filter-all');
+  const btnDay = document.getElementById('lbl-filter-day');
+  const btnRange = document.getElementById('lbl-filter-range');
+  const dateControls = document.getElementById('lbl-date-controls');
+
+  if (!dateControls) return;
+
+  const updateModeUI = () => {
+    if (btnAll) btnAll.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+    if (btnDay) btnDay.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+    if (btnRange) btnRange.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+
+    if (currentFilterMode === 'all') {
+      dateControls.innerHTML = `<span class="text-xs font-bold text-text-muted bg-surface-canvas px-3 py-1.5 rounded-lg">Exibindo todas as porções de rótulos</span>`;
+    } else if (currentFilterMode === 'day') {
+      dateControls.innerHTML = `
+        <div class="flex items-center gap-2">
+          <label for="lbl-single-date" class="text-xs font-bold text-ink-text">Data de Produção:</label>
+          <input type="date" id="lbl-single-date" value="${selectedFilterDate}" class="min-h-[36px] px-3 rounded-lg border border-border-subtle bg-surface-card text-xs font-bold text-ink-text focus:outline-none focus:border-bordeaux-primary">
+        </div>
+      `;
+      document.getElementById('lbl-single-date')?.addEventListener('change', (e) => {
+        selectedFilterDate = e.target.value;
+        loadLabelingRuns();
+      });
+    } else if (currentFilterMode === 'range') {
+      dateControls.innerHTML = `
+        <div class="flex items-center gap-2 flex-wrap">
+          <div class="flex items-center gap-1">
+            <label for="lbl-start-date" class="text-xs font-bold text-ink-text">De:</label>
+            <input type="date" id="lbl-start-date" value="${selectedStartDate}" class="min-h-[36px] px-3 rounded-lg border border-border-subtle bg-surface-card text-xs font-bold text-ink-text focus:outline-none focus:border-bordeaux-primary">
+          </div>
+          <div class="flex items-center gap-1">
+            <label for="lbl-end-date" class="text-xs font-bold text-ink-text">Até:</label>
+            <input type="date" id="lbl-end-date" value="${selectedEndDate}" class="min-h-[36px] px-3 rounded-lg border border-border-subtle bg-surface-card text-xs font-bold text-ink-text focus:outline-none focus:border-bordeaux-primary">
+          </div>
+        </div>
+      `;
+      document.getElementById('lbl-start-date')?.addEventListener('change', (e) => {
+        selectedStartDate = e.target.value;
+        loadLabelingRuns();
+      });
+      document.getElementById('lbl-end-date')?.addEventListener('change', (e) => {
+        selectedEndDate = e.target.value;
+        loadLabelingRuns();
+      });
+    }
+  };
+
+  btnAll?.addEventListener('click', () => {
+    currentFilterMode = 'all';
+    updateModeUI();
+    loadLabelingRuns();
+  });
+
+  btnDay?.addEventListener('click', () => {
+    currentFilterMode = 'day';
+    updateModeUI();
+    loadLabelingRuns();
+  });
+
+  btnRange?.addEventListener('click', () => {
+    currentFilterMode = 'range';
+    updateModeUI();
+    loadLabelingRuns();
+  });
+
+  updateModeUI();
 }
 
 async function loadLabelingRuns() {
@@ -50,12 +155,25 @@ async function loadLabelingRuns() {
     return;
   }
 
-  if (!portions || portions.length === 0) {
+  // Filtrar porções por data da OP conforme currentFilterMode
+  let filteredPortions = portions || [];
+  if (currentFilterMode === 'day' && selectedFilterDate) {
+    filteredPortions = filteredPortions.filter(p => p.production_orders?.production_date === selectedFilterDate);
+  } else if (currentFilterMode === 'range' && selectedStartDate && selectedEndDate) {
+    filteredPortions = filteredPortions.filter(p => {
+      const pDate = p.production_orders?.production_date;
+      return pDate && pDate >= selectedStartDate && pDate <= selectedEndDate;
+    });
+  }
+
+  if (filteredPortions.length === 0) {
     container.innerHTML = '';
+    const filterText = currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
+                       currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
     container.appendChild(renderEmptyState({
       icon: 'label',
       title: 'Nenhuma Porção com Rótulos Mapeada',
-      description: 'As demandas de rótulos são geradas automaticamente a partir das OPs criadas no Planejamento.',
+      description: `Não há porções de rótulos encontradas${filterText}. Selecione outro filtro ou crie OPs no Planejamento.`,
       actionText: null
     }));
     return;
@@ -65,17 +183,14 @@ async function loadLabelingRuns() {
 
   container.innerHTML = `
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-space-md">
-      ${portions.map(p => {
+      ${filteredPortions.map(p => {
         const runs = p.process_runs || [];
         const vacuoRun = runs.find(r => r.stage === 'vacuo');
         const rotulagemRun = runs.find(r => r.stage === 'rotulagem');
 
-        // Peso estipulado / base: utilizar peso do vácuo se disponível, caso contrário o planejado
         const baseKg = (vacuoRun && vacuoRun.actual_kg) ? Number(vacuoRun.actual_kg) : Number(p.planned_kg || 0);
-        // Regra do cliente: 2.5 rótulos por kg
         const calculatedLabels = Math.round(baseKg * 2.5);
 
-        const isVacuoCompleted = vacuoRun?.status === 'completed';
         const isRotulagemCompleted = rotulagemRun?.status === 'completed';
         const isRotulagemInProgress = rotulagemRun?.status === 'in_progress';
 
@@ -84,7 +199,7 @@ async function loadLabelingRuns() {
             <div class="flex flex-col gap-2">
               <div class="flex items-center justify-between border-b border-border-subtle pb-2">
                 <div>
-                  <span class="text-xs font-bold text-text-muted uppercase">${p.production_orders?.order_code || 'OP'}</span>
+                  <span class="text-xs font-bold text-text-muted uppercase">${p.production_orders?.order_code || 'OP'} • ${formatDate(p.production_orders?.production_date)}</span>
                   <h3 class="font-headline-sm text-ink-text">${p.flavors?.name} — Porção #${p.portion_no}</h3>
                 </div>
                 <span class="px-2.5 py-1 rounded-full text-xs font-bold ${
@@ -112,7 +227,7 @@ async function loadLabelingRuns() {
                 </div>
               </div>
 
-              <!-- Controles de Ação de Rotulagem (Liberado de forma independente) -->
+              <!-- Controles de Ação de Rotulagem -->
               ${isRotulagemCompleted ? `
                 <div class="p-3 rounded-lg bg-surface-container-low text-status-success text-xs font-bold border border-border-subtle flex items-center justify-between">
                   <span class="flex items-center gap-1">
@@ -147,7 +262,6 @@ async function loadLabelingRuns() {
     </div>
   `;
 
-  // Listener para confirmar aplicação de rótulos
   container.querySelectorAll('.confirm-rotulagem-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const runId = e.currentTarget.dataset.runid;
@@ -162,7 +276,6 @@ async function loadLabelingRuns() {
         const nowIso = new Date().toISOString();
         const collabId = document.getElementById(`collab-rot-${runId}`)?.value;
 
-        // Fetch current run to preserve started_at if present
         const { data: currentRun } = await supabase
           .from('process_runs')
           .select('started_at')
