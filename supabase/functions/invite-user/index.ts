@@ -21,7 +21,7 @@ serve(async (req) => {
 
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
-    const { email, displayName, screenPermissions, isAdmin } = await req.json();
+    const { email, displayName, screenPermissions, isAdmin, password } = await req.json();
 
     if (!email || !displayName) {
       return new Response(JSON.stringify({ error: 'E-mail e nome são obrigatórios.' }), {
@@ -30,22 +30,43 @@ serve(async (req) => {
       });
     }
 
-    // Criar ou convidar usuário no Supabase Auth
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email);
+    let userId: string;
 
-    if (authError) {
-      return new Response(JSON.stringify({ error: authError.message }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    // Se senha foi fornecida, criar usuário direto sem necessidade de confirmação por e-mail
+    if (password && typeof password === 'string' && password.trim().length > 0) {
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: password.trim(),
+        email_confirm: true,
+        user_metadata: { name: displayName }
       });
+
+      if (authError) {
+        return new Response(JSON.stringify({ error: authError.message }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      userId = authData.user.id;
+    } else {
+      // Caso contrário, convidar via e-mail
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email);
+
+      if (authError) {
+        return new Response(JSON.stringify({ error: authError.message }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      userId = authData.user.id;
     }
 
-    const userId = authData.user.id;
-
-    // Criar registro em app_users
+    // Criar ou atualizar registro em app_users
     const { error: userTableErr } = await supabaseAdmin
       .from('app_users')
-      .insert({
+      .upsert({
         user_id: userId,
         display_name: displayName,
         is_admin: Boolean(isAdmin),
@@ -53,7 +74,7 @@ serve(async (req) => {
       });
 
     if (userTableErr) {
-      return new Response(JSON.stringify({ error: `Usuário convidado, mas erro ao criar perfil: ${userTableErr.message}` }), {
+      return new Response(JSON.stringify({ error: `Usuário criado no Auth, mas erro ao salvar perfil: ${userTableErr.message}` }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -75,8 +96,12 @@ serve(async (req) => {
       }
     }
 
+    const message = password
+      ? 'Usuário cadastrado com sucesso com senha direta! Não é necessário e-mail de confirmação.'
+      : 'Convite enviado e permissões atribuídas com sucesso!';
+
     return new Response(
-      JSON.stringify({ message: 'Convite enviado e permissões atribuídas com sucesso!', userId }),
+      JSON.stringify({ message, userId }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,

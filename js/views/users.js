@@ -19,26 +19,31 @@ export async function render(container) {
       <div class="flex flex-wrap items-center justify-between gap-space-md">
         <div>
           <h1 class="font-display-lg text-display-lg text-ink-text">Usuários & Permissões por Tela</h1>
-          <p class="font-body-md text-body-md text-text-muted">Gerencie permissões individuais dos operários e convide novos colaboradores via Edge Function.</p>
+          <p class="font-body-md text-body-md text-text-muted">Gerencie permissões individuais dos operários, cadastre novos usuários diretamente com senha ou envie convites por e-mail.</p>
         </div>
         <button id="invite-user-btn" class="min-h-[44px] px-5 rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md flex items-center gap-2 transition-colors shadow-sm">
           <span class="material-symbols-outlined text-[20px]">person_add</span>
-          <span>Convidar Novo Usuário</span>
+          <span>Cadastrar Novo Usuário</span>
         </button>
       </div>
 
-      <!-- Modal/Form para Convidar Usuário -->
+      <!-- Modal/Form para Convidar/Cadastrar Usuário -->
       <div id="invite-form-container" class="hidden bg-surface-card p-space-lg rounded-xl border border-border-subtle shadow-sm flex flex-col gap-space-md">
-        <h3 class="font-title-lg text-title-lg text-ink-text">Convidar Novo Usuário do Sistema</h3>
+        <h3 class="font-title-lg text-title-lg text-ink-text">Cadastrar Novo Usuário do Sistema</h3>
         <form id="invite-form" class="flex flex-col gap-space-md">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
             <div class="flex flex-col gap-1">
-              <label class="font-label-md text-ink-text">Nome de Exibição / Operador</label>
-              <input type="text" id="invite-display-name" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text" placeholder="Ex: João da Silva">
+              <label class="font-label-md text-ink-text font-bold">Nome de Exibição / Operador <span class="text-alert-critical">*</span></label>
+              <input type="text" id="invite-display-name" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold" placeholder="Ex: João da Silva">
             </div>
             <div class="flex flex-col gap-1">
-              <label class="font-label-md text-ink-text">E-mail do Usuário</label>
-              <input type="email" id="invite-email" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text" placeholder="joao@exemplo.com">
+              <label class="font-label-md text-ink-text font-bold">E-mail do Usuário <span class="text-alert-critical">*</span></label>
+              <input type="email" id="invite-email" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold" placeholder="joao@exemplo.com">
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="font-label-md text-ink-text font-bold">Senha Inicial (Opcional)</label>
+              <input type="password" id="invite-password" minlength="6" class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold" placeholder="Definir senha direta">
+              <span class="text-[11px] text-text-muted">Preencha para liberar o acesso imediatamente sem depender de e-mail de confirmação.</span>
             </div>
           </div>
 
@@ -60,9 +65,9 @@ export async function render(container) {
 
           <div class="flex items-center gap-2 justify-end">
             <button type="button" id="invite-cancel-btn" class="min-h-[44px] px-4 rounded-lg bg-surface-canvas hover:bg-surface-variant text-ink-text font-title-md">Cancelar</button>
-            <button type="submit" id="invite-submit-btn" class="min-h-[44px] px-5 rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md flex items-center gap-2">
-              <span>Enviar Convite</span>
-              <span class="material-symbols-outlined text-[18px]">send</span>
+            <button type="submit" id="invite-submit-btn" class="min-h-[44px] px-5 rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md flex items-center gap-2 shadow-sm">
+              <span>Cadastrar Usuário</span>
+              <span class="material-symbols-outlined text-[18px]">check_circle</span>
             </button>
           </div>
         </form>
@@ -75,8 +80,8 @@ export async function render(container) {
           <input type="hidden" id="edit-user-id">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
             <div class="flex flex-col gap-1">
-              <label class="font-label-md text-ink-text">Nome de Exibição</label>
-              <input type="text" id="edit-display-name" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text">
+              <label class="font-label-md text-ink-text font-bold">Nome de Exibição</label>
+              <input type="text" id="edit-display-name" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold">
             </div>
             <div class="flex items-center gap-2 self-end mb-2">
               <input type="checkbox" id="edit-is-admin" class="w-5 h-5 accent-bordeaux-primary">
@@ -115,6 +120,7 @@ function setupInviteForm() {
   document.getElementById('invite-user-btn')?.addEventListener('click', () => {
     document.getElementById('invite-display-name').value = '';
     document.getElementById('invite-email').value = '';
+    document.getElementById('invite-password').value = '';
     document.getElementById('invite-is-admin').checked = false;
     document.querySelectorAll('.screen-perm-check').forEach(cb => cb.checked = false);
     document.getElementById('invite-form-container')?.classList.remove('hidden');
@@ -132,6 +138,7 @@ function setupInviteForm() {
 
     const displayName = document.getElementById('invite-display-name').value.trim();
     const email = document.getElementById('invite-email').value.trim();
+    const password = document.getElementById('invite-password').value;
     const isAdmin = document.getElementById('invite-is-admin').checked;
 
     const screenPermissions = [];
@@ -150,6 +157,7 @@ function setupInviteForm() {
         body: JSON.stringify({
           email,
           displayName,
+          password: password ? password.trim() : null,
           isAdmin,
           screenPermissions
         })
@@ -157,14 +165,14 @@ function setupInviteForm() {
 
       const resData = await res.json();
       if (!res.ok) {
-        throw new Error(resData.error || 'Erro ao invocar Edge Function de convite.');
+        throw new Error(resData.error || 'Erro ao invocar Edge Function de criação de usuário.');
       }
 
-      showNotification('Convite enviado e permissões atribuídas com sucesso!', 'success');
+      showNotification(resData.message || 'Usuário cadastrado com sucesso!', 'success');
       document.getElementById('invite-form-container')?.classList.add('hidden');
       loadUsers();
     } catch (err) {
-      showNotification(`Erro ao convidar usuário: ${err.message}`, 'error');
+      showNotification(`Erro ao cadastrar usuário: ${err.message}`, 'error');
     } finally {
       submitBtn.disabled = false;
     }
@@ -183,7 +191,6 @@ function setupEditForm() {
     const isAdmin = document.getElementById('edit-is-admin').checked;
 
     try {
-      // 1. Atualizar perfil do usuário
       const { error: uErr } = await supabase
         .from('app_users')
         .update({ display_name: displayName, is_admin: isAdmin, updated_at: new Date().toISOString() })
@@ -191,7 +198,6 @@ function setupEditForm() {
 
       if (uErr) throw uErr;
 
-      // 2. Atualizar permissões por tela (apagar antigas e recriar)
       await supabase.from('user_screen_permissions').delete().eq('user_id', userId);
 
       if (!isAdmin) {
@@ -236,9 +242,9 @@ async function loadUsers() {
     container.innerHTML = '';
     container.appendChild(renderEmptyState({
       icon: 'manage_accounts',
-      title: 'Nenhum Usuário Encontrado',
-      description: 'Convide o primeiro usuário para acessar o SGP Industrial.',
-      actionText: 'Convidar Usuário',
+      title: 'Nenum Usuário Encontrado',
+      description: 'Cadastre o primeiro usuário para acessar o SGP Industrial.',
+      actionText: 'Cadastrar Usuário',
       onAction: () => document.getElementById('invite-user-btn')?.click()
     }));
     return;
@@ -296,7 +302,6 @@ async function loadUsers() {
     </div>
   `;
 
-  // Listener para abrir edição de permissões do usuário
   container.querySelectorAll('.edit-user-perms-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const target = e.currentTarget;
@@ -318,7 +323,6 @@ async function loadUsers() {
     });
   });
 
-  // Listener para ativar/desativar conta do usuário
   container.querySelectorAll('.toggle-user-active-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const userId = e.currentTarget.dataset.userid;
