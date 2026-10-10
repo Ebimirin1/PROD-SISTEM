@@ -1,8 +1,11 @@
 import { supabase } from '../supabaseClient.js';
 import { showNotification, renderEmptyState, formatWeight, formatDate } from '../utils.js';
 
-// Módulo de Estoque Acabado, Curas, Validades e Sobras Reais por Semana de Produção
 let currentSelectedWeek = 'all'; // 'all' ou 'Semana XX / YYYY'
+let currentFilterMode = 'all'; // 'all', 'day', 'range'
+let selectedFilterDate = new Date().toISOString().split('T')[0];
+let selectedStartDate = new Date().toISOString().split('T')[0];
+let selectedEndDate = new Date().toISOString().split('T')[0];
 
 export function getISOWeekDetails(dateStr) {
   if (!dateStr) return { weekNum: 0, year: 0, label: 'Sem Data' };
@@ -23,6 +26,11 @@ export function getISOWeekDetails(dateStr) {
 }
 
 export async function render(container) {
+  const today = new Date().toISOString().split('T')[0];
+  if (!selectedFilterDate) selectedFilterDate = today;
+  if (!selectedStartDate) selectedStartDate = today;
+  if (!selectedEndDate) selectedEndDate = today;
+
   container.innerHTML = `
     <div class="flex flex-col gap-space-lg">
       <div class="flex flex-wrap items-center justify-between gap-space-md bg-surface-card p-space-md rounded-xl border border-border-subtle shadow-sm">
@@ -45,6 +53,29 @@ export async function render(container) {
             <span class="material-symbols-outlined text-[20px]">add_circle</span>
             <span>Entrada Manual de Lote</span>
           </button>
+        </div>
+      </div>
+
+      <!-- Barra de Filtros de Período / Dia (Igual à Visão Geral) -->
+      <div class="bg-surface-card p-4 rounded-xl border border-border-subtle shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-label-md text-text-muted flex items-center gap-1 mr-1">
+            <span class="material-symbols-outlined text-[18px]">filter_list</span>
+            <span>Filtrar Estoque:</span>
+          </span>
+          <button id="inv-filter-all" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+            Visão Geral
+          </button>
+          <button id="inv-filter-day" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+            Por Dia
+          </button>
+          <button id="inv-filter-range" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+            Por Período / Semana
+          </button>
+        </div>
+
+        <div id="inv-date-controls" class="flex items-center gap-3 flex-wrap">
+          <!-- Renderizado dinamicamente -->
         </div>
       </div>
 
@@ -117,7 +148,6 @@ export async function render(container) {
     const mass_ready_date = document.getElementById('lot-mass-ready-date').value;
     const produced_kg = parseFloat(document.getElementById('lot-produced-kg').value);
 
-    // Buscar primeira OP para vínculo do lote
     const { data: op } = await supabase.from('production_orders').select('id').limit(1).single();
     if (!op) {
       showNotification('É necessário ter ao menos uma OP criada para registrar um lote acabado.', 'error');
@@ -125,7 +155,6 @@ export async function render(container) {
     }
 
     try {
-      // 1. Criar lote
       const { data: lot, error: lErr } = await supabase.from('finished_lots').insert({
         production_order_id: op.id,
         flavor_id,
@@ -138,7 +167,6 @@ export async function render(container) {
 
       if (lErr) throw lErr;
 
-      // 2. Lançar movimento de entrada de estoque
       await supabase.from('inventory_movements').insert({
         finished_lot_id: lot.id,
         movement_type: 'production_entry',
@@ -154,8 +182,80 @@ export async function render(container) {
     }
   });
 
+  setupFilterControls();
   setupInventoryWeekFilter(container);
   loadInventory();
+}
+
+function setupFilterControls() {
+  const btnAll = document.getElementById('inv-filter-all');
+  const btnDay = document.getElementById('inv-filter-day');
+  const btnRange = document.getElementById('inv-filter-range');
+  const dateControls = document.getElementById('inv-date-controls');
+
+  if (!dateControls) return;
+
+  const updateModeUI = () => {
+    if (btnAll) btnAll.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+    if (btnDay) btnDay.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+    if (btnRange) btnRange.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+
+    if (currentFilterMode === 'all') {
+      dateControls.innerHTML = `<span class="text-xs font-bold text-text-muted bg-surface-canvas px-3 py-1.5 rounded-lg">Exibindo todo o estoque</span>`;
+    } else if (currentFilterMode === 'day') {
+      dateControls.innerHTML = `
+        <div class="flex items-center gap-2">
+          <label for="inv-single-date" class="text-xs font-bold text-ink-text">Data de Produção:</label>
+          <input type="date" id="inv-single-date" value="${selectedFilterDate}" class="min-h-[36px] px-3 rounded-lg border border-border-subtle bg-surface-card text-xs font-bold text-ink-text focus:outline-none focus:border-bordeaux-primary">
+        </div>
+      `;
+      document.getElementById('inv-single-date')?.addEventListener('change', (e) => {
+        selectedFilterDate = e.target.value;
+        loadInventory();
+      });
+    } else if (currentFilterMode === 'range') {
+      dateControls.innerHTML = `
+        <div class="flex items-center gap-2 flex-wrap">
+          <div class="flex items-center gap-1">
+            <label for="inv-start-date" class="text-xs font-bold text-ink-text">De:</label>
+            <input type="date" id="inv-start-date" value="${selectedStartDate}" class="min-h-[36px] px-3 rounded-lg border border-border-subtle bg-surface-card text-xs font-bold text-ink-text focus:outline-none focus:border-bordeaux-primary">
+          </div>
+          <div class="flex items-center gap-1">
+            <label for="inv-end-date" class="text-xs font-bold text-ink-text">Até:</label>
+            <input type="date" id="inv-end-date" value="${selectedEndDate}" class="min-h-[36px] px-3 rounded-lg border border-border-subtle bg-surface-card text-xs font-bold text-ink-text focus:outline-none focus:border-bordeaux-primary">
+          </div>
+        </div>
+      `;
+      document.getElementById('inv-start-date')?.addEventListener('change', (e) => {
+        selectedStartDate = e.target.value;
+        loadInventory();
+      });
+      document.getElementById('inv-end-date')?.addEventListener('change', (e) => {
+        selectedEndDate = e.target.value;
+        loadInventory();
+      });
+    }
+  };
+
+  btnAll?.addEventListener('click', () => {
+    currentFilterMode = 'all';
+    updateModeUI();
+    loadInventory();
+  });
+
+  btnDay?.addEventListener('click', () => {
+    currentFilterMode = 'day';
+    updateModeUI();
+    loadInventory();
+  });
+
+  btnRange?.addEventListener('click', () => {
+    currentFilterMode = 'range';
+    updateModeUI();
+    loadInventory();
+  });
+
+  updateModeUI();
 }
 
 function setupInventoryWeekFilter(container) {
@@ -180,7 +280,6 @@ async function loadInventory() {
   const container = document.getElementById('inventory-list-container');
   if (!container) return;
 
-  // Buscar saldos e datas de lotes acabados
   const [
     { data: inventory, error: invErr },
     { data: lots, error: lotsErr }
@@ -210,7 +309,6 @@ async function loadInventory() {
     return;
   }
 
-  // Agrupar itens por semana de produção
   const lotsByLotCode = (lots || []).reduce((acc, l) => {
     acc[l.lot_code] = l;
     return acc;
@@ -220,7 +318,19 @@ async function loadInventory() {
 
   inventory.forEach(item => {
     const lotObj = lotsByLotCode[item.lot_code] || {};
-    const prodDate = lotObj.production_orders?.production_date || lotObj.mass_ready_date || item.expiry_date || new Date().toISOString();
+    const rawProdDate = lotObj.production_orders?.production_date || lotObj.mass_ready_date || item.expiry_date;
+    const prodDate = rawProdDate ? rawProdDate.split('T')[0] : new Date().toISOString().split('T')[0];
+
+    // Aplicar filtro de data
+    if (currentFilterMode === 'day' && selectedFilterDate && prodDate !== selectedFilterDate) {
+      return;
+    }
+    if (currentFilterMode === 'range' && selectedStartDate && selectedEndDate) {
+      if (prodDate < selectedStartDate || prodDate > selectedEndDate) {
+        return;
+      }
+    }
+
     const weekInfo = getISOWeekDetails(prodDate);
     const weekKey = weekInfo.label;
 
@@ -241,7 +351,6 @@ async function loadInventory() {
 
   const uniqueWeeks = Object.keys(weeksMap).sort().reverse();
 
-  // Preencher dropdown de semanas
   const weekSelect = document.getElementById('inventory-week-select');
   if (weekSelect) {
     const prevVal = currentSelectedWeek || 'all';
@@ -252,18 +361,21 @@ async function loadInventory() {
     currentSelectedWeek = weekSelect.value;
   }
 
-  // Filtrar semanas
   let displayWeeks = uniqueWeeks;
   if (currentSelectedWeek && currentSelectedWeek !== 'all') {
     displayWeeks = displayWeeks.filter(w => w === currentSelectedWeek);
   }
 
   if (displayWeeks.length === 0) {
-    container.innerHTML = `
-      <div class="p-8 text-center text-text-muted text-xs italic bg-surface-card rounded-xl border border-border-subtle">
-        Nenhum lote de estoque encontrado para a semana selecionada.
-      </div>
-    `;
+    container.innerHTML = '';
+    const filterText = currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
+                       currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
+    container.appendChild(renderEmptyState({
+      icon: 'inventory_2',
+      title: 'Nenhum Item de Estoque Encontrado',
+      description: `Não há lotes em estoque correspondentes ao filtro de data selecionado${filterText}.`,
+      actionText: null
+    }));
     return;
   }
 

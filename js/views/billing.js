@@ -1,8 +1,18 @@
 import { supabase } from '../supabaseClient.js';
 import { showNotification, renderEmptyState, formatWeight, formatDate } from '../utils.js';
 
+let currentFilterMode = 'all'; // 'all', 'day', 'range'
+let selectedFilterDate = new Date().toISOString().split('T')[0];
+let selectedStartDate = new Date().toISOString().split('T')[0];
+let selectedEndDate = new Date().toISOString().split('T')[0];
+
 // Módulo de Faturamento & NF-e (Fila de faturamento agrupada por Pedido do Cliente)
 export async function render(container) {
+  const today = new Date().toISOString().split('T')[0];
+  if (!selectedFilterDate) selectedFilterDate = today;
+  if (!selectedStartDate) selectedStartDate = today;
+  if (!selectedEndDate) selectedEndDate = today;
+
   container.innerHTML = `
     <div class="flex flex-col gap-space-lg">
       <div class="flex flex-wrap items-center justify-between gap-space-md">
@@ -12,18 +22,113 @@ export async function render(container) {
         </div>
       </div>
 
+      <!-- Barra de Filtros de Período / Dia (Igual à Visão Geral) -->
+      <div class="bg-surface-card p-4 rounded-xl border border-border-subtle shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-label-md text-text-muted flex items-center gap-1 mr-1">
+            <span class="material-symbols-outlined text-[18px]">filter_list</span>
+            <span>Filtrar Faturamento:</span>
+          </span>
+          <button id="bill-filter-all" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+            Visão Geral
+          </button>
+          <button id="bill-filter-day" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+            Por Dia
+          </button>
+          <button id="bill-filter-range" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+            Por Período / Semana
+          </button>
+        </div>
+
+        <div id="bill-date-controls" class="flex items-center gap-3 flex-wrap">
+          <!-- Renderizado dinamicamente -->
+        </div>
+      </div>
+
       <div id="billing-queue-container"></div>
     </div>
   `;
 
+  setupFilterControls();
   loadInvoiceQueue();
+}
+
+function setupFilterControls() {
+  const btnAll = document.getElementById('bill-filter-all');
+  const btnDay = document.getElementById('bill-filter-day');
+  const btnRange = document.getElementById('bill-filter-range');
+  const dateControls = document.getElementById('bill-date-controls');
+
+  if (!dateControls) return;
+
+  const updateModeUI = () => {
+    if (btnAll) btnAll.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+    if (btnDay) btnDay.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+    if (btnRange) btnRange.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+
+    if (currentFilterMode === 'all') {
+      dateControls.innerHTML = `<span class="text-xs font-bold text-text-muted bg-surface-canvas px-3 py-1.5 rounded-lg">Exibindo todas as faturas em fila</span>`;
+    } else if (currentFilterMode === 'day') {
+      dateControls.innerHTML = `
+        <div class="flex items-center gap-2">
+          <label for="bill-single-date" class="text-xs font-bold text-ink-text">Data do Pedido:</label>
+          <input type="date" id="bill-single-date" value="${selectedFilterDate}" class="min-h-[36px] px-3 rounded-lg border border-border-subtle bg-surface-card text-xs font-bold text-ink-text focus:outline-none focus:border-bordeaux-primary">
+        </div>
+      `;
+      document.getElementById('bill-single-date')?.addEventListener('change', (e) => {
+        selectedFilterDate = e.target.value;
+        loadInvoiceQueue();
+      });
+    } else if (currentFilterMode === 'range') {
+      dateControls.innerHTML = `
+        <div class="flex items-center gap-2 flex-wrap">
+          <div class="flex items-center gap-1">
+            <label for="bill-start-date" class="text-xs font-bold text-ink-text">De:</label>
+            <input type="date" id="bill-start-date" value="${selectedStartDate}" class="min-h-[36px] px-3 rounded-lg border border-border-subtle bg-surface-card text-xs font-bold text-ink-text focus:outline-none focus:border-bordeaux-primary">
+          </div>
+          <div class="flex items-center gap-1">
+            <label for="bill-end-date" class="text-xs font-bold text-ink-text">Até:</label>
+            <input type="date" id="bill-end-date" value="${selectedEndDate}" class="min-h-[36px] px-3 rounded-lg border border-border-subtle bg-surface-card text-xs font-bold text-ink-text focus:outline-none focus:border-bordeaux-primary">
+          </div>
+        </div>
+      `;
+      document.getElementById('bill-start-date')?.addEventListener('change', (e) => {
+        selectedStartDate = e.target.value;
+        loadInvoiceQueue();
+      });
+      document.getElementById('bill-end-date')?.addEventListener('change', (e) => {
+        selectedEndDate = e.target.value;
+        loadInvoiceQueue();
+      });
+    }
+  };
+
+  btnAll?.addEventListener('click', () => {
+    currentFilterMode = 'all';
+    updateModeUI();
+    loadInvoiceQueue();
+  });
+
+  btnDay?.addEventListener('click', () => {
+    currentFilterMode = 'day';
+    updateModeUI();
+    loadInvoiceQueue();
+  });
+
+  btnRange?.addEventListener('click', () => {
+    currentFilterMode = 'range';
+    updateModeUI();
+    loadInvoiceQueue();
+  });
+
+  updateModeUI();
 }
 
 async function loadInvoiceQueue() {
   const container = document.getElementById('billing-queue-container');
   if (!container) return;
 
-  const { data: orders, error } = await supabase
+  let query = supabase
     .from('shipment_orders')
     .select(`
       id,
@@ -44,12 +149,20 @@ async function loadInvoiceQueue() {
     `)
     .order('created_at', { ascending: false });
 
+  // Aplicar filtro de data
+  if (currentFilterMode === 'day' && selectedFilterDate) {
+    query = query.eq('requested_at', selectedFilterDate);
+  } else if (currentFilterMode === 'range' && selectedStartDate && selectedEndDate) {
+    query = query.gte('requested_at', selectedStartDate).lte('requested_at', selectedEndDate);
+  }
+
+  const { data: orders, error } = await query;
+
   if (error) {
     container.innerHTML = `<div class="p-4 bg-badge-error-bg text-badge-error-text rounded-lg font-bold">Erro ao carregar fila de faturamento: ${error.message}</div>`;
     return;
   }
 
-  // Filtrar ordens que possuam itens marcados como 'separated_for_invoice'
   const activeInvoiceOrders = (orders || []).map(o => {
     const invoiceLines = (o.shipment_lines || []).filter(l => l.status === 'separated_for_invoice');
     return {
@@ -60,10 +173,12 @@ async function loadInvoiceQueue() {
 
   if (activeInvoiceOrders.length === 0) {
     container.innerHTML = '';
+    const filterText = currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
+                       currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
     container.appendChild(renderEmptyState({
       icon: 'receipt_long',
       title: 'Fila de Faturamento Vazia',
-      description: 'Quando os pedidos forem marcados como "Separado para NF" na Expedição, os itens aparecerão aqui agrupados por cliente.',
+      description: `Não há faturas na fila de faturamento${filterText}. Quando os pedidos forem marcados como "Separado para NF" na Expedição, os itens aparecerão aqui.`,
       actionText: null
     }));
     return;
@@ -171,7 +286,6 @@ async function loadInvoiceQueue() {
     </div>
   `;
 
-  // Listener para salvar NF individual
   container.querySelectorAll('.save-line-invoice-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const lineId = e.currentTarget.dataset.lineid;
@@ -188,7 +302,6 @@ async function loadInvoiceQueue() {
     });
   });
 
-  // Listener para liberar pedido completo para a doca de expedição
   container.querySelectorAll('.dispatch-all-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const orderId = e.currentTarget.dataset.orderid;
@@ -196,7 +309,6 @@ async function loadInvoiceQueue() {
       if (!targetOrder) return;
 
       try {
-        // Salvar referências de NF que foram digitadas e avançar para separated_for_dispatch
         for (const line of targetOrder.invoiceLines) {
           const ref = document.getElementById(`ref-${line.id}`)?.value.trim() || line.invoice_reference;
           await supabase.from('shipment_lines').update({

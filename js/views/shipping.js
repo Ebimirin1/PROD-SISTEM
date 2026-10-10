@@ -1,8 +1,18 @@
 import { supabase } from '../supabaseClient.js';
 import { showNotification, renderEmptyState, formatWeight, formatDate } from '../utils.js';
 
+let currentFilterMode = 'all'; // 'all', 'day', 'range'
+let selectedFilterDate = new Date().toISOString().split('T')[0];
+let selectedStartDate = new Date().toISOString().split('T')[0];
+let selectedEndDate = new Date().toISOString().split('T')[0];
+
 // Módulo de Pedidos & Expedição (Separação por cliente, vínculo de lotes e transições de status)
 export async function render(container) {
+  const today = new Date().toISOString().split('T')[0];
+  if (!selectedFilterDate) selectedFilterDate = today;
+  if (!selectedStartDate) selectedStartDate = today;
+  if (!selectedEndDate) selectedEndDate = today;
+
   container.innerHTML = `
     <div class="flex flex-col gap-space-lg">
       <div class="flex flex-wrap items-center justify-between gap-space-md">
@@ -14,6 +24,29 @@ export async function render(container) {
           <span class="material-symbols-outlined text-[20px]">add_circle</span>
           <span>Criar Pedido de Saída</span>
         </button>
+      </div>
+
+      <!-- Barra de Filtros de Período / Dia (Igual à Visão Geral) -->
+      <div class="bg-surface-card p-4 rounded-xl border border-border-subtle shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-label-md text-text-muted flex items-center gap-1 mr-1">
+            <span class="material-symbols-outlined text-[18px]">filter_list</span>
+            <span>Filtrar Pedidos:</span>
+          </span>
+          <button id="ship-filter-all" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+            Visão Geral
+          </button>
+          <button id="ship-filter-day" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+            Por Dia
+          </button>
+          <button id="ship-filter-range" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+            Por Período / Semana
+          </button>
+        </div>
+
+        <div id="ship-date-controls" class="flex items-center gap-3 flex-wrap">
+          <!-- Renderizado dinamicamente -->
+        </div>
       </div>
 
       <!-- Form para Criar Pedido de Saída -->
@@ -47,7 +80,6 @@ export async function render(container) {
           <input type="hidden" id="line-shipment-order-id">
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
-            <!-- Selección de Sabor Obrigatória -->
             <div class="flex flex-col gap-1">
               <label class="font-label-md text-ink-text font-bold" for="line-flavor-select">Sabor <span class="text-alert-critical">*</span></label>
               <select id="line-flavor-select" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold focus:outline-none focus:border-bordeaux-primary">
@@ -55,7 +87,6 @@ export async function render(container) {
               </select>
             </div>
 
-            <!-- Quantidade Solicitada em kg -->
             <div class="flex flex-col gap-1">
               <label class="font-label-md text-ink-text font-bold" for="line-requested-kg">Quantidade Solicitada (kg) <span class="text-alert-critical">*</span></label>
               <input type="number" step="0.001" min="0.001" id="line-requested-kg" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold focus:outline-none focus:border-bordeaux-primary" placeholder="Ex: 20.000">
@@ -63,7 +94,6 @@ export async function render(container) {
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
-            <!-- Tipo de Produto -->
             <div class="flex flex-col gap-1">
               <label class="font-label-md text-ink-text" for="line-product-type">Tipo de Produto</label>
               <select id="line-product-type" class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text">
@@ -75,7 +105,6 @@ export async function render(container) {
               </select>
             </div>
 
-            <!-- Conservação -->
             <div class="flex flex-col gap-1">
               <label class="font-label-md text-ink-text" for="line-conservation">Conservação</label>
               <select id="line-conservation" class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text">
@@ -164,9 +193,81 @@ export async function render(container) {
     }
   });
 
+  setupFilterControls();
   setupShipmentLineForm();
   setupSeparationModalForm();
   loadShipmentOrders();
+}
+
+function setupFilterControls() {
+  const btnAll = document.getElementById('ship-filter-all');
+  const btnDay = document.getElementById('ship-filter-day');
+  const btnRange = document.getElementById('ship-filter-range');
+  const dateControls = document.getElementById('ship-date-controls');
+
+  if (!dateControls) return;
+
+  const updateModeUI = () => {
+    if (btnAll) btnAll.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+    if (btnDay) btnDay.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+    if (btnRange) btnRange.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+
+    if (currentFilterMode === 'all') {
+      dateControls.innerHTML = `<span class="text-xs font-bold text-text-muted bg-surface-canvas px-3 py-1.5 rounded-lg">Exibindo todos os pedidos de saída</span>`;
+    } else if (currentFilterMode === 'day') {
+      dateControls.innerHTML = `
+        <div class="flex items-center gap-2">
+          <label for="ship-single-date" class="text-xs font-bold text-ink-text">Data do Pedido:</label>
+          <input type="date" id="ship-single-date" value="${selectedFilterDate}" class="min-h-[36px] px-3 rounded-lg border border-border-subtle bg-surface-card text-xs font-bold text-ink-text focus:outline-none focus:border-bordeaux-primary">
+        </div>
+      `;
+      document.getElementById('ship-single-date')?.addEventListener('change', (e) => {
+        selectedFilterDate = e.target.value;
+        loadShipmentOrders();
+      });
+    } else if (currentFilterMode === 'range') {
+      dateControls.innerHTML = `
+        <div class="flex items-center gap-2 flex-wrap">
+          <div class="flex items-center gap-1">
+            <label for="ship-start-date" class="text-xs font-bold text-ink-text">De:</label>
+            <input type="date" id="ship-start-date" value="${selectedStartDate}" class="min-h-[36px] px-3 rounded-lg border border-border-subtle bg-surface-card text-xs font-bold text-ink-text focus:outline-none focus:border-bordeaux-primary">
+          </div>
+          <div class="flex items-center gap-1">
+            <label for="ship-end-date" class="text-xs font-bold text-ink-text">Até:</label>
+            <input type="date" id="ship-end-date" value="${selectedEndDate}" class="min-h-[36px] px-3 rounded-lg border border-border-subtle bg-surface-card text-xs font-bold text-ink-text focus:outline-none focus:border-bordeaux-primary">
+          </div>
+        </div>
+      `;
+      document.getElementById('ship-start-date')?.addEventListener('change', (e) => {
+        selectedStartDate = e.target.value;
+        loadShipmentOrders();
+      });
+      document.getElementById('ship-end-date')?.addEventListener('change', (e) => {
+        selectedEndDate = e.target.value;
+        loadShipmentOrders();
+      });
+    }
+  };
+
+  btnAll?.addEventListener('click', () => {
+    currentFilterMode = 'all';
+    updateModeUI();
+    loadShipmentOrders();
+  });
+
+  btnDay?.addEventListener('click', () => {
+    currentFilterMode = 'day';
+    updateModeUI();
+    loadShipmentOrders();
+  });
+
+  btnRange?.addEventListener('click', () => {
+    currentFilterMode = 'range';
+    updateModeUI();
+    loadShipmentOrders();
+  });
+
+  updateModeUI();
 }
 
 function setupShipmentLineForm() {
@@ -299,7 +400,6 @@ async function openSeparateLineModal(line) {
   document.getElementById('separate-flavor-title').innerText = line.flavors?.name || 'Sabor';
   document.getElementById('separate-requested-label').innerText = formatWeight(line.requested_kg);
 
-  // Preencher campo com o valor já separado ou pré-preencher com solicitado
   const defaultVal = line.separated_kg > 0 ? line.separated_kg : line.requested_kg;
   document.getElementById('separate-actual-kg').value = defaultVal;
 
@@ -359,7 +459,7 @@ async function loadShipmentOrders() {
   const container = document.getElementById('shipments-list-container');
   if (!container) return;
 
-  const { data: orders, error } = await supabase
+  let query = supabase
     .from('shipment_orders')
     .select(`
       *,
@@ -371,6 +471,15 @@ async function loadShipmentOrders() {
     `)
     .order('created_at', { ascending: false });
 
+  // Aplicar filtro de data
+  if (currentFilterMode === 'day' && selectedFilterDate) {
+    query = query.eq('requested_at', selectedFilterDate);
+  } else if (currentFilterMode === 'range' && selectedStartDate && selectedEndDate) {
+    query = query.gte('requested_at', selectedStartDate).lte('requested_at', selectedEndDate);
+  }
+
+  const { data: orders, error } = await query;
+
   if (error) {
     container.innerHTML = `<div class="p-4 bg-badge-error-bg text-badge-error-text rounded-lg">Erro ao carregar pedidos: ${error.message}</div>`;
     return;
@@ -378,10 +487,12 @@ async function loadShipmentOrders() {
 
   if (!orders || orders.length === 0) {
     container.innerHTML = '';
+    const filterText = currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
+                       currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
     container.appendChild(renderEmptyState({
       icon: 'local_shipping',
-      title: 'Nenhum Pedido de Saída',
-      description: 'Crie pedidos de clientes (empórios, lanchonetes e atacados) para vincular lotes acabados e expedir.',
+      title: 'Nenhum Pedido de Saída Encontrado',
+      description: `Não há pedidos de saída correspondentes ao filtro de data selecionado${filterText}.`,
       actionText: 'Criar Primeiro Pedido',
       onAction: () => document.getElementById('add-shipment-order-btn')?.click()
     }));
@@ -450,7 +561,6 @@ async function loadShipmentOrders() {
     </div>
   `;
 
-  // Listener para adicionar linha de pedido
   container.querySelectorAll('.add-shipment-line-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const orderId = e.currentTarget.dataset.orderid;
@@ -458,7 +568,6 @@ async function loadShipmentOrders() {
     });
   });
 
-  // Listener para abrir modal de separação p/ NF
   container.querySelectorAll('.separate-for-invoice-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const lineId = e.currentTarget.dataset.lineid;
@@ -472,7 +581,6 @@ async function loadShipmentOrders() {
     });
   });
 
-  // Listener para avançar status subsequente do pedido (doca -> entrega)
   container.querySelectorAll('.advance-line-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const lineId = e.currentTarget.dataset.lineid;
