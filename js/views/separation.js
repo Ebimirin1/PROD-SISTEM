@@ -1,10 +1,18 @@
 import { supabase } from '../supabaseClient.js';
 import { showNotification, renderEmptyState, formatWeight, formatDate } from '../utils.js';
 
-// Módulo de Separação de Insumos e Especiarias por Kit / Porção de até 30kg
 let currentSeparationTab = 'all'; // 'all', 'in_separation', 'completed'
+let currentFilterMode = 'all'; // 'all', 'day', 'range'
+let selectedFilterDate = new Date().toISOString().split('T')[0];
+let selectedStartDate = new Date().toISOString().split('T')[0];
+let selectedEndDate = new Date().toISOString().split('T')[0];
 
 export async function render(container) {
+  const today = new Date().toISOString().split('T')[0];
+  if (!selectedFilterDate) selectedFilterDate = today;
+  if (!selectedStartDate) selectedStartDate = today;
+  if (!selectedEndDate) selectedEndDate = today;
+
   container.innerHTML = `
     <div class="flex flex-col gap-space-lg">
       <div class="flex flex-wrap items-center justify-between gap-space-md">
@@ -27,12 +35,107 @@ export async function render(container) {
         </div>
       </div>
 
+      <!-- Barra de Filtros de Período / Dia (Igual à Visão Geral) -->
+      <div class="bg-surface-card p-4 rounded-xl border border-border-subtle shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-label-md text-text-muted flex items-center gap-1 mr-1">
+            <span class="material-symbols-outlined text-[18px]">filter_list</span>
+            <span>Filtrar Separações:</span>
+          </span>
+          <button id="sep-filter-all" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+            Visão Geral
+          </button>
+          <button id="sep-filter-day" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+            Por Dia
+          </button>
+          <button id="sep-filter-range" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+            Por Período / Semana
+          </button>
+        </div>
+
+        <div id="sep-date-controls" class="flex items-center gap-3 flex-wrap">
+          <!-- Renderizado dinamicamente -->
+        </div>
+      </div>
+
       <div id="separation-list-container"></div>
     </div>
   `;
 
   setupTabListeners(container);
+  setupFilterControls();
   loadSeparationPortions();
+}
+
+function setupFilterControls() {
+  const btnAll = document.getElementById('sep-filter-all');
+  const btnDay = document.getElementById('sep-filter-day');
+  const btnRange = document.getElementById('sep-filter-range');
+  const dateControls = document.getElementById('sep-date-controls');
+
+  if (!dateControls) return;
+
+  const updateModeUI = () => {
+    if (btnAll) btnAll.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+    if (btnDay) btnDay.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+    if (btnRange) btnRange.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+
+    if (currentFilterMode === 'all') {
+      dateControls.innerHTML = `<span class="text-xs font-bold text-text-muted bg-surface-canvas px-3 py-1.5 rounded-lg">Exibindo todos os kits de separação</span>`;
+    } else if (currentFilterMode === 'day') {
+      dateControls.innerHTML = `
+        <div class="flex items-center gap-2">
+          <label for="sep-single-date" class="text-xs font-bold text-ink-text">Data de Produção:</label>
+          <input type="date" id="sep-single-date" value="${selectedFilterDate}" class="min-h-[36px] px-3 rounded-lg border border-border-subtle bg-surface-card text-xs font-bold text-ink-text focus:outline-none focus:border-bordeaux-primary">
+        </div>
+      `;
+      document.getElementById('sep-single-date')?.addEventListener('change', (e) => {
+        selectedFilterDate = e.target.value;
+        loadSeparationPortions();
+      });
+    } else if (currentFilterMode === 'range') {
+      dateControls.innerHTML = `
+        <div class="flex items-center gap-2 flex-wrap">
+          <div class="flex items-center gap-1">
+            <label for="sep-start-date" class="text-xs font-bold text-ink-text">De:</label>
+            <input type="date" id="sep-start-date" value="${selectedStartDate}" class="min-h-[36px] px-3 rounded-lg border border-border-subtle bg-surface-card text-xs font-bold text-ink-text focus:outline-none focus:border-bordeaux-primary">
+          </div>
+          <div class="flex items-center gap-1">
+            <label for="sep-end-date" class="text-xs font-bold text-ink-text">Até:</label>
+            <input type="date" id="sep-end-date" value="${selectedEndDate}" class="min-h-[36px] px-3 rounded-lg border border-border-subtle bg-surface-card text-xs font-bold text-ink-text focus:outline-none focus:border-bordeaux-primary">
+          </div>
+        </div>
+      `;
+      document.getElementById('sep-start-date')?.addEventListener('change', (e) => {
+        selectedStartDate = e.target.value;
+        loadSeparationPortions();
+      });
+      document.getElementById('sep-end-date')?.addEventListener('change', (e) => {
+        selectedEndDate = e.target.value;
+        loadSeparationPortions();
+      });
+    }
+  };
+
+  btnAll?.addEventListener('click', () => {
+    currentFilterMode = 'all';
+    updateModeUI();
+    loadSeparationPortions();
+  });
+
+  btnDay?.addEventListener('click', () => {
+    currentFilterMode = 'day';
+    updateModeUI();
+    loadSeparationPortions();
+  });
+
+  btnRange?.addEventListener('click', () => {
+    currentFilterMode = 'range';
+    updateModeUI();
+    loadSeparationPortions();
+  });
+
+  updateModeUI();
 }
 
 function setupTabListeners(container) {
@@ -78,7 +181,7 @@ async function loadSeparationPortions() {
     .select(`
       *,
       flavors (name),
-      production_orders (order_code),
+      production_orders (order_code, production_date),
       portion_ingredient_lines (
         id, requested_quantity, separated_quantity, unit, ingredient_lot, status, variance_reason,
         ingredients (name),
@@ -92,8 +195,19 @@ async function loadSeparationPortions() {
     return;
   }
 
+  // Filtrar porções por data da OP conforme currentFilterMode
+  let dateFilteredPortions = portions || [];
+  if (currentFilterMode === 'day' && selectedFilterDate) {
+    dateFilteredPortions = dateFilteredPortions.filter(p => p.production_orders?.production_date === selectedFilterDate);
+  } else if (currentFilterMode === 'range' && selectedStartDate && selectedEndDate) {
+    dateFilteredPortions = dateFilteredPortions.filter(p => {
+      const pDate = p.production_orders?.production_date;
+      return pDate && pDate >= selectedStartDate && pDate <= selectedEndDate;
+    });
+  }
+
   // Mapear e calcular estado de cada porção
-  let filteredPortions = (portions || []).map(p => {
+  let filteredPortions = dateFilteredPortions.map(p => {
     const lines = p.portion_ingredient_lines || [];
     const isAllSeparated = lines.length > 0 && lines.every(l => l.status === 'separated' || l.status === 'adjusted');
     return {
@@ -111,10 +225,12 @@ async function loadSeparationPortions() {
 
   if (filteredPortions.length === 0) {
     container.innerHTML = '';
+    const filterText = currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
+                       currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
     container.appendChild(renderEmptyState({
       icon: 'scale',
       title: 'Nenhuma Ordem de Separação Encontrada',
-      description: 'Não há kits de separação correspondentes ao filtro selecionado.',
+      description: `Não há kits de separação correspondentes ao filtro selecionado${filterText}.`,
       actionText: null
     }));
     return;
@@ -131,7 +247,7 @@ async function loadSeparationPortions() {
             <div class="flex flex-col gap-2">
               <div class="flex items-center justify-between border-b border-border-subtle pb-2">
                 <div>
-                  <span class="text-xs font-bold text-text-muted uppercase">${p.production_orders?.order_code}</span>
+                  <span class="text-xs font-bold text-text-muted uppercase">${p.production_orders?.order_code} • ${formatDate(p.production_orders?.production_date)}</span>
                   <h3 class="font-headline-sm text-ink-text">${p.flavors?.name} — Porção #${p.portion_no}</h3>
                 </div>
                 <span class="px-2.5 py-1 rounded-full text-xs font-bold ${
@@ -178,7 +294,6 @@ async function loadSeparationPortions() {
     </div>
   `;
 
-  // Listener para confirmar pesagem individual
   container.querySelectorAll('.confirm-separate-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const lineId = e.currentTarget.dataset.id;
