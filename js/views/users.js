@@ -8,6 +8,7 @@ const ALL_SCREENS = [
   { key: 'catalogs', label: 'Cadastros & Fórmulas' },
   { key: 'separation', label: 'Separação Insumos' },
   { key: 'production', label: 'Produção' },
+  { key: 'labeling', label: 'Contagem de Rótulos' },
   { key: 'inventory', label: 'Estoque & Cura' },
   { key: 'shipping', label: 'Pedidos & Expedição' },
   { key: 'billing', label: 'Faturamento' },
