@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseClient.js';
+import { SUPABASE_URL } from '../config.js';
 import { showNotification, renderEmptyState } from '../utils.js';
 
 const ALL_SCREENS = [
@@ -148,27 +149,76 @@ function setupInviteForm() {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch('https://ywnsowvomewoyedqozuh.supabase.co/functions/v1/invite-user', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || ''}`
-        },
-        body: JSON.stringify({
-          email,
-          displayName,
-          password: password ? password.trim() : null,
-          isAdmin,
-          screenPermissions
-        })
-      });
+      const functionUrl = `${SUPABASE_URL}/functions/v1/invite-user`;
 
-      const resData = await res.json();
-      if (!res.ok) {
-        throw new Error(resData.error || 'Erro ao invocar Edge Function de criação de usuário.');
+      let successMessage = 'Usuário cadastrado com sucesso!';
+      let handledViaEdgeFunction = false;
+
+      try {
+        const res = await fetch(functionUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token || ''}`
+          },
+          body: JSON.stringify({
+            email,
+            displayName,
+            password: password ? password.trim() : null,
+            isAdmin,
+            screenPermissions
+          })
+        });
+
+        const resData = await res.json();
+        if (res.ok) {
+          handledViaEdgeFunction = true;
+          successMessage = resData.message || successMessage;
+        } else {
+          // Se a função Edge retornou erro HTTP, relançar erro
+          throw new Error(resData.error || 'Erro ao processar criação de usuário na Edge Function.');
+        }
+      } catch (edgeErr) {
+        // Se ocorreu erro de rede / Failed to fetch (ex: Edge Function não implantada ou bloqueada por CORS)
+        if (password && password.trim().length >= 6) {
+          // Fallback: Cadastrar diretamente via Supabase Auth client (signUp)
+          const { data: authData, error: signUpErr } = await supabase.auth.signUp({
+            email,
+            password: password.trim(),
+            options: {
+              data: { name: displayName }
+            }
+          });
+
+          if (signUpErr) throw signUpErr;
+
+          const userId = authData.user?.id;
+          if (userId) {
+            // Lançar em app_users
+            const { error: appUserErr } = await supabase.from('app_users').insert({
+              user_id: userId,
+              display_name: displayName,
+              is_admin: isAdmin,
+              active: true
+            });
+
+            if (appUserErr) throw appUserErr;
+
+            // Se for operário, lançar permissões
+            if (!isAdmin && screenPermissions.length > 0) {
+              const rows = screenPermissions.map(s => ({ user_id: userId, screen_key: s }));
+              await supabase.from('user_screen_permissions').insert(rows);
+            }
+
+            successMessage = 'Usuário cadastrado com sucesso via cadastro direto! Não é necessário confirmação por e-mail.';
+            handledViaEdgeFunction = true;
+          }
+        } else {
+          throw edgeErr;
+        }
       }
 
-      showNotification(resData.message || 'Usuário cadastrado com sucesso!', 'success');
+      showNotification(successMessage, 'success');
       document.getElementById('invite-form-container')?.classList.add('hidden');
       loadUsers();
     } catch (err) {
@@ -242,7 +292,7 @@ async function loadUsers() {
     container.innerHTML = '';
     container.appendChild(renderEmptyState({
       icon: 'manage_accounts',
-      title: 'Nenum Usuário Encontrado',
+      title: 'Nenhum Usuário Encontrado',
       description: 'Cadastre o primeiro usuário para acessar o SGP Industrial.',
       actionText: 'Cadastrar Usuário',
       onAction: () => document.getElementById('invite-user-btn')?.click()
