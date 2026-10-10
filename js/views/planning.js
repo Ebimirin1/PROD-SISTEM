@@ -1,19 +1,25 @@
 import { supabase } from '../supabaseClient.js';
 import { showNotification, renderEmptyState, formatWeight, formatDate } from '../utils.js';
 
+let currentFilterMode = 'all'; // 'all', 'day', 'range'
+let selectedFilterDate = new Date().toISOString().split('T')[0];
+let selectedStartDate = new Date().toISOString().split('T')[0];
+let selectedEndDate = new Date().toISOString().split('T')[0];
+
 export async function render(container) {
+  const today = new Date().toISOString().split('T')[0];
+  if (!selectedFilterDate) selectedFilterDate = today;
+  if (!selectedStartDate) selectedStartDate = today;
+  if (!selectedEndDate) selectedEndDate = today;
+
   container.innerHTML = `
     <div class="flex flex-col gap-space-lg">
       <div class="flex flex-wrap items-center justify-between gap-space-md">
         <div>
           <h1 class="font-display-lg text-display-lg text-ink-text">Planejamento & Ordens de Produção</h1>
-          <p class="font-body-md text-body-md text-text-muted">Gestão de pedidos de carne, OPs consolidadas, demandas por canal, cálculo de receitas e geração de bateladas/porções.</p>
+          <p class="font-body-md text-body-md text-text-muted">Gestão de OPs consolidadas, demandas por canal, cálculo de receitas e geração de bateladas/porções.</p>
         </div>
         <div class="flex items-center gap-space-sm flex-wrap">
-          <button id="add-meat-order-btn" class="min-h-[44px] px-4 rounded-lg bg-surface-card hover:bg-surface-container-low text-bordeaux-primary border border-border-subtle font-title-md flex items-center gap-2 transition-colors">
-            <span class="material-symbols-outlined text-[20px]">shopping_cart</span>
-            <span>Novo Pedido de Carne</span>
-          </button>
           <button id="add-op-btn" class="min-h-[44px] px-5 rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md flex items-center gap-2 transition-colors shadow-sm">
             <span class="material-symbols-outlined text-[20px]">add_circle</span>
             <span>Abrir Nova OP</span>
@@ -21,41 +27,106 @@ export async function render(container) {
         </div>
       </div>
 
-      <!-- Abas Internas -->
-      <div class="bg-surface-card rounded-xl p-1.5 shadow-sm flex items-center gap-1 overflow-x-auto">
-        <button id="tab-ops" class="plan-tab flex items-center gap-2 px-4 py-2.5 rounded-lg bg-bordeaux-primary text-on-primary font-label-md shadow-sm whitespace-nowrap">
-          <span class="material-symbols-outlined text-[18px]">assignment</span>
-          <span>Ordens de Produção (OP)</span>
-        </button>
-        <button id="tab-meat-orders" class="plan-tab flex items-center gap-2 px-4 py-2.5 rounded-lg text-text-muted hover:bg-surface-container hover:text-ink-text font-label-md whitespace-nowrap">
-          <span class="material-symbols-outlined text-[18px]">inventory</span>
-          <span>Recebimento de Carne</span>
-        </button>
+      <!-- Barra de Filtros de Período / Dia (Igual à Visão Geral) -->
+      <div class="bg-surface-card p-4 rounded-xl border border-border-subtle shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-label-md text-text-muted flex items-center gap-1 mr-1">
+            <span class="material-symbols-outlined text-[18px]">filter_list</span>
+            <span>Filtrar OPs:</span>
+          </span>
+          <button id="plan-filter-all" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+            Visão Geral
+          </button>
+          <button id="plan-filter-day" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+            Por Dia
+          </button>
+          <button id="plan-filter-range" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+            Por Período / Semana
+          </button>
+        </div>
+
+        <div id="plan-date-controls" class="flex items-center gap-3 flex-wrap">
+          <!-- Renderizado dinamicamente conforme currentFilterMode -->
+        </div>
       </div>
 
       <div id="planning-tab-content"></div>
     </div>
   `;
 
-  setupTabs();
+  setupFilterControls();
   renderOPsTab();
 }
 
-function setupTabs() {
-  const tabOps = document.getElementById('tab-ops');
-  const tabMeat = document.getElementById('tab-meat-orders');
+function setupFilterControls() {
+  const btnAll = document.getElementById('plan-filter-all');
+  const btnDay = document.getElementById('plan-filter-day');
+  const btnRange = document.getElementById('plan-filter-range');
+  const dateControls = document.getElementById('plan-date-controls');
 
-  tabOps?.addEventListener('click', () => {
-    tabOps.className = 'plan-tab flex items-center gap-2 px-4 py-2.5 rounded-lg bg-bordeaux-primary text-on-primary font-label-md shadow-sm whitespace-nowrap';
-    if (tabMeat) tabMeat.className = 'plan-tab flex items-center gap-2 px-4 py-2.5 rounded-lg text-text-muted hover:bg-surface-container hover:text-ink-text font-label-md whitespace-nowrap';
-    renderOPsTab();
+  if (!dateControls) return;
+
+  const updateModeUI = () => {
+    if (btnAll) btnAll.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+    if (btnDay) btnDay.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+    if (btnRange) btnRange.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+
+    if (currentFilterMode === 'all') {
+      dateControls.innerHTML = `<span class="text-xs font-bold text-text-muted bg-surface-canvas px-3 py-1.5 rounded-lg">Exibindo todas as Ordens de Produção</span>`;
+    } else if (currentFilterMode === 'day') {
+      dateControls.innerHTML = `
+        <div class="flex items-center gap-2">
+          <label for="plan-single-date" class="text-xs font-bold text-ink-text">Data de Produção:</label>
+          <input type="date" id="plan-single-date" value="${selectedFilterDate}" class="min-h-[36px] px-3 rounded-lg border border-border-subtle bg-surface-card text-xs font-bold text-ink-text focus:outline-none focus:border-bordeaux-primary">
+        </div>
+      `;
+      document.getElementById('plan-single-date')?.addEventListener('change', (e) => {
+        selectedFilterDate = e.target.value;
+        loadOPs();
+      });
+    } else if (currentFilterMode === 'range') {
+      dateControls.innerHTML = `
+        <div class="flex items-center gap-2 flex-wrap">
+          <div class="flex items-center gap-1">
+            <label for="plan-start-date" class="text-xs font-bold text-ink-text">De:</label>
+            <input type="date" id="plan-start-date" value="${selectedStartDate}" class="min-h-[36px] px-3 rounded-lg border border-border-subtle bg-surface-card text-xs font-bold text-ink-text focus:outline-none focus:border-bordeaux-primary">
+          </div>
+          <div class="flex items-center gap-1">
+            <label for="plan-end-date" class="text-xs font-bold text-ink-text">Até:</label>
+            <input type="date" id="plan-end-date" value="${selectedEndDate}" class="min-h-[36px] px-3 rounded-lg border border-border-subtle bg-surface-card text-xs font-bold text-ink-text focus:outline-none focus:border-bordeaux-primary">
+          </div>
+        </div>
+      `;
+      document.getElementById('plan-start-date')?.addEventListener('change', (e) => {
+        selectedStartDate = e.target.value;
+        loadOPs();
+      });
+      document.getElementById('plan-end-date')?.addEventListener('change', (e) => {
+        selectedEndDate = e.target.value;
+        loadOPs();
+      });
+    }
+  };
+
+  btnAll?.addEventListener('click', () => {
+    currentFilterMode = 'all';
+    updateModeUI();
+    loadOPs();
   });
 
-  tabMeat?.addEventListener('click', () => {
-    tabMeat.className = 'plan-tab flex items-center gap-2 px-4 py-2.5 rounded-lg bg-bordeaux-primary text-on-primary font-label-md shadow-sm whitespace-nowrap';
-    if (tabOps) tabOps.className = 'plan-tab flex items-center gap-2 px-4 py-2.5 rounded-lg text-text-muted hover:bg-surface-container hover:text-ink-text font-label-md whitespace-nowrap';
-    renderMeatOrdersTab();
+  btnDay?.addEventListener('click', () => {
+    currentFilterMode = 'day';
+    updateModeUI();
+    loadOPs();
   });
+
+  btnRange?.addEventListener('click', () => {
+    currentFilterMode = 'range';
+    updateModeUI();
+    loadOPs();
+  });
+
+  updateModeUI();
 }
 
 // ----------------------------------------------------
@@ -251,7 +322,6 @@ function setupDemandForm() {
     const conservation = document.getElementById('demand-conservation-select').value;
     const notes = document.getElementById('demand-notes').value.trim();
 
-    // 1. Validação estrita: Sabor deve ser selecionado
     if (!flavorId) {
       if (errorDiv) {
         errorDiv.innerText = 'Selecione obrigatoriamente um sabor da lista.';
@@ -277,7 +347,6 @@ function setupDemandForm() {
     }
 
     try {
-      // 2. Buscar versão ativa da formulação para o sabor escolhido
       const { data: activeVersion, error: vErr } = await supabase
         .from('formula_versions')
         .select('id')
@@ -295,7 +364,6 @@ function setupDemandForm() {
         throw new Error(`O sabor "${flavorName}" não possui uma receita/formulação ATIVA. Por favor, acesse a tela "Cadastros & Fórmulas" e ative uma receita para este sabor.`);
       }
 
-      // 3. Salvar demanda no banco
       const { error: insertErr } = await supabase.from('production_demands').insert({
         production_order_id: opId,
         flavor_id: flavorId,
@@ -328,22 +396,31 @@ async function loadOPs() {
   const container = document.getElementById('ops-list-container');
   if (!container) return;
 
+  let query = supabase
+    .from('production_orders')
+    .select(`
+      *,
+      production_demands (
+        id, planned_kg, destination_key, requested_product_type, requested_conservation,
+        flavors (name),
+        formula_versions (id, base_mass_pct, meat_profile_id, formula_ingredients (ratio_pct, unit, ingredients(name)))
+      )
+    `)
+    .order('created_at', { ascending: false });
+
+  // Aplicar filtro de data de produção conforme currentFilterMode
+  if (currentFilterMode === 'day' && selectedFilterDate) {
+    query = query.eq('production_date', selectedFilterDate);
+  } else if (currentFilterMode === 'range' && selectedStartDate && selectedEndDate) {
+    query = query.gte('production_date', selectedStartDate).lte('production_date', selectedEndDate);
+  }
+
   const [
     { data: ops, error },
     { data: totalsData },
     { data: statusData }
   ] = await Promise.all([
-    supabase
-      .from('production_orders')
-      .select(`
-        *,
-        production_demands (
-          id, planned_kg, destination_key, requested_product_type, requested_conservation,
-          flavors (name),
-          formula_versions (id, base_mass_pct, meat_profile_id, formula_ingredients (ratio_pct, unit, ingredients(name)))
-        )
-      `)
-      .order('created_at', { ascending: false }),
+    query,
     supabase.from('vw_production_order_totals').select('*'),
     supabase.from('vw_production_order_status').select('*')
   ]);
@@ -355,10 +432,12 @@ async function loadOPs() {
 
   if (!ops || ops.length === 0) {
     container.innerHTML = '';
+    const filterText = currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
+                       currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
     container.appendChild(renderEmptyState({
       icon: 'calendar_today',
-      title: 'Nenhuma Ordem de Produção Aberta',
-      description: 'Abra uma nova OP consolidada para adicionar demandas por sabor e gerar bateladas.',
+      title: 'Nenhuma Ordem de Produção Encontrada',
+      description: `Não há OPs cadastradas${filterText}. Abra uma nova OP consolidada ou selecione outro filtro.`,
       actionText: 'Abrir Primeira OP',
       onAction: () => document.getElementById('add-op-btn')?.click()
     }));
@@ -489,7 +568,6 @@ async function openAddDemandModal(production_order_id) {
   document.getElementById('demand-planned-kg').value = '';
   document.getElementById('demand-notes').value = '';
 
-  // 1. Buscar os sabores ativos no Supabase com tratamento estrito de erro/vazio
   const { data: flavors, error: fErr } = await supabase
     .from('flavors')
     .select('id, name')
@@ -506,13 +584,11 @@ async function openAddDemandModal(production_order_id) {
     return;
   }
 
-  // 2. Preencher a lista de sabores sem pré-selecionar nenhum (mantendo o placeholder desabilitado)
   flavorSelect.innerHTML = `
     <option value="" disabled selected>Selecione o sabor</option>
     ${flavors.map(f => `<option value="${f.id}">${f.name}</option>`).join('')}
   `;
 
-  // 3. Buscar os parceiros/clientes ativos no Supabase
   const { data: partners } = await supabase
     .from('partners')
     .select('id, name, partner_type')
@@ -524,18 +600,16 @@ async function openAddDemandModal(production_order_id) {
     ${(partners || []).map(p => `<option value="${p.id}">${p.name} (${p.partner_type.toUpperCase()})</option>`).join('')}
   `;
 
-  // Exibir formulário
   document.getElementById('op-form-container')?.classList.add('hidden');
   formContainer?.classList.remove('hidden');
   formContainer?.scrollIntoView({ behavior: 'smooth' });
 }
 
 // ----------------------------------------------------
-// LÓGICA DE GERAÇÃO DE ORDENS (Bateladas <= 150kg, Porções <= 30kg)
+// LÓGICA DE GERAÇÃO DE ORDENS
 // ----------------------------------------------------
 async function processGenerateOrders(production_order_id) {
   try {
-    // 1. Buscar demandas da OP
     const { data: demands, error: dErr } = await supabase
       .from('production_demands')
       .select('*, formula_versions(*, meat_profiles(*))')
@@ -547,7 +621,6 @@ async function processGenerateOrders(production_order_id) {
       return;
     }
 
-    // 2. Agrupar por perfil de carne para gerar Bateladas de Massa-Base (max 150 kg por batelada)
     const profileTotals = {};
     demands.forEach(d => {
       const profileId = d.formula_versions.meat_profile_id;
@@ -576,7 +649,6 @@ async function processGenerateOrders(production_order_id) {
       }
     }
 
-    // 3. Agrupar por Sabor para gerar Lote Total por Sabor (sem divisão forçada de 30kg)
     const flavorTotals = {};
     demands.forEach(d => {
       if (!flavorTotals[d.flavor_id]) flavorTotals[d.flavor_id] = 0;
@@ -588,7 +660,7 @@ async function processGenerateOrders(production_order_id) {
       let portionNo = 1;
 
       while (remaining > 0) {
-        const portionSize = remaining; // Valor total do sabor no lote
+        const portionSize = remaining;
         const { data: portion, error: pErr } = await supabase.from('production_portions').insert({
           production_order_id,
           flavor_id: flavorId,
@@ -598,7 +670,6 @@ async function processGenerateOrders(production_order_id) {
 
         if (pErr) throw pErr;
 
-        // Gerar linhas de insumo por porção a partir da fórmula ativa
         const activeDemand = demands.find(d => d.flavor_id === flavorId);
         if (activeDemand) {
           const { data: formulaIngredients } = await supabase
@@ -618,7 +689,6 @@ async function processGenerateOrders(production_order_id) {
           }
         }
 
-        // Criar process_runs para as 3 etapas da porção (Embutimento, Vácuo, Rotulagem)
         await supabase.from('process_runs').insert([
           { portion_id: portion.id, stage: 'embutimento', status: 'pending' },
           { portion_id: portion.id, stage: 'vacuo', status: 'pending' },
@@ -630,7 +700,6 @@ async function processGenerateOrders(production_order_id) {
       }
     }
 
-    // 4. Marcar OP como gerada
     await supabase.from('production_orders').update({ generated_at: new Date().toISOString() }).eq('id', production_order_id);
 
     showNotification('Ordens de Produção, Bateladas e Porções geradas com sucesso!', 'success');
@@ -638,125 +707,4 @@ async function processGenerateOrders(production_order_id) {
   } catch (err) {
     showNotification(`Erro ao gerar ordens: ${err.message}`, 'error');
   }
-}
-
-// ----------------------------------------------------
-// 2. RECEBIMENTO DE CARNE
-// ----------------------------------------------------
-async function renderMeatOrdersTab() {
-  const content = document.getElementById('planning-tab-content');
-  if (!content) return;
-
-  content.innerHTML = `
-    <div class="flex flex-col gap-space-md">
-      <div id="meat-order-form-container" class="hidden bg-surface-card p-space-lg rounded-xl border border-border-subtle shadow-sm flex flex-col gap-space-md">
-        <h3 class="font-title-lg text-ink-text">Registrar Pedido/Recebimento de Carne</h3>
-        <form id="meat-order-form" class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
-          <div class="flex flex-col gap-1">
-            <label class="font-label-md text-ink-text">Código do Pedido</label>
-            <input type="text" id="meat-order-code" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold" placeholder="Ex: PED-CARNE-01">
-          </div>
-          <div class="flex flex-col gap-1">
-            <label class="font-label-md text-ink-text">Fornecedor</label>
-            <input type="text" id="meat-supplier" class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text" placeholder="Ex: Frigorífico Central">
-          </div>
-          <div class="flex flex-col gap-1">
-            <label class="font-label-md text-ink-text">Data do Pedido</label>
-            <input type="date" id="meat-ordered-at" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text">
-          </div>
-          <div class="flex items-center gap-2 md:col-span-3 justify-end">
-            <button type="button" id="meat-order-cancel-btn" class="min-h-[44px] px-4 rounded-lg bg-surface-canvas hover:bg-surface-variant text-ink-text font-title-md">Cancelar</button>
-            <button type="submit" class="min-h-[44px] px-5 rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md">Salvar Registros</button>
-          </div>
-        </form>
-      </div>
-
-      <div id="meat-orders-list-container"></div>
-    </div>
-  `;
-
-  document.getElementById('add-meat-order-btn')?.addEventListener('click', () => {
-    document.getElementById('meat-order-code').value = `CARNE-${Math.floor(1000 + Math.random() * 9000)}`;
-    document.getElementById('meat-ordered-at').value = new Date().toISOString().split('T')[0];
-    document.getElementById('meat-order-form-container')?.classList.remove('hidden');
-  });
-
-  document.getElementById('meat-order-cancel-btn')?.addEventListener('click', () => {
-    document.getElementById('meat-order-form-container')?.classList.add('hidden');
-  });
-
-  document.getElementById('meat-order-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const order_code = document.getElementById('meat-order-code').value.trim();
-    const supplier_name = document.getElementById('meat-supplier').value.trim();
-    const ordered_at = document.getElementById('meat-ordered-at').value;
-
-    try {
-      const { error } = await supabase.from('meat_orders').insert({
-        order_code,
-        supplier_name,
-        ordered_at
-      });
-      if (error) throw error;
-      showNotification('Pedido de carne criado com sucesso!', 'success');
-      document.getElementById('meat-order-form-container')?.classList.add('hidden');
-      loadMeatOrders();
-    } catch (err) {
-      showNotification(`Erro ao criar pedido de carne: ${err.message}`, 'error');
-    }
-  });
-
-  loadMeatOrders();
-}
-
-async function loadMeatOrders() {
-  const container = document.getElementById('meat-orders-list-container');
-  if (!container) return;
-
-  const { data: orders, error } = await supabase.from('meat_orders').select('*, meat_order_lines(*)').order('created_at', { ascending: false });
-
-  if (error) {
-    container.innerHTML = `<div class="p-4 bg-badge-error-bg text-badge-error-text rounded-lg">Erro ao carregar carne: ${error.message}</div>`;
-    return;
-  }
-
-  if (!orders || orders.length === 0) {
-    container.innerHTML = '';
-    container.appendChild(renderEmptyState({
-      icon: 'shopping_cart',
-      title: 'Nenhum Pedido de Carne',
-      description: 'Registre o recebimento de cortes suínos/bovinos e seus lotes para abastecer as OPs.',
-      actionText: 'Novo Pedido de Carne',
-      onAction: () => document.getElementById('add-meat-order-btn')?.click()
-    }));
-    return;
-  }
-
-  container.innerHTML = `
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
-      ${orders.map(o => `
-        <div class="bg-surface-card rounded-xl p-space-md shadow-sm border border-border-subtle flex flex-col justify-between gap-3">
-          <div class="flex flex-col gap-2">
-            <div class="flex items-center justify-between">
-              <h3 class="font-headline-sm text-ink-text">${o.order_code}</h3>
-              <span class="text-xs font-bold text-text-muted">${formatDate(o.ordered_at)}</span>
-            </div>
-            <span class="text-xs text-text-muted">Fornecedor: <strong>${o.supplier_name || 'Não informado'}</strong></span>
-
-            <div class="p-3 bg-surface-canvas rounded-lg text-xs flex flex-col gap-1 mt-2">
-              <span class="font-bold text-ink-text">Linhas de Cortes Recebidos:</span>
-              ${(o.meat_order_lines || []).length === 0
-                ? `<span class="text-text-muted">Nenhum corte adicionado ainda.</span>`
-                : (o.meat_order_lines || []).map(line => `
-                  <div class="flex justify-between font-medium text-ink-text">
-                    <span>• ${line.cut_name} (Lote: ${line.lot_code || '—'}):</span>
-                    <span class="font-bold text-bordeaux-primary">${formatWeight(line.quantity_received_kg)} / ${formatWeight(line.quantity_ordered_kg)}</span>
-                  </div>
-                `).join('')}
-            </div>
-          </div>
-        </div>
-      `).join('')}
-    </div>
-  `;
 }
