@@ -2,6 +2,7 @@ import { supabase } from '../supabaseClient.js';
 import { showNotification, renderEmptyState, formatWeight, formatDateTime, formatDate } from '../utils.js';
 
 let currentFilterMode = 'all'; // 'all', 'day', 'range'
+let currentStageFilter = 'all'; // 'all', 'embutimento', 'vacuo', 'completed'
 let selectedFilterDate = new Date().toISOString().split('T')[0];
 let selectedStartDate = new Date().toISOString().split('T')[0];
 let selectedEndDate = new Date().toISOString().split('T')[0];
@@ -21,10 +22,21 @@ export async function render(container) {
           <p class="font-body-md text-body-md text-text-muted">Acompanhamento em tempo real por lote total do sabor nas etapas de Embutimento e Vácuo (a etapa de Rotulagem é gerada automaticamente na tela "Contagem de Rótulos").</p>
         </div>
 
-        <a href="#labeling" id="go-to-labeling-btn" class="px-4 py-2 rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-bold flex items-center gap-2 text-xs shadow-sm transition-colors">
-          <span class="material-symbols-outlined text-[18px]">label</span>
-          <span>Ir para Contagem de Rótulos</span>
-        </a>
+        <!-- Filtros de Estágio / Status da Produção -->
+        <div class="flex items-center gap-1 bg-surface-card p-1 rounded-xl border border-border-subtle shadow-sm flex-wrap">
+          <button id="prod-stage-all" class="stage-tab-btn px-3.5 py-2 rounded-lg font-label-md text-label-md transition-colors ${currentStageFilter === 'all' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}">
+            Todos
+          </button>
+          <button id="prod-stage-embutimento" class="stage-tab-btn px-3.5 py-2 rounded-lg font-label-md text-label-md transition-colors ${currentStageFilter === 'embutimento' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}">
+            Embutimento
+          </button>
+          <button id="prod-stage-vacuo" class="stage-tab-btn px-3.5 py-2 rounded-lg font-label-md text-label-md transition-colors ${currentStageFilter === 'vacuo' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'text-text-muted hover:text-ink-text'}">
+            Vácuo
+          </button>
+          <button id="prod-stage-completed" class="stage-tab-btn px-3.5 py-2 rounded-lg font-label-md text-label-md transition-colors ${currentStageFilter === 'completed' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'text-text-muted hover:text-ink-text'}">
+            Finalizado
+          </button>
+        </div>
       </div>
 
       <!-- Barra de Filtros de Período / Dia (Igual à Visão Geral) -->
@@ -55,7 +67,49 @@ export async function render(container) {
   `;
 
   setupFilterControls();
+  setupStageFilterControls(container);
   loadProductionProcessRuns();
+}
+
+function setupStageFilterControls(container) {
+  const btnAll = container.querySelector('#prod-stage-all');
+  const btnEmb = container.querySelector('#prod-stage-embutimento');
+  const btnVac = container.querySelector('#prod-stage-vacuo');
+  const btnComp = container.querySelector('#prod-stage-completed');
+
+  const updateStageStyles = (activeBtn) => {
+    [btnAll, btnEmb, btnVac, btnComp].forEach(btn => {
+      if (btn === activeBtn) {
+        btn.className = 'stage-tab-btn px-3.5 py-2 rounded-lg font-label-md text-label-md transition-colors bg-bordeaux-primary text-on-primary font-bold shadow-sm';
+      } else if (btn) {
+        btn.className = 'stage-tab-btn px-3.5 py-2 rounded-lg font-label-md text-label-md transition-colors text-text-muted hover:text-ink-text';
+      }
+    });
+  };
+
+  btnAll?.addEventListener('click', () => {
+    currentStageFilter = 'all';
+    updateStageStyles(btnAll);
+    loadProductionProcessRuns();
+  });
+
+  btnEmb?.addEventListener('click', () => {
+    currentStageFilter = 'embutimento';
+    updateStageStyles(btnEmb);
+    loadProductionProcessRuns();
+  });
+
+  btnVac?.addEventListener('click', () => {
+    currentStageFilter = 'vacuo';
+    updateStageStyles(btnVac);
+    loadProductionProcessRuns();
+  });
+
+  btnComp?.addEventListener('click', () => {
+    currentStageFilter = 'completed';
+    updateStageStyles(btnComp);
+    loadProductionProcessRuns();
+  });
 }
 
 function setupFilterControls() {
@@ -161,6 +215,27 @@ async function loadProductionProcessRuns() {
     filteredPortions = filteredPortions.filter(p => {
       const pDate = p.production_orders?.production_date;
       return pDate && pDate >= selectedStartDate && pDate <= selectedEndDate;
+    });
+  }
+
+  // Filtrar por estágio/status da produção conforme currentStageFilter
+  if (currentStageFilter !== 'all') {
+    filteredPortions = filteredPortions.filter(p => {
+      const runs = p.process_runs || [];
+      const embutimento = runs.find(r => r.stage === 'embutimento');
+      const vacuo = runs.find(r => r.stage === 'vacuo');
+
+      const isEmbutimentoDone = embutimento?.status === 'completed';
+      const isVacuoDone = vacuo?.status === 'completed';
+
+      if (currentStageFilter === 'embutimento') {
+        return !isEmbutimentoDone;
+      } else if (currentStageFilter === 'vacuo') {
+        return isEmbutimentoDone && !isVacuoDone;
+      } else if (currentStageFilter === 'completed') {
+        return isVacuoDone;
+      }
+      return true;
     });
   }
 
