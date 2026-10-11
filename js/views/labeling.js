@@ -140,10 +140,14 @@ async function loadLabelingRuns() {
     .from('production_portions')
     .select(`
       id,
+      flavor_id,
       portion_no,
       planned_kg,
       flavors (id, name),
-      production_orders (id, order_code, production_date),
+      production_orders (
+        id, order_code, production_date,
+        production_demands (flavor_id, requested_product_type, requested_conservation)
+      ),
       process_runs (
         id, stage, status, started_at, completed_at, actual_kg
       )
@@ -181,7 +185,73 @@ async function loadLabelingRuns() {
 
   const { data: collaborators } = await supabase.from('collaborators').select('id, full_name').eq('active', true);
 
+  // Calcular estatísticas agregadas de rótulos (Resfriados, Congelados e por Produto)
+  let totalLabels = 0;
+  let totalResfriadosLabels = 0;
+  let totalCongeladosLabels = 0;
+  const productTypeTotals = {};
+
+  filteredPortions.forEach(p => {
+    const runs = p.process_runs || [];
+    const vacuoRun = runs.find(r => r.stage === 'vacuo');
+    const baseKg = (vacuoRun && vacuoRun.actual_kg) ? Number(vacuoRun.actual_kg) : Number(p.planned_kg || 0);
+    const calculatedLabels = Math.round(baseKg * 2.5);
+
+    const demands = p.production_orders?.production_demands || [];
+    const matchingDemand = demands.find(d => d.flavor_id === p.flavor_id) || demands[0] || {};
+    const productType = matchingDemand.requested_product_type || 'linguica';
+    const conservation = matchingDemand.requested_conservation || 'resfriado';
+
+    totalLabels += calculatedLabels;
+    if (conservation === 'congelado') {
+      totalCongeladosLabels += calculatedLabels;
+    } else {
+      totalResfriadosLabels += calculatedLabels;
+    }
+
+    productTypeTotals[productType] = (productTypeTotals[productType] || 0) + calculatedLabels;
+  });
+
   container.innerHTML = `
+    <!-- Cards de Resumo e Identificação de Rótulos -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-md mb-4">
+      <div class="bg-surface-card p-space-md rounded-xl border border-border-subtle shadow-sm flex flex-col justify-between">
+        <span class="text-xs font-bold text-text-muted uppercase flex items-center gap-1">
+          <span class="material-symbols-outlined text-bordeaux-primary text-[18px]">label</span>
+          Total de Rótulos
+        </span>
+        <span class="font-tabular-data-lg text-headline-md font-bold text-ink-text mt-1">${totalLabels} <span class="text-xs font-normal text-text-muted">unidades</span></span>
+      </div>
+
+      <div class="bg-surface-card p-space-md rounded-xl border border-border-subtle shadow-sm flex flex-col justify-between">
+        <span class="text-xs font-bold text-emerald-800 uppercase flex items-center gap-1">
+          <span class="material-symbols-outlined text-emerald-600 text-[18px]">ac_unit</span>
+          Rótulos Resfriados
+        </span>
+        <span class="font-tabular-data-lg text-headline-md font-bold text-emerald-700 mt-1">${totalResfriadosLabels} <span class="text-xs font-normal text-text-muted">unidades</span></span>
+      </div>
+
+      <div class="bg-surface-card p-space-md rounded-xl border border-border-subtle shadow-sm flex flex-col justify-between">
+        <span class="text-xs font-bold text-blue-800 uppercase flex items-center gap-1">
+          <span class="material-symbols-outlined text-blue-600 text-[18px]">severe_cold</span>
+          Rótulos Congelados
+        </span>
+        <span class="font-tabular-data-lg text-headline-md font-bold text-blue-700 mt-1">${totalCongeladosLabels} <span class="text-xs font-normal text-text-muted">unidades</span></span>
+      </div>
+
+      <div class="bg-surface-card p-space-md rounded-xl border border-border-subtle shadow-sm flex flex-col justify-between">
+        <span class="text-xs font-bold text-text-muted uppercase flex items-center gap-1">
+          <span class="material-symbols-outlined text-bordeaux-primary text-[18px]">category</span>
+          Por Tipo de Produto
+        </span>
+        <div class="flex flex-wrap gap-1 mt-1 text-xs font-bold text-ink-text">
+          ${Object.entries(productTypeTotals).map(([type, qty]) => `
+            <span class="px-2 py-0.5 rounded bg-surface-canvas border border-border-subtle capitalize">${type}: ${qty}un</span>
+          `).join('') || '<span class="text-text-muted font-normal">Nenhum</span>'}
+        </div>
+      </div>
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-space-md">
       ${filteredPortions.map(p => {
         const runs = p.process_runs || [];
@@ -191,6 +261,12 @@ async function loadLabelingRuns() {
         const baseKg = (vacuoRun && vacuoRun.actual_kg) ? Number(vacuoRun.actual_kg) : Number(p.planned_kg || 0);
         const calculatedLabels = Math.round(baseKg * 2.5);
 
+        const demands = p.production_orders?.production_demands || [];
+        const matchingDemand = demands.find(d => d.flavor_id === p.flavor_id) || demands[0] || {};
+        const productType = matchingDemand.requested_product_type || 'linguica';
+        const conservation = matchingDemand.requested_conservation || 'resfriado';
+        const isCongelado = conservation === 'congelado';
+
         const isRotulagemCompleted = rotulagemRun?.status === 'completed';
         const isRotulagemInProgress = rotulagemRun?.status === 'in_progress';
 
@@ -199,8 +275,14 @@ async function loadLabelingRuns() {
             <div class="flex flex-col gap-2">
               <div class="flex items-center justify-between border-b border-border-subtle pb-2">
                 <div>
-                  <span class="text-xs font-bold text-text-muted uppercase">${p.production_orders?.order_code || 'OP'} • ${formatDate(p.production_orders?.production_date)}</span>
-                  <h3 class="font-headline-sm text-ink-text">${p.flavors?.name} — Porção #${p.portion_no}</h3>
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-text-muted uppercase">${p.production_orders?.order_code || 'OP'} • ${formatDate(p.production_orders?.production_date)}</span>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-surface-canvas border border-border-subtle text-ink-text">${productType}</span>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                      isCongelado ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                    }">${conservation}</span>
+                  </div>
+                  <h3 class="font-headline-sm text-ink-text mt-1">${p.flavors?.name} — Porção #${p.portion_no}</h3>
                 </div>
                 <span class="px-2.5 py-1 rounded-full text-xs font-bold ${
                   isRotulagemCompleted ? 'bg-surface-container-low text-status-success' :
