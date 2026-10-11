@@ -409,6 +409,7 @@ async function loadInventory() {
                     <th class="py-2 px-3 font-semibold">Sabor</th>
                     <th class="py-2 px-3 font-semibold">Tipo</th>
                     <th class="py-2 px-3 font-semibold">Conservação</th>
+                    <th class="py-2 px-3 font-semibold">Data de Produção</th>
                     <th class="py-2 px-3 font-semibold">Validade Calculada</th>
                     <th class="py-2 px-3 font-semibold text-right">Saldo Atual (kg)</th>
                   </tr>
@@ -420,6 +421,7 @@ async function loadInventory() {
                       <td class="py-2.5 px-3 font-bold">${item.flavor}</td>
                       <td class="py-2.5 px-3 capitalize">${item.product_type}</td>
                       <td class="py-2.5 px-3 capitalize">${item.conservation}</td>
+                      <td class="py-2.5 px-3 font-bold text-ink-text">${formatDate(item.prodDate)}</td>
                       <td class="py-2.5 px-3 font-bold text-text-muted">${formatDate(item.expiry_date)}</td>
                       <td class="py-2.5 px-3 text-right font-bold text-status-success">${formatWeight(item.balance_kg)}</td>
                     </tr>
