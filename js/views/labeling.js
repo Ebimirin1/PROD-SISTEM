@@ -26,7 +26,7 @@ export async function render(container) {
 
         <div class="flex items-center gap-2 bg-surface-canvas p-2 rounded-lg border border-border-subtle">
           <span class="material-symbols-outlined text-status-info text-[20px]">info</span>
-          <span class="text-xs font-bold text-ink-text">Regra do Setor: 1 kg de linguiça = 2,5 rótulos (Ex: 100 kg = 250 rótulos)</span>
+          <span class="text-xs font-bold text-ink-text">Regra de Rótulos: Granel = 1 rótulo a cada 10 kg • Demais Produtos = 2,5 rótulos / kg (~420g por pacote)</span>
         </div>
       </div>
 
@@ -195,12 +195,13 @@ async function loadLabelingRuns() {
     const runs = p.process_runs || [];
     const vacuoRun = runs.find(r => r.stage === 'vacuo');
     const baseKg = (vacuoRun && vacuoRun.actual_kg) ? Number(vacuoRun.actual_kg) : Number(p.planned_kg || 0);
-    const calculatedLabels = Math.round(baseKg * 2.5);
 
     const demands = p.production_orders?.production_demands || [];
     const matchingDemand = demands.find(d => d.flavor_id === p.flavor_id) || demands[0] || {};
     const productType = matchingDemand.requested_product_type || 'linguica';
     const conservation = matchingDemand.requested_conservation || 'resfriado';
+
+    const calculatedLabels = productType === 'granel' ? Math.ceil(baseKg / 10) : Math.round(baseKg * 2.5);
 
     totalLabels += calculatedLabels;
     if (conservation === 'congelado') {
@@ -259,13 +260,17 @@ async function loadLabelingRuns() {
         const rotulagemRun = runs.find(r => r.stage === 'rotulagem');
 
         const baseKg = (vacuoRun && vacuoRun.actual_kg) ? Number(vacuoRun.actual_kg) : Number(p.planned_kg || 0);
-        const calculatedLabels = Math.round(baseKg * 2.5);
 
         const demands = p.production_orders?.production_demands || [];
         const matchingDemand = demands.find(d => d.flavor_id === p.flavor_id) || demands[0] || {};
         const productType = matchingDemand.requested_product_type || 'linguica';
         const conservation = matchingDemand.requested_conservation || 'resfriado';
         const isCongelado = conservation === 'congelado';
+
+        const isGranel = productType === 'granel';
+        const calculatedLabels = isGranel ? Math.ceil(baseKg / 10) : Math.round(baseKg * 2.5);
+        const packageInfoLabel = isGranel ? 'Embalagem (10 kg)' : 'Qtd Pacotes (~420g)';
+        const packageQtyDisplay = isGranel ? `${calculatedLabels} caixas (10kg)` : `${calculatedLabels} un`;
 
         const isRotulagemCompleted = rotulagemRun?.status === 'completed';
         const isRotulagemInProgress = rotulagemRun?.status === 'in_progress';
@@ -300,8 +305,8 @@ async function loadLabelingRuns() {
                   <span class="font-tabular-data-lg text-title-md font-bold text-ink-text">${formatWeight(baseKg)}</span>
                 </div>
                 <div class="flex flex-col">
-                  <span class="text-text-muted font-bold">Qtd Pacotes (~420g)</span>
-                  <span class="font-tabular-data-lg text-title-md font-bold text-bordeaux-primary">${calculatedLabels} un</span>
+                  <span class="text-text-muted font-bold">${packageInfoLabel}</span>
+                  <span class="font-tabular-data-lg text-title-md font-bold text-bordeaux-primary">${packageQtyDisplay}</span>
                 </div>
                 <div class="flex flex-col">
                   <span class="text-text-muted font-bold">Rótulos Calculados</span>
