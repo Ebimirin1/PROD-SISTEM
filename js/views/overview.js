@@ -473,6 +473,20 @@ function renderProductionModalContent() {
   `;
 }
 
+function getPortionCompletionDate(p, opMap) {
+  const runs = p.process_runs || [];
+  const completedRuns = runs.filter(r => r.status === 'completed' && r.completed_at);
+  if (completedRuns.length > 0) {
+    const endRun = completedRuns.find(r => r.stage === 'rotulagem') ||
+                   completedRuns.find(r => r.stage === 'vacuo') ||
+                   completedRuns.find(r => r.stage === 'embutimento') ||
+                   completedRuns[0];
+    return getLocalDateString(new Date(endRun.completed_at));
+  }
+  const op = opMap[p.production_order_id];
+  return op ? op.production_date : getLocalDateString();
+}
+
 function setupStockModalEventListeners(container) {
   const modal = container.querySelector('#stock-details-modal');
   const closeBtn = container.querySelector('#close-stock-modal-btn');
@@ -590,15 +604,12 @@ async function loadOverviewData() {
     dateSelect.value = currentSelectedDate;
   }
 
-  // Filtrar OPs de acordo com o modo escolhido
-  let filteredOps = ops;
-  if (currentFilterMode === 'day' && currentSelectedDate) {
-    filteredOps = ops.filter(o => o.production_date === currentSelectedDate);
-  } else if (currentFilterMode === 'range' && currentStartDate && currentEndDate) {
-    filteredOps = ops.filter(o => o.production_date >= currentStartDate && o.production_date <= currentEndDate);
-  }
-
   // Mapeamentos
+  const opMap = (ops || []).reduce((acc, o) => {
+    acc[o.id] = o;
+    return acc;
+  }, {});
+
   const statusMap = (statusData || []).reduce((acc, s) => {
     acc[s.production_order_id] = s;
     return acc;
@@ -609,11 +620,34 @@ async function loadOverviewData() {
     return acc;
   }, {});
 
-  // Renderizar Indicadores KPI
-  renderMetricsCards(metricsContainer, filteredOps, totalsMap, statusMap, lots, invoiceQueue);
+  // Associar data de finalização a cada porção com base na data do último processo concluído (completed_at)
+  const augmentedPortions = (portions || []).map(p => {
+    const completionDate = getPortionCompletionDate(p, opMap);
+    return {
+      ...p,
+      completionDate
+    };
+  });
 
-  // Renderizar Ordens Produzidas Por Dia / Detalhes de Processos
-  renderDailyProductionOrders(dailyOrdersSection, filteredOps, portions, statusMap);
+  // Filtrar porções e OPs de acordo com a data de finalização do sabor
+  let filteredPortions = augmentedPortions;
+  let filteredOps = ops;
+
+  if (currentFilterMode === 'day' && currentSelectedDate) {
+    filteredPortions = augmentedPortions.filter(p => p.completionDate === currentSelectedDate);
+    const activeOpIds = new Set(filteredPortions.map(p => p.production_order_id));
+    filteredOps = ops.filter(o => activeOpIds.has(o.id) || o.production_date === currentSelectedDate);
+  } else if (currentFilterMode === 'range' && currentStartDate && currentEndDate) {
+    filteredPortions = augmentedPortions.filter(p => p.completionDate >= currentStartDate && p.completionDate <= currentEndDate);
+    const activeOpIds = new Set(filteredPortions.map(p => p.production_order_id));
+    filteredOps = ops.filter(o => activeOpIds.has(o.id) || (o.production_date >= currentStartDate && o.production_date <= currentEndDate));
+  }
+
+  // Renderizar Indicadores KPI
+  renderMetricsCards(metricsContainer, filteredOps, totalsMap, statusMap, lots, invoiceQueue, filteredPortions);
+
+  // Renderizar Produções Realizadas Por Dia (Agrupadas por Data de Finalização do Sabor)
+  renderDailyProductionOrders(dailyOrdersSection, filteredPortions, opMap, statusMap);
 }
 
 function renderMetricsCards(container, filteredOps, totalsMap, statusMap, lots, invoiceQueue) {
@@ -834,18 +868,26 @@ function renderStockModalContent() {
   `;
 }
 
-function renderDailyProductionOrders(container, ops, portions, statusMap) {
-  if (!ops || ops.length === 0) {
-    container.innerHTML = '';
+function renderDailyProductionOrders(container, portions, opMap, statusMap) {
+  if (!portions || portions.length === 0) {
+    container.innerHTML = `
+      <div class="bg-surface-card rounded-xl p-space-lg shadow-sm border border-border-subtle text-center text-text-muted font-body-md">
+        Nenhum produto finalizado encontrado para a data/período selecionado.
+      </div>
+    `;
     return;
   }
 
-  // Agrupar porções por production_order_id
-  const portionsByOp = (portions || []).reduce((acc, p) => {
-    if (!acc[p.production_order_id]) acc[p.production_order_id] = [];
-    acc[p.production_order_id].push(p);
+  // Agrupar porções por data de finalização (completionDate)
+  const portionsByDateMap = portions.reduce((acc, p) => {
+    const dateKey = p.completionDate || 'Sem Data';
+    if (!acc[dateKey]) acc[dateKey] = [];
+    acc[dateKey].push(p);
     return acc;
   }, {});
+
+  // Ordenar datas em ordem decrescente
+  const sortedDates = Object.keys(portionsByDateMap).sort((a, b) => b.localeCompare(a));
 
   container.innerHTML = `
     <div class="bg-surface-card rounded-xl p-space-lg shadow-sm border border-border-subtle flex flex-col gap-space-md">
@@ -853,30 +895,35 @@ function renderDailyProductionOrders(container, ops, portions, statusMap) {
         <div>
           <div class="flex items-center gap-2">
             <span class="material-symbols-outlined text-bordeaux-primary text-[22px]">format_list_bulleted</span>
-            <h2 class="font-headline-sm text-headline-sm text-ink-text">Ordens Produzidas por Dia & Acompanhamento de Processos</h2>
+            <h2 class="font-headline-sm text-headline-sm text-ink-text">Produções Realizadas por Dia de Finalização & Acompanhamento de Processos</h2>
           </div>
-          <p class="font-body-md text-body-md text-text-muted mt-0.5">Detalhamento dos volumes embutidos, envacados (vácuo) e rotulados com tempo gasto em cada etapa.</p>
+          <p class="font-body-md text-body-md text-text-muted mt-0.5">Listagem das produções organizadas pelo dia em que cada sabor teve suas etapas concluídas, com acompanhamento de peso embutido, envacado e tempo gasto.</p>
         </div>
         <span class="font-label-sm text-label-sm px-2.5 py-1 rounded bg-surface-canvas text-ink-text font-bold border border-border-subtle">
-          ${ops.length} ${ops.length === 1 ? 'Ordem Mapeada' : 'Ordens Mapeadas'}
+          ${sortedDates.length} ${sortedDates.length === 1 ? 'Dia com Registro' : 'Dias com Registros'}
         </span>
       </div>
 
-      <div class="flex flex-col gap-space-md">
-        ${ops.map(op => {
-          const opPortions = portionsByOp[op.id] || [];
-          const status = statusMap[op.id]?.status || 'planned';
+      <div class="flex flex-col gap-space-lg">
+        ${sortedDates.map(dateKey => {
+          const datePortions = portionsByDateMap[dateKey];
 
-          // Agrupar porções por sabor
-          const flavorsMap = opPortions.reduce((acc, p) => {
+          // Agrupar porções deste dia por sabor
+          const flavorsMap = datePortions.reduce((acc, p) => {
             const flavorId = p.flavor_id;
             const flavorName = p.flavors?.name || 'Sabor não identificado';
+            const op = opMap[p.production_order_id];
+            const opCode = op ? op.order_code : 'OP N/A';
+
             if (!acc[flavorId]) {
               acc[flavorId] = {
                 id: flavorId,
                 name: flavorName,
+                opCodes: new Set([opCode]),
                 portions: []
               };
+            } else {
+              acc[flavorId].opCodes.add(opCode);
             }
             acc[flavorId].portions.push(p);
             return acc;
@@ -886,127 +933,117 @@ function renderDailyProductionOrders(container, ops, portions, statusMap) {
 
           return `
             <div class="bg-surface-canvas rounded-xl p-space-md border border-border-subtle flex flex-col gap-space-md">
-              <!-- Cabeçalho da OP -->
+              <!-- Cabeçalho do Dia de Finalização -->
               <div class="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle pb-2">
                 <div class="flex items-center gap-3">
-                  <span class="font-title-lg text-title-lg text-bordeaux-primary font-bold">${op.order_code}</span>
-                  <span class="text-xs font-bold text-text-muted uppercase">Data da Produção: ${formatDate(op.production_date)}</span>
+                  <span class="material-symbols-outlined text-bordeaux-primary text-[22px]">event_available</span>
+                  <span class="font-title-lg text-title-lg text-ink-text font-bold">Produção Finalizada em: ${formatDate(dateKey)}</span>
                 </div>
-                <div>
-                  <span class="px-2.5 py-1 rounded text-xs font-bold ${
-                    status === 'completed' ? 'bg-surface-container-low text-status-success' :
-                    status === 'in_production' ? 'bg-badge-warning-bg text-badge-warning-text' :
-                    'bg-surface-card text-text-muted'
-                  }">
-                    ${status === 'completed' ? 'Concluída ✓' : status === 'in_production' ? 'Em Produção' : 'Planejada'}
-                  </span>
-                </div>
+                <span class="px-2.5 py-1 rounded text-xs font-bold bg-surface-container-low text-status-success border border-border-subtle">
+                  ${flavorList.length} ${flavorList.length === 1 ? 'Sabor Finalizado' : 'Sabores Finalizados'}
+                </span>
               </div>
 
-              <!-- Lista de Produtos / Sabores da OP -->
-              ${flavorList.length === 0 ? `
-                <div class="p-4 text-center text-text-muted text-xs italic bg-surface-card rounded-lg">
-                  Nenhuma porção gerada ainda para esta ordem de produção.
-                </div>
-              ` : `
-                <div class="grid grid-cols-1 gap-space-md">
-                  ${flavorList.map(flavor => {
-                    const allRuns = flavor.portions.flatMap(p => p.process_runs || []);
+              <!-- Lista de Produtos / Sabores Finalizados neste Dia -->
+              <div class="grid grid-cols-1 gap-space-md">
+                ${flavorList.map(flavor => {
+                  const allRuns = flavor.portions.flatMap(p => p.process_runs || []);
 
-                    const embutimentoStats = calculateStageStats(allRuns, 'embutimento');
-                    const vacuoStats = calculateStageStats(allRuns, 'vacuo');
-                    const rotulagemStats = calculateStageStats(allRuns, 'rotulagem');
+                  const embutimentoStats = calculateStageStats(allRuns, 'embutimento');
+                  const vacuoStats = calculateStageStats(allRuns, 'vacuo');
+                  const rotulagemStats = calculateStageStats(allRuns, 'rotulagem');
+                  const opCodesStr = Array.from(flavor.opCodes).join(', ');
 
-                    return `
-                      <div class="bg-surface-card rounded-lg p-space-md border border-border-subtle flex flex-col gap-space-sm">
-                        <div class="flex items-center justify-between flex-wrap gap-2">
-                          <h3 class="font-title-md text-title-md text-ink-text font-bold flex items-center gap-2">
-                            <span class="material-symbols-outlined text-[20px] text-bordeaux-primary">restaurant_menu</span>
-                            ${flavor.name}
-                          </h3>
-                          <span class="text-xs text-text-muted font-bold">${flavor.portions.length} ${flavor.portions.length === 1 ? 'porção' : 'porções'} (${formatWeight(flavor.portions.reduce((s, p) => s + Number(p.planned_kg), 0))})</span>
+                  return `
+                    <div class="bg-surface-card rounded-lg p-space-md border border-border-subtle flex flex-col gap-space-sm shadow-sm">
+                      <div class="flex items-center justify-between flex-wrap gap-2">
+                        <div class="flex items-center gap-2">
+                          <span class="material-symbols-outlined text-[20px] text-bordeaux-primary">restaurant_menu</span>
+                          <h3 class="font-title-md text-title-md text-ink-text font-bold">${flavor.name}</h3>
+                          <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-surface-canvas text-bordeaux-primary border border-border-subtle">${opCodesStr}</span>
+                        </div>
+                        <span class="text-xs text-text-muted font-bold">${flavor.portions.length} ${flavor.portions.length === 1 ? 'porção' : 'porções'} (${formatWeight(flavor.portions.reduce((s, p) => s + Number(p.planned_kg), 0))})</span>
+                      </div>
+
+                      <!-- Grid dos Três Processos: Embutimento, Envacado (Vácuo), Rotulagem -->
+                      <div class="grid grid-cols-1 md:grid-cols-3 gap-space-sm mt-1">
+                        <!-- 1. Embutimento -->
+                        <div class="p-3 bg-surface-canvas rounded-lg border border-border-subtle flex flex-col justify-between gap-1">
+                          <div class="flex items-center justify-between">
+                            <span class="font-label-sm text-label-sm text-text-muted uppercase font-bold flex items-center gap-1">
+                              <span class="material-symbols-outlined text-[16px] text-bordeaux-primary">motion_photos_on</span>
+                              Embutidos
+                            </span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${
+                              embutimentoStats.status === 'completed' ? 'bg-surface-container-low text-status-success' :
+                              embutimentoStats.status === 'in_progress' ? 'bg-badge-warning-bg text-badge-warning-text' :
+                              'bg-surface-card text-text-muted'
+                            }">
+                              ${embutimentoStats.status === 'completed' ? 'Concluído' : embutimentoStats.status === 'in_progress' ? 'Executando' : 'Pendente'}
+                            </span>
+                          </div>
+                          <div class="mt-1">
+                            <span class="font-tabular-data-lg text-tabular-data-lg text-ink-text font-bold">${formatWeight(embutimentoStats.totalKg)}</span>
+                          </div>
+                          <div class="flex items-center gap-1 text-xs text-text-muted mt-1 border-t border-border-subtle pt-1">
+                            <span class="material-symbols-outlined text-[14px]">schedule</span>
+                            <span>Tempo: <strong>${embutimentoStats.durationStr}</strong></span>
+                          </div>
                         </div>
 
-                        <!-- Grid dos Três Processos: Embutimento, Envacado (Vácuo), Rotulagem -->
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-space-sm mt-1">
-                          <!-- 1. Embutimento -->
-                          <div class="p-3 bg-surface-canvas rounded-lg border border-border-subtle flex flex-col justify-between gap-1">
-                            <div class="flex items-center justify-between">
-                              <span class="font-label-sm text-label-sm text-text-muted uppercase font-bold flex items-center gap-1">
-                                <span class="material-symbols-outlined text-[16px] text-bordeaux-primary">motion_photos_on</span>
-                                Embutidos
-                              </span>
-                              <span class="px-2 py-0.5 rounded text-[10px] font-bold ${
-                                embutimentoStats.status === 'completed' ? 'bg-surface-container-low text-status-success' :
-                                embutimentoStats.status === 'in_progress' ? 'bg-badge-warning-bg text-badge-warning-text' :
-                                'bg-surface-card text-text-muted'
-                              }">
-                                ${embutimentoStats.status === 'completed' ? 'Concluído' : embutimentoStats.status === 'in_progress' ? 'Executando' : 'Pendente'}
-                              </span>
-                            </div>
-                            <div class="mt-1">
-                              <span class="font-tabular-data-lg text-tabular-data-lg text-ink-text font-bold">${formatWeight(embutimentoStats.totalKg)}</span>
-                            </div>
-                            <div class="flex items-center gap-1 text-xs text-text-muted mt-1 border-t border-border-subtle pt-1">
-                              <span class="material-symbols-outlined text-[14px]">schedule</span>
-                              <span>Tempo: <strong>${embutimentoStats.durationStr}</strong></span>
-                            </div>
+                        <!-- 2. Envacados / Vácuo -->
+                        <div class="p-3 bg-surface-canvas rounded-lg border border-border-subtle flex flex-col justify-between gap-1">
+                          <div class="flex items-center justify-between">
+                            <span class="font-label-sm text-label-sm text-text-muted uppercase font-bold flex items-center gap-1">
+                              <span class="material-symbols-outlined text-[16px] text-amber-warning">compress</span>
+                              Envacados (Vácuo)
+                            </span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${
+                              vacuoStats.status === 'completed' ? 'bg-surface-container-low text-status-success' :
+                              vacuoStats.status === 'in_progress' ? 'bg-badge-warning-bg text-badge-warning-text' :
+                              'bg-surface-card text-text-muted'
+                            }">
+                              ${vacuoStats.status === 'completed' ? 'Concluído' : vacuoStats.status === 'in_progress' ? 'Executando' : 'Pendente'}
+                            </span>
                           </div>
-
-                          <!-- 2. Envacados / Vácuo -->
-                          <div class="p-3 bg-surface-canvas rounded-lg border border-border-subtle flex flex-col justify-between gap-1">
-                            <div class="flex items-center justify-between">
-                              <span class="font-label-sm text-label-sm text-text-muted uppercase font-bold flex items-center gap-1">
-                                <span class="material-symbols-outlined text-[16px] text-amber-warning">compress</span>
-                                Envacados (Vácuo)
-                              </span>
-                              <span class="px-2 py-0.5 rounded text-[10px] font-bold ${
-                                vacuoStats.status === 'completed' ? 'bg-surface-container-low text-status-success' :
-                                vacuoStats.status === 'in_progress' ? 'bg-badge-warning-bg text-badge-warning-text' :
-                                'bg-surface-card text-text-muted'
-                              }">
-                                ${vacuoStats.status === 'completed' ? 'Concluído' : vacuoStats.status === 'in_progress' ? 'Executando' : 'Pendente'}
-                              </span>
-                            </div>
-                            <div class="mt-1">
-                              <span class="font-tabular-data-lg text-tabular-data-lg text-ink-text font-bold">${formatWeight(vacuoStats.totalKg)}</span>
-                            </div>
-                            <div class="flex items-center gap-1 text-xs text-text-muted mt-1 border-t border-border-subtle pt-1">
-                              <span class="material-symbols-outlined text-[14px]">schedule</span>
-                              <span>Tempo: <strong>${vacuoStats.durationStr}</strong></span>
-                            </div>
+                          <div class="mt-1">
+                            <span class="font-tabular-data-lg text-tabular-data-lg text-ink-text font-bold">${formatWeight(vacuoStats.totalKg)}</span>
                           </div>
+                          <div class="flex items-center gap-1 text-xs text-text-muted mt-1 border-t border-border-subtle pt-1">
+                            <span class="material-symbols-outlined text-[14px]">schedule</span>
+                            <span>Tempo: <strong>${vacuoStats.durationStr}</strong></span>
+                          </div>
+                        </div>
 
-                          <!-- 3. Rotulados (Contagem Automática: 2,5x por kg) -->
-                          <div class="p-3 bg-surface-canvas rounded-lg border border-border-subtle flex flex-col justify-between gap-1">
-                            <div class="flex items-center justify-between">
-                              <span class="font-label-sm text-label-sm text-text-muted uppercase font-bold flex items-center gap-1">
-                                <span class="material-symbols-outlined text-[16px] text-status-success">label</span>
-                                Rotulados (2,5x/kg)
-                              </span>
-                              <span class="px-2 py-0.5 rounded text-[10px] font-bold ${
-                                rotulagemStats.status === 'completed' ? 'bg-surface-container-low text-status-success' :
-                                rotulagemStats.status === 'in_progress' ? 'bg-badge-warning-bg text-badge-warning-text' :
-                                'bg-surface-card text-text-muted'
-                              }">
-                                ${rotulagemStats.status === 'completed' ? 'Concluído' : rotulagemStats.status === 'in_progress' ? 'Executando' : 'Pendente'}
-                              </span>
-                            </div>
-                            <div class="mt-1 flex items-baseline justify-between">
-                              <span class="font-tabular-data-lg text-tabular-data-lg text-ink-text font-bold">${formatWeight(rotulagemStats.totalKg)}</span>
-                              <span class="text-xs font-bold text-status-success">${Math.round(rotulagemStats.totalKg * 2.5)} rótulos</span>
-                            </div>
-                            <div class="flex items-center gap-1 text-xs text-text-muted mt-1 border-t border-border-subtle pt-1">
-                              <span class="material-symbols-outlined text-[14px]">schedule</span>
-                              <span>Tempo: <strong>${rotulagemStats.durationStr}</strong></span>
-                            </div>
+                        <!-- 3. Rotulados (Contagem Automática) -->
+                        <div class="p-3 bg-surface-canvas rounded-lg border border-border-subtle flex flex-col justify-between gap-1">
+                          <div class="flex items-center justify-between">
+                            <span class="font-label-sm text-label-sm text-text-muted uppercase font-bold flex items-center gap-1">
+                              <span class="material-symbols-outlined text-[16px] text-status-success">label</span>
+                              Rotulados (2,5x/kg)
+                            </span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${
+                              rotulagemStats.status === 'completed' ? 'bg-surface-container-low text-status-success' :
+                              rotulagemStats.status === 'in_progress' ? 'bg-badge-warning-bg text-badge-warning-text' :
+                              'bg-surface-card text-text-muted'
+                            }">
+                              ${rotulagemStats.status === 'completed' ? 'Concluído' : rotulagemStats.status === 'in_progress' ? 'Executando' : 'Pendente'}
+                            </span>
+                          </div>
+                          <div class="mt-1 flex items-baseline justify-between">
+                            <span class="font-tabular-data-lg text-tabular-data-lg text-ink-text font-bold">${formatWeight(rotulagemStats.totalKg)}</span>
+                            <span class="text-xs font-bold text-status-success">${Math.round(rotulagemStats.totalKg * 2.5)} rótulos</span>
+                          </div>
+                          <div class="flex items-center gap-1 text-xs text-text-muted mt-1 border-t border-border-subtle pt-1">
+                            <span class="material-symbols-outlined text-[14px]">schedule</span>
+                            <span>Tempo: <strong>${rotulagemStats.durationStr}</strong></span>
                           </div>
                         </div>
                       </div>
-                    `;
-                  }).join('')}
-                </div>
-              `}
+                    </div>
+                  `;
+                }).join('')}
+              </div>
             </div>
           `;
         }).join('')}
