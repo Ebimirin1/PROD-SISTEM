@@ -1,5 +1,6 @@
 import { supabase } from '../supabaseClient.js';
 import { renderEmptyState, formatWeight, formatDate } from '../utils.js';
+import { renderOverviewCharts } from './overviewCharts.js';
 
 // Módulo de Visão Geral (Monitor Operacional Diário / Bento Grid)
 function getLocalDateString(dateObj = new Date()) {
@@ -99,6 +100,9 @@ export async function render(container) {
 
       <!-- Grid Bento com Indicadores -->
       <div id="overview-metrics-container"></div>
+
+      <!-- Gráficos do fluxo da produção -->
+      <section id="overview-charts-section"></section>
 
       <!-- Seção de Ordens e Produtos Produzidos Por Dia -->
       <section id="daily-orders-section" class="flex flex-col gap-space-md"></section>
@@ -537,6 +541,7 @@ async function loadOverviewData() {
   const metricsContainer = document.getElementById('overview-metrics-container');
   const dailyOrdersSection = document.getElementById('daily-orders-section');
   if (!metricsContainer || !dailyOrdersSection) return;
+  const chartsSection = document.getElementById('overview-charts-section');
 
   const [
     { data: ops, error: opsErr },
@@ -546,7 +551,8 @@ async function loadOverviewData() {
     { data: invoiceQueue },
     { data: portions, error: portionsErr },
     { data: allFlavors, error: flavorsErr },
-    { data: demands, error: demandsErr }
+    { data: demands, error: demandsErr },
+    { data: shipmentLines }
   ] = await Promise.all([
     supabase.from('production_orders').select('*').order('production_date', { ascending: false }),
     supabase.from('vw_production_order_totals').select('*'),
@@ -571,12 +577,14 @@ async function loadOverviewData() {
       flavor_id,
       planned_kg,
       flavors (id, name)
-    `)
+    `),
+    supabase.from('shipment_lines').select('status, requested_kg, separated_kg')
   ]);
 
   if (opsErr || portionsErr || demandsErr) {
     metricsContainer.innerHTML = `<div class="p-4 bg-badge-error-bg text-badge-error-text rounded-lg">Erro ao carregar dados operacionais: ${(opsErr || portionsErr || demandsErr)?.message}</div>`;
     dailyOrdersSection.innerHTML = '';
+    if (chartsSection) chartsSection.innerHTML = '';
     return;
   }
 
@@ -589,6 +597,7 @@ async function loadOverviewData() {
   if (!ops || ops.length === 0) {
     metricsContainer.innerHTML = '';
     dailyOrdersSection.innerHTML = '';
+    if (chartsSection) chartsSection.innerHTML = '';
     metricsContainer.appendChild(renderEmptyState({
       icon: 'grid_view',
       title: 'Nenhum Dado Operacional Registrado',
@@ -645,6 +654,22 @@ async function loadOverviewData() {
 
   // Renderizar Indicadores KPI
   renderMetricsCards(metricsContainer, filteredOps, totalsMap, statusMap, lots, invoiceQueue, filteredPortions);
+
+  // Gráficos do fluxo (não bloqueiam o restante da tela se falharem)
+  if (chartsSection) {
+    if (filteredOps.length === 0) {
+      chartsSection.innerHTML = '';
+    } else {
+      renderOverviewCharts(chartsSection, {
+        filteredOps,
+        filteredPortions,
+        demands,
+        totalsMap,
+        lots,
+        shipmentLines
+      }).catch(err => console.error('Erro ao renderizar gráficos:', err));
+    }
+  }
 
   // Renderizar Produções Realizadas Por Dia (Agrupadas por Data de Finalização do Sabor)
   renderDailyProductionOrders(dailyOrdersSection, filteredPortions, opMap, statusMap);
