@@ -20,6 +20,7 @@ const STAGES = [
   { key: 'rotulagem', label: 'Rotulagem', color: COLORS.success }
 ];
 
+const TIMED_STAGES = STAGES.filter(st => st.key !== 'rotulagem');
 const WEEKDAYS = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
 
 let chartJsPromise = null;
@@ -121,17 +122,38 @@ export function buildChartData({ filteredOps, filteredPortions, demands, totalsM
   });
   const days = Object.keys(dailyMap).sort();
 
-  // 4) Tempo médio por etapa (minutos por porção concluída)
-  const durations = STAGES.map(s => {
-    const mins = [];
-    portions.forEach(p => {
-      const run = (p.process_runs || []).find(r => r.stage === s.key);
-      if (run?.status === 'completed' && run.started_at && run.completed_at) {
-        const m = (new Date(run.completed_at) - new Date(run.started_at)) / 60000;
-        if (m >= 0) mins.push(m);
-      }
+  // 4) Tempo médio por ordem de produção — embutimento e vácuo (minutos por porção concluída)
+  //    Também calcula o rendimento (kg por hora) de cada etapa na OP.
+  const orderedOps = [...(filteredOps || [])].sort((a, b) =>
+    String(a.production_date).localeCompare(String(b.production_date)) || String(a.order_code).localeCompare(String(b.order_code)));
+  const opTimes = {
+    labels: orderedOps.map(o => o.order_code),
+    series: TIMED_STAGES.map(st => ({
+      key: st.key,
+      label: st.label,
+      color: st.color,
+      avgMin: [],
+      count: [],
+      kgPerHour: []
+    }))
+  };
+  orderedOps.forEach(op => {
+    const opPortions = portions.filter(p => p.production_order_id === op.id);
+    opTimes.series.forEach(serie => {
+      let totalMin = 0;
+      let totalKg = 0;
+      let n = 0;
+      opPortions.forEach(p => {
+        const run = (p.process_runs || []).find(r => r.stage === serie.key);
+        if (run?.status === 'completed' && run.started_at && run.completed_at) {
+          const m = (new Date(run.completed_at) - new Date(run.started_at)) / 60000;
+          if (m >= 0) { totalMin += m; totalKg += Number(run.actual_kg || 0); n += 1; }
+        }
+      });
+      serie.avgMin.push(n ? totalMin / n : 0);
+      serie.count.push(n);
+      serie.kgPerHour.push(totalMin > 0 ? totalKg / (totalMin / 60) : 0);
     });
-    return { label: s.label, color: s.color, value: mins.length ? mins.reduce((a, b) => a + b, 0) / mins.length : 0, count: mins.length };
   });
 
   // 5) Produção real (vácuo concluído) por dia da semana
@@ -152,12 +174,17 @@ export function buildChartData({ filteredOps, filteredPortions, demands, totalsM
       labels: days,
       series: STAGES.map(s => ({ label: s.label, color: s.color, data: days.map(d => dailyMap[d][s.key]) }))
     },
-    durations,
+    opTimes,
     weekday: WEEKDAYS.map((label, i) => ({ label, value: weekdayKg[i] }))
   };
 }
 
 const fmtKg = v => `${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} kg`;
+const fmtDuration = min => {
+  const total = Math.round(min);
+  if (total < 60) return `${total} min`;
+  return `${Math.floor(total / 60)} h ${String(total % 60).padStart(2, '0')} min`;
+};
 const fmtDay = iso => { const [y, m, d] = iso.split('-'); return `${d}/${m}`; };
 
 function cardShell(id, title, subtitle, icon, wide = false) {
@@ -215,10 +242,10 @@ export async function renderOverviewCharts(container, input) {
   grid.innerHTML = [
     cardShell('chart-funnel', 'Funil do fluxo (kg)', 'Do planejado até o vácuo (produção real). A rotulagem é paralela e aparece à parte.', 'filter_alt', true),
     cardShell('chart-stages', 'Porções por etapa', 'Pendentes, em andamento e concluídas — mostra o gargalo.', 'stacked_bar_chart'),
-    cardShell('chart-flavors', 'Planejado x real por sabor', 'Top 10 sabores por quantidade solicitada (real = vácuo concluído).', 'restaurant_menu'),
+    cardShell('chart-weekday', 'Produção real por dia da semana (kg)', 'Vácuo concluído, somado por dia da semana.', 'calendar_view_week'),
+    cardShell('chart-flavors', 'Planejado x real por sabor', 'Top 10 sabores por quantidade solicitada (real = vácuo concluído).', 'restaurant_menu', true),
     cardShell('chart-daily', 'Produção concluída por dia (kg)', 'Quantidade real concluída em cada etapa, por dia.', 'show_chart', true),
-    cardShell('chart-duration', 'Tempo médio por etapa (min)', 'Média por porção concluída, do início ao fim da etapa.', 'schedule'),
-    cardShell('chart-weekday', 'Produção real por dia da semana (kg)', 'Vácuo concluído, somado por dia da semana.', 'calendar_view_week')
+    cardShell('chart-optimes', 'Tempo médio por ordem de produção', 'Embutimento e vácuo: média por porção concluída em cada OP. O balão mostra também o rendimento (kg/h).', 'schedule', true)
   ].join('');
 
   let Chart;
@@ -324,24 +351,42 @@ export async function renderOverviewCharts(container, input) {
     });
   }
 
-  // 5) Tempo médio por etapa
-  if (data.durations.every(d => d.count === 0)) {
-    showEmpty('chart-duration', 'Nenhuma etapa concluída com início e fim registrados.');
+  // 5) Tempo médio por ordem de produção (embutimento e vácuo)
+  const hasTimes = data.opTimes.series.some(se => se.count.some(c => c > 0));
+  if (data.opTimes.labels.length === 0 || !hasTimes) {
+    showEmpty('chart-optimes', 'Nenhuma etapa concluída com início e fim registrados para o filtro selecionado.');
   } else {
-    drawChart('chart-duration', {
+    drawChart('chart-optimes', {
       type: 'bar',
       data: {
-        labels: data.durations.map(d => d.label),
-        datasets: [{ data: data.durations.map(d => d.value), backgroundColor: data.durations.map(d => d.color), borderRadius: 4 }]
+        labels: data.opTimes.labels,
+        datasets: data.opTimes.series.map(se => ({
+          label: se.label,
+          data: se.avgMin,
+          backgroundColor: se.color,
+          borderRadius: 3
+        }))
       },
       options: {
         ...baseOptions,
         plugins: {
           ...baseOptions.plugins,
-          legend: { display: false },
-          tooltip: { callbacks: { label: ctx => `${Math.round(ctx.parsed.y)} min (${data.durations[ctx.dataIndex].count} porções)` } }
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const se = data.opTimes.series[ctx.datasetIndex];
+                const n = se.count[ctx.dataIndex];
+                if (!n) return `${se.label}: sem etapas concluídas`;
+                const kgh = se.kgPerHour[ctx.dataIndex];
+                return `${se.label}: ${fmtDuration(ctx.parsed.y)} por porção • ${n} ${n === 1 ? 'porção' : 'porções'} • ${kgh.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kg/h`;
+              }
+            }
+          }
         },
-        scales: { x: { ticks: axisTicks, grid: { display: false } }, y: { beginAtZero: true, ticks: { ...axisTicks, callback: v => `${v} min` }, grid: { color: COLORS.border } } }
+        scales: {
+          x: { ticks: axisTicks, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { ...axisTicks, callback: v => `${v} min` }, grid: { color: COLORS.border }, title: { display: true, text: 'Minutos por porção', color: COLORS.muted } }
+        }
       }
     });
   }
