@@ -8,7 +8,8 @@ export function formatWeight(val, unit = 'kg') {
 
 export function formatDate(dateStr) {
   if (!dateStr) return '—';
-  const date = new Date(dateStr);
+  // Datas puras (YYYY-MM-DD) são lidas como data local; new Date() as leria em UTC e mostraria o dia anterior no Brasil
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(String(dateStr)) ? parseLocalDate(dateStr) : new Date(dateStr);
   if (isNaN(date.getTime())) return dateStr;
   return date.toLocaleDateString('pt-BR');
 }
@@ -64,4 +65,33 @@ export function renderEmptyState({ icon = 'inbox', title, description, actionTex
   }
 
   return container;
+}
+
+// ---- Datas e código da OP ----
+
+// Data local de hoje em YYYY-MM-DD (toISOString usa UTC e erra o dia à noite no Brasil)
+export function todayLocal() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Converte 'YYYY-MM-DD' em Date local, sem deslocamento de fuso
+export function parseLocalDate(str) {
+  const [y, m, d] = String(str).slice(0, 10).split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
+// Dia da semana em português, ex.: 'Terça-feira'
+export function weekdayName(str) {
+  if (!str) return '';
+  const d = parseLocalDate(str);
+  if (isNaN(d.getTime())) return '';
+  const name = d.toLocaleDateString('pt-BR', { weekday: 'long' });
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+// Código da OP a partir da data de produção: 2026-10-13 -> '13102026'
+export function buildOrderCode(str) {
+  const [y, m, d] = String(str).slice(0, 10).split('-');
+  return `${d}${m}${y}`;
 }
