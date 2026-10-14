@@ -1,5 +1,5 @@
 import { supabase } from '../supabaseClient.js';
-import { renderEmptyState, formatWeight, formatDate } from '../utils.js';
+import { renderEmptyState, formatWeight, formatDate, weekdayName } from '../utils.js';
 import { renderOverviewCharts } from './overviewCharts.js';
 
 // Módulo de Visão Geral (Monitor Operacional Diário / Bento Grid)
@@ -26,7 +26,8 @@ function getDefaultWeekRange() {
   };
 }
 
-let currentFilterMode = 'all'; // 'all' (Visão Geral), 'day' (Por Dia) ou 'range' (Por Período / Semana)
+let currentFilterMode = 'all'; // 'all' (Visão Geral), 'day' (Por Dia), 'range' (Por Período / Semana) ou 'op' (Por Ordem de Produção)
+let currentSelectedOrderId = null; // modo 'op' (Por Ordem de Produção)
 let currentSelectedDate = getLocalDateString();  // YYYY-MM-DD (Padrão: Data Local Hoje)
 const defaultWeekRange = getDefaultWeekRange();
 let currentStartDate = defaultWeekRange.start;
@@ -68,6 +69,15 @@ export async function render(container) {
             <button id="filter-btn-range" class="px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}">
               Por Período / Semana
             </button>
+            <button id="filter-btn-op" class="px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'op' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}">
+              Por Ordem de Produção
+            </button>
+          </div>
+
+          <!-- Seletor de Ordem de Produção (Exibido quando no modo Por Ordem de Produção) -->
+          <div id="op-picker-wrapper" class="${currentFilterMode === 'op' ? 'flex' : 'hidden'} items-center gap-2 bg-surface-canvas px-3 py-1.5 rounded-lg border border-border-subtle">
+            <label for="overview-op-select" class="font-label-sm text-label-sm text-text-muted uppercase">OP:</label>
+            <select id="overview-op-select" class="bg-transparent font-title-md text-title-md text-bordeaux-primary font-bold focus:outline-none cursor-pointer"></select>
           </div>
 
           <!-- Seletor de Data Única (Exibido quando no modo Por Dia) -->
@@ -194,6 +204,9 @@ function setupFilterEventListeners(container) {
   const btnRange = container.querySelector('#filter-btn-range');
   const dateWrapper = container.querySelector('#date-picker-wrapper');
   const rangeWrapper = container.querySelector('#range-picker-wrapper');
+  const btnOp = container.querySelector('#filter-btn-op');
+  const opWrapper = container.querySelector('#op-picker-wrapper');
+  const opSelect = container.querySelector('#overview-op-select');
   const dateSelect = container.querySelector('#overview-date-select');
   const startDateInput = container.querySelector('#overview-start-date');
   const endDateInput = container.querySelector('#overview-end-date');
@@ -205,6 +218,8 @@ function setupFilterEventListeners(container) {
     if (btnDay) btnDay.className = `px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}`;
     if (btnRange) btnRange.className = `px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}`;
 
+    if (btnOp) btnOp.className = `px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'op' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}`;
+    if (opWrapper) opWrapper.classList.toggle('hidden', currentFilterMode !== 'op');
     if (dateWrapper) dateWrapper.classList.toggle('hidden', currentFilterMode !== 'day');
     if (rangeWrapper) rangeWrapper.classList.toggle('hidden', currentFilterMode !== 'range');
   };
@@ -231,6 +246,19 @@ function setupFilterEventListeners(container) {
       updateButtonsStyle();
       loadOverviewData();
     }
+  });
+
+  btnOp?.addEventListener('click', () => {
+    if (currentFilterMode !== 'op') {
+      currentFilterMode = 'op';
+      updateButtonsStyle();
+      loadOverviewData();
+    }
+  });
+
+  opSelect?.addEventListener('change', (e) => {
+    currentSelectedOrderId = e.target.value;
+    loadOverviewData();
   });
 
   dateSelect?.addEventListener('change', (e) => {
@@ -606,6 +634,18 @@ async function loadOverviewData() {
     return;
   }
 
+  // Popular o seletor de Ordem de Produção (mais recente primeiro; ignora OPs canceladas)
+  const selectableOps = ops.filter(o => !o.canceled_at);
+  if (!selectableOps.some(o => o.id === currentSelectedOrderId)) {
+    currentSelectedOrderId = selectableOps[0]?.id || null;
+  }
+  const opSelectEl = document.getElementById('overview-op-select');
+  if (opSelectEl) {
+    opSelectEl.innerHTML = selectableOps.map(o =>
+      `<option value="${o.id}" ${o.id === currentSelectedOrderId ? 'selected' : ''}>${o.order_code} — ${weekdayName(o.production_date)}, ${formatDate(o.production_date)}</option>`
+    ).join('');
+  }
+
   // Atualizar campo de data de produção
   const dateSelect = document.getElementById('overview-date-select');
   if (dateSelect && !dateSelect.value) {
@@ -641,7 +681,11 @@ async function loadOverviewData() {
   let filteredPortions = augmentedPortions;
   let filteredOps = ops;
 
-  if (currentFilterMode === 'day' && currentSelectedDate) {
+  if (currentFilterMode === 'op') {
+    // Por Ordem de Produção: todas as porções da OP escolhida, sem filtro de data
+    filteredPortions = augmentedPortions.filter(p => p.production_order_id === currentSelectedOrderId);
+    filteredOps = ops.filter(o => o.id === currentSelectedOrderId);
+  } else if (currentFilterMode === 'day' && currentSelectedDate) {
     filteredPortions = augmentedPortions.filter(p => p.completionDate === currentSelectedDate);
     const activeOpIds = new Set(filteredPortions.map(p => p.production_order_id));
     filteredOps = ops.filter(o => activeOpIds.has(o.id) || o.production_date === currentSelectedDate);
@@ -699,11 +743,13 @@ function renderMetricsCards(container, filteredOps, totalsMap, statusMap, portio
         <div class="absolute top-0 left-0 right-0 h-1.5 bg-bordeaux-primary"></div>
         <div class="flex flex-col gap-1">
           <span class="font-label-sm text-text-muted uppercase">${
+            currentFilterMode === 'op' ? 'Ordem de Produção' :
             currentFilterMode === 'day' ? 'Monitoramento Diário' :
             currentFilterMode === 'range' ? 'Monitoramento por Período / Semana' :
             'Visão Geral Global'
           }</span>
           <h2 class="font-headline-sm text-ink-text">${
+            currentFilterMode === 'op' ? `${filteredOps[0]?.order_code || ''} • ${weekdayName(filteredOps[0]?.production_date)}` :
             currentFilterMode === 'day' ? `Dia ${formatDate(currentSelectedDate)}` :
             currentFilterMode === 'range' ? `${formatDate(currentStartDate)} a ${formatDate(currentEndDate)}` :
             `${filteredOps.length} OPs Mapeadas`
