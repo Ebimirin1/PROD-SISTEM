@@ -20,12 +20,7 @@ const STAGES = [
   { key: 'rotulagem', label: 'Rotulagem', color: COLORS.success }
 ];
 
-const SHIPMENT_STATUS = [
-  { key: 'pending', label: 'Pendente', color: COLORS.muted },
-  { key: 'separated_for_invoice', label: 'Separado p/ NF', color: COLORS.info },
-  { key: 'separated_for_dispatch', label: 'Separado p/ expedição', color: COLORS.amber },
-  { key: 'delivered', label: 'Entregue', color: COLORS.success }
-];
+const WEEKDAYS = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
 
 let chartJsPromise = null;
 const activeCharts = {};
@@ -55,25 +50,20 @@ function localDateString(date) {
   return `${y}-${m}-${d}`;
 }
 
-function parseLocalDate(str) {
-  const [y, m, d] = String(str).slice(0, 10).split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
-
 const sum = (arr, fn) => arr.reduce((acc, item) => acc + Number(fn(item) || 0), 0);
 
 /**
  * Agrega os dados já carregados pela Visão Geral nos formatos usados pelos gráficos.
+ * O fluxo termina no vácuo; a rotulagem acontece antes ou em paralelo.
  * Função pura (sem DOM) para facilitar testes.
  */
-export function buildChartData({ filteredOps, filteredPortions, demands, totalsMap, lots, shipmentLines, today = new Date() }) {
+export function buildChartData({ filteredOps, filteredPortions, demands, totalsMap }) {
   const opIds = new Set((filteredOps || []).map(o => o.id));
   const portions = filteredPortions || [];
   const demandsInScope = (demands || []).filter(d => opIds.has(d.production_order_id));
 
-  // 1) Funil: quanto cada etapa já entregou (kg)
+  // 1) Funil: quanto cada etapa já entregou (kg). A produção real final é o vácuo.
   const plannedKg = sum(filteredOps || [], o => totalsMap?.[o.id]?.planned_total_kg);
-  const finishedKg = sum(filteredOps || [], o => totalsMap?.[o.id]?.produced_total_kg);
   const stageKg = {};
   const stageCounts = {};
   STAGES.forEach(s => {
@@ -92,21 +82,14 @@ export function buildChartData({ filteredOps, filteredPortions, demands, totalsM
     });
   });
 
-  const deliveredKg = sum(
-    (shipmentLines || []).filter(l => l.status === 'delivered'),
-    l => l.separated_kg
-  );
-
   const funnel = [
     { label: 'Planejado', value: plannedKg, color: COLORS.muted },
     { label: 'Embutido', value: stageKg.embutimento, color: COLORS.bordeaux },
-    { label: 'Envacado (vácuo)', value: stageKg.vacuo, color: COLORS.amber },
-    { label: 'Rotulado', value: stageKg.rotulagem, color: COLORS.success },
-    { label: 'Lote acabado', value: finishedKg, color: COLORS.info },
-    { label: 'Entregue', value: deliveredKg, color: COLORS.ink }
+    { label: 'Envacado — produção real', value: stageKg.vacuo, color: COLORS.success },
+    { label: 'Rotulagem (paralela)', value: stageKg.rotulagem, color: COLORS.info }
   ];
 
-  // 2) Planejado x real por sabor (mesma regra do modal "Produção Total por Sabor")
+  // 2) Planejado x real por sabor (real = vácuo concluído, mesma regra do modal)
   const flavorMap = {};
   const ensureFlavor = (id, name) => {
     if (!flavorMap[id]) flavorMap[id] = { name: name || 'Sabor', requested: 0, actual: 0, portionPlanned: 0 };
@@ -138,28 +121,27 @@ export function buildChartData({ filteredOps, filteredPortions, demands, totalsM
   });
   const days = Object.keys(dailyMap).sort();
 
-  // 4) Pedidos de saída por status
-  const lines = (shipmentLines || []).filter(l => l.status !== 'canceled');
-  const shipment = SHIPMENT_STATUS.map(s => ({
-    label: s.label,
-    color: s.color,
-    value: lines.filter(l => l.status === s.key).length
-  }));
+  // 4) Tempo médio por etapa (minutos por porção concluída)
+  const durations = STAGES.map(s => {
+    const mins = [];
+    portions.forEach(p => {
+      const run = (p.process_runs || []).find(r => r.stage === s.key);
+      if (run?.status === 'completed' && run.started_at && run.completed_at) {
+        const m = (new Date(run.completed_at) - new Date(run.started_at)) / 60000;
+        if (m >= 0) mins.push(m);
+      }
+    });
+    return { label: s.label, color: s.color, value: mins.length ? mins.reduce((a, b) => a + b, 0) / mins.length : 0, count: mins.length };
+  });
 
-  // 5) Estoque por faixa de validade (só lotes com saldo)
-  const todayMid = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const buckets = [
-    { label: 'Vencido', color: COLORS.bordeaux, value: 0 },
-    { label: 'Vence em até 7 dias', color: COLORS.amber, value: 0 },
-    { label: 'Vence em 8–30 dias', color: COLORS.info, value: 0 },
-    { label: 'Acima de 30 dias', color: COLORS.success, value: 0 }
-  ];
-  (lots || []).forEach(l => {
-    const balance = Number(l.balance_kg || 0);
-    if (balance <= 0 || !l.expiry_date) return;
-    const daysLeft = Math.round((parseLocalDate(l.expiry_date) - todayMid) / 86400000);
-    const idx = daysLeft < 0 ? 0 : daysLeft <= 7 ? 1 : daysLeft <= 30 ? 2 : 3;
-    buckets[idx].value += balance;
+  // 5) Produção real (vácuo concluído) por dia da semana
+  const weekdayKg = [0, 0, 0, 0, 0, 0, 0];
+  portions.forEach(p => {
+    (p.process_runs || []).forEach(r => {
+      if (r.stage !== 'vacuo' || r.status !== 'completed' || !r.completed_at) return;
+      const jsDay = new Date(r.completed_at).getDay(); // 0 = domingo
+      weekdayKg[(jsDay + 6) % 7] += Number(r.actual_kg || 0);
+    });
   });
 
   return {
@@ -170,8 +152,8 @@ export function buildChartData({ filteredOps, filteredPortions, demands, totalsM
       labels: days,
       series: STAGES.map(s => ({ label: s.label, color: s.color, data: days.map(d => dailyMap[d][s.key]) }))
     },
-    shipment,
-    expiry: buckets
+    durations,
+    weekday: WEEKDAYS.map((label, i) => ({ label, value: weekdayKg[i] }))
   };
 }
 
@@ -231,12 +213,12 @@ export async function renderOverviewCharts(container, input) {
   const grid = container.querySelector('#overview-charts-grid');
 
   grid.innerHTML = [
-    cardShell('chart-funnel', 'Funil do fluxo (kg)', 'Do planejado até a entrega: onde o volume deixa de avançar.', 'filter_alt', true),
+    cardShell('chart-funnel', 'Funil do fluxo (kg)', 'Do planejado até o vácuo (produção real). A rotulagem é paralela e aparece à parte.', 'filter_alt', true),
     cardShell('chart-stages', 'Porções por etapa', 'Pendentes, em andamento e concluídas — mostra o gargalo.', 'stacked_bar_chart'),
     cardShell('chart-flavors', 'Planejado x real por sabor', 'Top 10 sabores por quantidade solicitada (real = vácuo concluído).', 'restaurant_menu'),
     cardShell('chart-daily', 'Produção concluída por dia (kg)', 'Quantidade real concluída em cada etapa, por dia.', 'show_chart', true),
-    cardShell('chart-shipment', 'Linhas de pedido por status', 'Separação, NF, expedição e entrega (todos os pedidos).', 'local_shipping'),
-    cardShell('chart-expiry', 'Estoque por validade (kg)', 'Saldo em câmara por faixa de dias até o vencimento (todo o estoque).', 'event_busy')
+    cardShell('chart-duration', 'Tempo médio por etapa (min)', 'Média por porção concluída, do início ao fim da etapa.', 'schedule'),
+    cardShell('chart-weekday', 'Produção real por dia da semana (kg)', 'Vácuo concluído, somado por dia da semana.', 'calendar_view_week')
   ].join('');
 
   let Chart;
@@ -342,29 +324,37 @@ export async function renderOverviewCharts(container, input) {
     });
   }
 
-  // 5) Pedidos por status
-  if (data.shipment.every(s => s.value === 0)) {
-    showEmpty('chart-shipment', 'Nenhuma linha de pedido de saída registrada.');
+  // 5) Tempo médio por etapa
+  if (data.durations.every(d => d.count === 0)) {
+    showEmpty('chart-duration', 'Nenhuma etapa concluída com início e fim registrados.');
   } else {
-    drawChart('chart-shipment', {
-      type: 'doughnut',
+    drawChart('chart-duration', {
+      type: 'bar',
       data: {
-        labels: data.shipment.map(s => s.label),
-        datasets: [{ data: data.shipment.map(s => s.value), backgroundColor: data.shipment.map(s => s.color), borderWidth: 2, borderColor: '#FFFFFF' }]
+        labels: data.durations.map(d => d.label),
+        datasets: [{ data: data.durations.map(d => d.value), backgroundColor: data.durations.map(d => d.color), borderRadius: 4 }]
       },
-      options: { ...baseOptions, cutout: '60%', plugins: { ...baseOptions.plugins, legend: { position: 'right', labels: baseOptions.plugins.legend.labels } } }
+      options: {
+        ...baseOptions,
+        plugins: {
+          ...baseOptions.plugins,
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => `${Math.round(ctx.parsed.y)} min (${data.durations[ctx.dataIndex].count} porções)` } }
+        },
+        scales: { x: { ticks: axisTicks, grid: { display: false } }, y: { beginAtZero: true, ticks: { ...axisTicks, callback: v => `${v} min` }, grid: { color: COLORS.border } } }
+      }
     });
   }
 
-  // 6) Estoque por validade
-  if (data.expiry.every(b => b.value === 0)) {
-    showEmpty('chart-expiry', 'Nenhum lote com saldo em estoque.');
+  // 6) Produção real por dia da semana
+  if (data.weekday.every(d => d.value === 0)) {
+    showEmpty('chart-weekday', 'Nenhum vácuo concluído para o filtro selecionado.');
   } else {
-    drawChart('chart-expiry', {
+    drawChart('chart-weekday', {
       type: 'bar',
       data: {
-        labels: data.expiry.map(b => b.label),
-        datasets: [{ data: data.expiry.map(b => b.value), backgroundColor: data.expiry.map(b => b.color), borderRadius: 4 }]
+        labels: data.weekday.map(d => d.label),
+        datasets: [{ data: data.weekday.map(d => d.value), backgroundColor: COLORS.success, borderRadius: 4 }]
       },
       options: {
         ...baseOptions,

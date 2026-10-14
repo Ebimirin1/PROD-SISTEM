@@ -1,7 +1,9 @@
 import { supabase } from '../supabaseClient.js';
-import { showNotification, renderEmptyState, formatWeight, formatDateTime, formatDate } from '../utils.js';
+import { showNotification, renderEmptyState, formatWeight, formatDateTime, formatDate, weekdayName } from '../utils.js';
+import { renderPdvList } from './pdvList.js';
 
 let currentFilterMode = 'all'; // 'all', 'day', 'range'
+let currentView = 'line'; // 'line' (linha de produção) ou 'pdv' (lista final para o PDV)
 let currentStageFilter = 'all'; // 'all', 'embutimento', 'vacuo', 'completed'
 let selectedFilterDate = new Date().toISOString().split('T')[0];
 let selectedStartDate = new Date().toISOString().split('T')[0];
@@ -16,14 +18,19 @@ export async function render(container) {
 
   container.innerHTML = `
     <div class="flex flex-col gap-space-lg">
+      <div class="flex items-center gap-1 bg-surface-card p-1 rounded-xl border border-border-subtle shadow-sm w-fit">
+        <button id="prod-view-line" class="px-4 py-2 rounded-lg font-label-md text-label-md transition-colors">Linha de produção</button>
+        <button id="prod-view-pdv" class="px-4 py-2 rounded-lg font-label-md text-label-md transition-colors">Lista final (PDV)</button>
+      </div>
+
       <div class="flex flex-wrap items-center justify-between gap-space-md">
         <div>
           <h1 class="font-display-lg text-display-lg text-ink-text">Terminal de Execução de Produção</h1>
-          <p class="font-body-md text-body-md text-text-muted">Acompanhamento em tempo real por lote total do sabor nas etapas de Embutimento e Vácuo (a etapa de Rotulagem é gerada automaticamente na tela "Contagem de Rótulos").</p>
+          <p class="font-body-md text-body-md text-text-muted">Acompanhamento por porção nas etapas de Embutimento e Vácuo. O fluxo termina no vácuo; a Rotulagem acontece antes ou em paralelo e é controlada na tela "Contagem de Rótulos".</p>
         </div>
 
         <!-- Filtros de Estágio / Status da Produção -->
-        <div class="flex items-center gap-1 bg-surface-card p-1 rounded-xl border border-border-subtle shadow-sm flex-wrap">
+        <div id="prod-stage-filter-box" class="flex items-center gap-1 bg-surface-card p-1 rounded-xl border border-border-subtle shadow-sm flex-wrap">
           <button id="prod-stage-all" class="stage-tab-btn px-3.5 py-2 rounded-lg font-label-md text-label-md transition-colors ${currentStageFilter === 'all' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}">
             Todos
           </button>
@@ -39,6 +46,7 @@ export async function render(container) {
         </div>
       </div>
 
+      <div id="production-line-view" class="flex flex-col gap-space-lg">
       <!-- Barra de Filtros de Período / Dia (Igual à Visão Geral) -->
       <div class="bg-surface-card p-4 rounded-xl border border-border-subtle shadow-sm flex flex-wrap items-center justify-between gap-4">
         <div class="flex items-center gap-2 flex-wrap">
@@ -63,12 +71,41 @@ export async function render(container) {
       </div>
 
       <div id="production-list-container"></div>
+      </div>
+
+      <div id="production-pdv-view" class="hidden"></div>
     </div>
   `;
 
   setupFilterControls();
   setupStageFilterControls(container);
+  setupViewToggle(container);
   loadProductionProcessRuns();
+}
+
+function setupViewToggle(container) {
+  const btnLine = container.querySelector('#prod-view-line');
+  const btnPdv = container.querySelector('#prod-view-pdv');
+  const lineView = container.querySelector('#production-line-view');
+  const pdvView = container.querySelector('#production-pdv-view');
+  const stageBox = container.querySelector('#prod-stage-filter-box');
+
+  const active = 'bg-bordeaux-primary text-on-primary font-bold shadow-sm';
+  const idle = 'text-text-muted hover:text-ink-text';
+
+  const apply = () => {
+    const isLine = currentView === 'line';
+    btnLine.className = `px-4 py-2 rounded-lg font-label-md text-label-md transition-colors ${isLine ? active : idle}`;
+    btnPdv.className = `px-4 py-2 rounded-lg font-label-md text-label-md transition-colors ${isLine ? idle : active}`;
+    lineView.classList.toggle('hidden', !isLine);
+    stageBox.classList.toggle('hidden', !isLine);
+    pdvView.classList.toggle('hidden', isLine);
+    if (!isLine) renderPdvList(pdvView);
+  };
+
+  btnLine.addEventListener('click', () => { currentView = 'line'; apply(); });
+  btnPdv.addEventListener('click', () => { currentView = 'pdv'; apply(); });
+  apply();
 }
 
 function setupStageFilterControls(container) {
@@ -266,7 +303,7 @@ async function loadProductionProcessRuns() {
             <div class="flex flex-col gap-2">
               <div class="flex items-center justify-between border-b border-border-subtle pb-2">
                 <div>
-                  <span class="text-xs font-bold text-text-muted uppercase">${p.production_orders?.order_code} • ${formatDate(p.production_orders?.production_date)}</span>
+                  <span class="text-xs font-bold text-text-muted uppercase">${p.production_orders?.order_code} • ${weekdayName(p.production_orders?.production_date)}, ${formatDate(p.production_orders?.production_date)}</span>
                   <h3 class="font-headline-sm text-ink-text">${p.flavors?.name} — Porção #${p.portion_no} (${formatWeight(p.planned_kg)})</h3>
                 </div>
               </div>
@@ -414,44 +451,15 @@ function setupProductionEventListeners(container, collaborators) {
             actual_kg: actualKg
           })
           .eq('id', runId)
-          .select('*, production_portions(*, production_orders(*))')
+          .select('id, stage')
           .single();
 
         if (error) throw error;
 
-        if (run && run.stage === 'vacuo' && run.production_portions) {
-          const portion = run.production_portions;
-          const op = portion.production_orders || {};
-          const today = new Date().toISOString().split('T')[0];
-          const massReadyDate = op.mass_ready_date || op.production_date || today;
-          const orderCode = op.order_code || 'OP';
-          const lotCode = `LOT-VAC-${orderCode}-P${portion.portion_no || 1}`;
-
-          const { data: newLot, error: lotErr } = await supabase
-            .from('finished_lots')
-            .insert({
-              production_order_id: portion.production_order_id,
-              flavor_id: portion.flavor_id,
-              lot_code: lotCode,
-              product_type: 'linguica',
-              conservation: 'resfriado',
-              mass_ready_date: massReadyDate,
-              produced_kg: actualKg
-            })
-            .select()
-            .single();
-
-          if (!lotErr && newLot) {
-            await supabase.from('inventory_movements').insert({
-              finished_lot_id: newLot.id,
-              movement_type: 'production_entry',
-              quantity_delta_kg: actualKg,
-              reference_text: `Entrada Automática Vácuo (${orderCode})`
-            });
-            showNotification(`Etapa de Vácuo concluída! ${actualKg} kg adicionados automaticamente ao Estoque Acabado.`, 'success');
-          } else {
-            showNotification('Etapa de Vácuo concluída com sucesso!', 'success');
-          }
+        // O sistema não controla estoque: o fluxo termina no vácuo e a quantidade real
+        // alimenta a "Lista final (PDV)". Nenhum lote ou movimento de estoque é criado aqui.
+        if (run && run.stage === 'vacuo') {
+          showNotification(`Vácuo concluído! ${actualKg} kg registrados na lista final para o PDV.`, 'success');
         } else {
           showNotification('Etapa concluída com sucesso!', 'success');
         }

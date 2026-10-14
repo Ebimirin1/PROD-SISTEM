@@ -481,9 +481,10 @@ function getPortionCompletionDate(p, opMap) {
   const runs = p.process_runs || [];
   const completedRuns = runs.filter(r => r.status === 'completed' && r.completed_at);
   if (completedRuns.length > 0) {
-    const endRun = completedRuns.find(r => r.stage === 'rotulagem') ||
-                   completedRuns.find(r => r.stage === 'vacuo') ||
+    // O fluxo termina no vácuo; a rotulagem acontece antes ou em paralelo, então só é usada como último recurso
+    const endRun = completedRuns.find(r => r.stage === 'vacuo') ||
                    completedRuns.find(r => r.stage === 'embutimento') ||
+                   completedRuns.find(r => r.stage === 'rotulagem') ||
                    completedRuns[0];
     return getLocalDateString(new Date(endRun.completed_at));
   }
@@ -551,8 +552,7 @@ async function loadOverviewData() {
     { data: invoiceQueue },
     { data: portions, error: portionsErr },
     { data: allFlavors, error: flavorsErr },
-    { data: demands, error: demandsErr },
-    { data: shipmentLines }
+    { data: demands, error: demandsErr }
   ] = await Promise.all([
     supabase.from('production_orders').select('*').order('production_date', { ascending: false }),
     supabase.from('vw_production_order_totals').select('*'),
@@ -577,8 +577,7 @@ async function loadOverviewData() {
       flavor_id,
       planned_kg,
       flavors (id, name)
-    `),
-    supabase.from('shipment_lines').select('status, requested_kg, separated_kg')
+    `)
   ]);
 
   if (opsErr || portionsErr || demandsErr) {
@@ -653,7 +652,7 @@ async function loadOverviewData() {
   }
 
   // Renderizar Indicadores KPI
-  renderMetricsCards(metricsContainer, filteredOps, totalsMap, statusMap, lots, invoiceQueue, filteredPortions);
+  renderMetricsCards(metricsContainer, filteredOps, totalsMap, statusMap, filteredPortions);
 
   // Gráficos do fluxo (não bloqueiam o restante da tela se falharem)
   if (chartsSection) {
@@ -664,9 +663,7 @@ async function loadOverviewData() {
         filteredOps,
         filteredPortions,
         demands,
-        totalsMap,
-        lots,
-        shipmentLines
+        totalsMap
       }).catch(err => console.error('Erro ao renderizar gráficos:', err));
     }
   }
@@ -675,7 +672,7 @@ async function loadOverviewData() {
   renderDailyProductionOrders(dailyOrdersSection, filteredPortions, opMap, statusMap);
 }
 
-function renderMetricsCards(container, filteredOps, totalsMap, statusMap, lots, invoiceQueue) {
+function renderMetricsCards(container, filteredOps, totalsMap, statusMap, portions) {
   if (filteredOps.length === 0) {
     container.innerHTML = `
       <div class="p-6 bg-surface-card rounded-xl border border-border-subtle text-center text-text-muted font-body-md">
@@ -689,8 +686,11 @@ function renderMetricsCards(container, filteredOps, totalsMap, statusMap, lots, 
   const totalProducedKg = filteredOps.reduce((acc, o) => acc + Number(totalsMap[o.id]?.produced_total_kg || 0), 0);
   const overallProgressPct = totalPlannedKg > 0 ? Math.min(100, Math.round((totalProducedKg / totalPlannedKg) * 100)) : 0;
 
-  const totalStockKg = (lots || []).reduce((acc, item) => acc + Number(item.balance_kg), 0);
-  const pendingInvoiceOrdersCount = new Set((invoiceQueue || []).map(item => item.order_code)).size;
+  // Andamento por porção: o fluxo termina no vácuo; a rotulagem corre em paralelo
+  const stageDone = (p, stage) => (p.process_runs || []).some(r => r.stage === stage && r.status === 'completed');
+  const totalPortions = (portions || []).length;
+  const finishedPortions = (portions || []).filter(p => stageDone(p, 'embutimento') && stageDone(p, 'vacuo')).length;
+  const labeledPortions = (portions || []).filter(p => stageDone(p, 'rotulagem')).length;
 
   container.innerHTML = `
     <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-space-md">
@@ -734,29 +734,23 @@ function renderMetricsCards(container, filteredOps, totalsMap, statusMap, lots, 
         </div>
       </article>
 
-      <!-- Card 3: Saldo de Estoque em Câmara com Link Ver + -->
+      <!-- Card 3: Porções finalizadas (embutimento + vácuo) -->
       <article class="bg-surface-card rounded-xl p-space-md shadow-sm border border-border-subtle flex flex-col justify-between relative overflow-hidden">
         <div class="absolute top-0 left-0 right-0 h-1.5 bg-amber-warning"></div>
         <div class="flex flex-col gap-1">
-          <div class="flex items-center justify-between">
-            <span class="font-label-sm text-text-muted uppercase">Saldo de Estoque</span>
-            <button id="view-more-stock-btn" class="text-xs font-bold text-bordeaux-primary hover:underline flex items-center gap-0.5 cursor-pointer bg-surface-canvas px-2 py-0.5 rounded border border-border-subtle">
-              <span>Ver +</span>
-              <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
-            </button>
-          </div>
-          <h2 class="font-headline-sm text-ink-text">${formatWeight(totalStockKg)}</h2>
-          <span class="text-xs text-text-muted mt-2">Lotes disponíveis em câmara</span>
+          <span class="font-label-sm text-text-muted uppercase">Porções Finalizadas</span>
+          <h2 class="font-headline-sm text-ink-text">${finishedPortions} de ${totalPortions}</h2>
+          <span class="text-xs text-text-muted mt-2">Embutimento e vácuo concluídos</span>
         </div>
       </article>
 
-      <!-- Card 4: Fila de Faturamento (Quantidade de Pedidos) -->
+      <!-- Card 4: Rotulagem (paralela ao fluxo) -->
       <article class="bg-surface-card rounded-xl p-space-md shadow-sm border border-border-subtle flex flex-col justify-between relative overflow-hidden">
         <div class="absolute top-0 left-0 right-0 h-1.5 bg-status-info"></div>
         <div class="flex flex-col gap-1">
-          <span class="font-label-sm text-text-muted uppercase">Pronto para Faturamento</span>
-          <h2 class="font-headline-sm text-status-info">${pendingInvoiceOrdersCount} ${pendingInvoiceOrdersCount === 1 ? 'pedido' : 'pedidos'}</h2>
-          <span class="text-xs text-text-muted mt-2">${pendingInvoiceOrdersCount === 1 ? '1 pedido separado' : `${pendingInvoiceOrdersCount} pedidos separados`} na doca</span>
+          <span class="font-label-sm text-text-muted uppercase">Rotulagem</span>
+          <h2 class="font-headline-sm text-status-info">${labeledPortions} de ${totalPortions}</h2>
+          <span class="text-xs text-text-muted mt-2">Porções com rótulos prontos (acontece em paralelo)</span>
         </div>
       </article>
     </section>
@@ -767,9 +761,6 @@ function renderMetricsCards(container, filteredOps, totalsMap, statusMap, lots, 
     openProductionModal();
   });
 
-  container.querySelector('#view-more-stock-btn')?.addEventListener('click', () => {
-    openStockModal();
-  });
 }
 
 function openStockModal() {

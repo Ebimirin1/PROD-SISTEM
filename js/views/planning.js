@@ -1,5 +1,18 @@
 import { supabase } from '../supabaseClient.js';
-import { showNotification, renderEmptyState, formatWeight, formatDate } from '../utils.js';
+import { showNotification, renderEmptyState, formatWeight, formatDate, todayLocal, weekdayName, buildOrderCode } from '../utils.js';
+
+// Sugere o código da OP pela data (DDMMAAAA). Se já existir, acrescenta -2, -3...
+async function suggestOrderCode(dateStr) {
+  const base = buildOrderCode(dateStr);
+  const { data } = await supabase.from('production_orders').select('order_code').like('order_code', `${base}%`);
+  const used = new Set((data || []).map(o => o.order_code));
+  if (!used.has(base)) return base;
+  let n = 2;
+  while (used.has(`${base}-${n}`)) n += 1;
+  return `${base}-${n}`;
+}
+
+let opCodeEdited = false;
 
 let currentFilterMode = 'all'; // 'all', 'day', 'range'
 let selectedFilterDate = new Date().toISOString().split('T')[0];
@@ -145,7 +158,8 @@ async function renderOPsTab() {
           <div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
             <div class="flex flex-col gap-1">
               <label class="font-label-md text-ink-text">Código da OP</label>
-              <input type="text" id="op-code" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold" placeholder="Ex: OP-2026-001">
+              <input type="text" id="op-code" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold" placeholder="Ex: 13102026">
+              <span id="op-code-hint" class="text-xs text-text-muted"></span>
             </div>
             <div class="flex flex-col gap-1">
               <label class="font-label-md text-ink-text">Data Programada</label>
@@ -249,15 +263,26 @@ async function renderOPsTab() {
     </div>
   `;
 
-  document.getElementById('add-op-btn')?.addEventListener('click', () => {
-    const today = new Date().toISOString().split('T')[0];
-    const code = `OP-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
-    document.getElementById('op-code').value = code;
+  const refreshOpCode = async () => {
+    const dateStr = document.getElementById('op-date')?.value;
+    const hint = document.getElementById('op-code-hint');
+    if (!dateStr) return;
+    if (hint) hint.textContent = `${weekdayName(dateStr)} • código gerado pela data (DDMMAAAA)`;
+    if (!opCodeEdited) document.getElementById('op-code').value = await suggestOrderCode(dateStr);
+  };
+
+  document.getElementById('add-op-btn')?.addEventListener('click', async () => {
+    const today = todayLocal();
+    opCodeEdited = false;
     document.getElementById('op-date').value = today;
     document.getElementById('op-mass-ready-date').value = today;
     document.getElementById('op-form-container')?.classList.remove('hidden');
     document.getElementById('demand-form-container')?.classList.add('hidden');
+    await refreshOpCode();
   });
+
+  document.getElementById('op-date')?.addEventListener('change', refreshOpCode);
+  document.getElementById('op-code')?.addEventListener('input', () => { opCodeEdited = true; });
 
   document.getElementById('op-cancel-btn')?.addEventListener('click', () => {
     document.getElementById('op-form-container')?.classList.add('hidden');
@@ -474,7 +499,7 @@ async function loadOPs() {
                 </div>
                 <div>
                   <h3 class="font-headline-sm text-ink-text">${op.order_code}</h3>
-                  <span class="text-xs font-bold text-text-muted">Data Produção: ${formatDate(op.production_date)} | Massa Pronta: ${formatDate(op.mass_ready_date)}</span>
+                  <span class="text-xs font-bold text-text-muted">Data Produção: ${weekdayName(op.production_date)}, ${formatDate(op.production_date)} | Massa Pronta: ${formatDate(op.mass_ready_date)}</span>
                 </div>
               </div>
 
