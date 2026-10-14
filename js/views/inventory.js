@@ -1,8 +1,11 @@
 import { supabase } from '../supabaseClient.js';
+import { opButtonClass, buildOpOptions, resolveSelectedOp, opSelectHtml, refreshOpSelect } from './opFilter.js';
 import { showNotification, renderEmptyState, formatWeight, formatDate } from '../utils.js';
 
 let currentSelectedWeek = 'all'; // 'all' ou 'Semana XX / YYYY'
-let currentFilterMode = 'all'; // 'all', 'day', 'range'
+let currentFilterMode = 'all'; // 'all', 'day', 'range' ou 'op' (Por Ordem de Produção)
+let selectedOrderId = null;
+let opOptions = [];
 let selectedFilterDate = new Date().toISOString().split('T')[0];
 let selectedStartDate = new Date().toISOString().split('T')[0];
 let selectedEndDate = new Date().toISOString().split('T')[0];
@@ -71,6 +74,9 @@ export async function render(container) {
           </button>
           <button id="inv-filter-range" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
             Por Período / Semana
+          </button>
+          <button id="inv-filter-op" class="${opButtonClass(currentFilterMode === 'op')}">
+            Por Ordem de Produção
           </button>
         </div>
 
@@ -191,6 +197,7 @@ function setupFilterControls() {
   const btnAll = document.getElementById('inv-filter-all');
   const btnDay = document.getElementById('inv-filter-day');
   const btnRange = document.getElementById('inv-filter-range');
+  const btnOp = document.getElementById('inv-filter-op');
   const dateControls = document.getElementById('inv-date-controls');
 
   if (!dateControls) return;
@@ -199,6 +206,7 @@ function setupFilterControls() {
     if (btnAll) btnAll.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
     if (btnDay) btnDay.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
     if (btnRange) btnRange.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+    if (btnOp) btnOp.className = opButtonClass(currentFilterMode === 'op');
 
     if (currentFilterMode === 'all') {
       dateControls.innerHTML = `<span class="text-xs font-bold text-text-muted bg-surface-canvas px-3 py-1.5 rounded-lg">Exibindo todo o estoque</span>`;
@@ -211,6 +219,12 @@ function setupFilterControls() {
       `;
       document.getElementById('inv-single-date')?.addEventListener('change', (e) => {
         selectedFilterDate = e.target.value;
+        loadInventory();
+      });
+    } else if (currentFilterMode === 'op') {
+      dateControls.innerHTML = opSelectHtml('inv-op-select', opOptions, selectedOrderId);
+      document.getElementById('inv-op-select')?.addEventListener('change', (e) => {
+        selectedOrderId = e.target.value;
         loadInventory();
       });
     } else if (currentFilterMode === 'range') {
@@ -255,6 +269,12 @@ function setupFilterControls() {
     loadInventory();
   });
 
+  btnOp?.addEventListener('click', () => {
+    currentFilterMode = 'op';
+    updateModeUI();
+    loadInventory();
+  });
+
   updateModeUI();
 }
 
@@ -288,7 +308,7 @@ async function loadInventory() {
     supabase.from('finished_lots').select(`
       id, lot_code, created_at, mass_ready_date, product_type, conservation, produced_kg,
       flavors (id, name),
-      production_orders (production_date, order_code)
+      production_orders (id, production_date, order_code)
     `).order('created_at', { ascending: false })
   ]);
 
@@ -296,6 +316,11 @@ async function loadInventory() {
     container.innerHTML = `<div class="p-4 bg-badge-error-bg text-badge-error-text rounded-lg">Erro ao carregar estoque por semana: ${(invErr || lotsErr)?.message}</div>`;
     return;
   }
+
+  // Filtro por OP: opções vindas dos lotes que têm OP de origem
+  opOptions = buildOpOptions((lots || []).map(l => l.production_orders));
+  selectedOrderId = resolveSelectedOp(opOptions, selectedOrderId);
+  refreshOpSelect('inv-op-select', opOptions, selectedOrderId);
 
   if (!inventory || inventory.length === 0) {
     container.innerHTML = '';
@@ -321,7 +346,10 @@ async function loadInventory() {
     const rawProdDate = lotObj.production_orders?.production_date || lotObj.mass_ready_date || item.expiry_date;
     const prodDate = rawProdDate ? rawProdDate.split('T')[0] : new Date().toISOString().split('T')[0];
 
-    // Aplicar filtro de data
+    // Aplicar filtro por OP / data
+    if (currentFilterMode === 'op' && lotObj.production_orders?.id !== selectedOrderId) {
+      return;
+    }
     if (currentFilterMode === 'day' && selectedFilterDate && prodDate !== selectedFilterDate) {
       return;
     }
@@ -368,12 +396,13 @@ async function loadInventory() {
 
   if (displayWeeks.length === 0) {
     container.innerHTML = '';
-    const filterText = currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
+    const filterText = currentFilterMode === 'op' ? ' para a ordem de produção selecionada' :
+                       currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
                        currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
     container.appendChild(renderEmptyState({
       icon: 'inventory_2',
       title: 'Nenhum Item de Estoque Encontrado',
-      description: `Não há lotes em estoque correspondentes ao filtro de data selecionado${filterText}.`,
+      description: `Não há lotes em estoque correspondentes ao filtro selecionado${filterText}.`,
       actionText: null
     }));
     return;

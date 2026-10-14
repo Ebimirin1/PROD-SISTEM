@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseClient.js';
+import { opButtonClass, buildOpOptions, resolveSelectedOp, opSelectHtml, refreshOpSelect } from './opFilter.js';
 import { showNotification, renderEmptyState, formatWeight, formatDate, todayLocal, weekdayName, buildOrderCode } from '../utils.js';
 
 // Sugere o código da OP pela data (DDMMAAAA). Se já existir, acrescenta -2, -3...
@@ -14,7 +15,9 @@ async function suggestOrderCode(dateStr) {
 
 let opCodeEdited = false;
 
-let currentFilterMode = 'all'; // 'all', 'day', 'range'
+let currentFilterMode = 'all'; // 'all', 'day', 'range' ou 'op' (Por Ordem de Produção)
+let selectedOrderId = null;
+let opOptions = [];
 let selectedFilterDate = new Date().toISOString().split('T')[0];
 let selectedStartDate = new Date().toISOString().split('T')[0];
 let selectedEndDate = new Date().toISOString().split('T')[0];
@@ -56,6 +59,9 @@ export async function render(container) {
           <button id="plan-filter-range" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
             Por Período / Semana
           </button>
+          <button id="plan-filter-op" class="${opButtonClass(currentFilterMode === 'op')}">
+            Por Ordem de Produção
+          </button>
         </div>
 
         <div id="plan-date-controls" class="flex items-center gap-3 flex-wrap">
@@ -75,6 +81,7 @@ function setupFilterControls() {
   const btnAll = document.getElementById('plan-filter-all');
   const btnDay = document.getElementById('plan-filter-day');
   const btnRange = document.getElementById('plan-filter-range');
+  const btnOp = document.getElementById('plan-filter-op');
   const dateControls = document.getElementById('plan-date-controls');
 
   if (!dateControls) return;
@@ -83,6 +90,7 @@ function setupFilterControls() {
     if (btnAll) btnAll.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
     if (btnDay) btnDay.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
     if (btnRange) btnRange.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+    if (btnOp) btnOp.className = opButtonClass(currentFilterMode === 'op');
 
     if (currentFilterMode === 'all') {
       dateControls.innerHTML = `<span class="text-xs font-bold text-text-muted bg-surface-canvas px-3 py-1.5 rounded-lg">Exibindo todas as Ordens de Produção</span>`;
@@ -95,6 +103,12 @@ function setupFilterControls() {
       `;
       document.getElementById('plan-single-date')?.addEventListener('change', (e) => {
         selectedFilterDate = e.target.value;
+        loadOPs();
+      });
+    } else if (currentFilterMode === 'op') {
+      dateControls.innerHTML = opSelectHtml('plan-op-select', opOptions, selectedOrderId);
+      document.getElementById('plan-op-select')?.addEventListener('change', (e) => {
+        selectedOrderId = e.target.value;
         loadOPs();
       });
     } else if (currentFilterMode === 'range') {
@@ -135,6 +149,12 @@ function setupFilterControls() {
 
   btnRange?.addEventListener('click', () => {
     currentFilterMode = 'range';
+    updateModeUI();
+    loadOPs();
+  });
+
+  btnOp?.addEventListener('click', () => {
+    currentFilterMode = 'op';
     updateModeUI();
     loadOPs();
   });
@@ -441,7 +461,7 @@ async function loadOPs() {
   }
 
   const [
-    { data: ops, error },
+    { data: allOps, error },
     { data: totalsData },
     { data: statusData }
   ] = await Promise.all([
@@ -455,9 +475,16 @@ async function loadOPs() {
     return;
   }
 
+  // Filtro por OP: opções vindas da lista carregada; no modo "op" não há filtro de data na consulta
+  opOptions = buildOpOptions(allOps);
+  selectedOrderId = resolveSelectedOp(opOptions, selectedOrderId);
+  refreshOpSelect('plan-op-select', opOptions, selectedOrderId);
+  const ops = currentFilterMode === 'op' ? (allOps || []).filter(o => o.id === selectedOrderId) : allOps;
+
   if (!ops || ops.length === 0) {
     container.innerHTML = '';
-    const filterText = currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
+    const filterText = currentFilterMode === 'op' ? ' para a ordem de produção selecionada' :
+                       currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
                        currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
     container.appendChild(renderEmptyState({
       icon: 'calendar_today',

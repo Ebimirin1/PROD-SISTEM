@@ -1,7 +1,10 @@
 import { supabase } from '../supabaseClient.js';
+import { opButtonClass, buildOpOptions, resolveSelectedOp, opSelectHtml, refreshOpSelect } from './opFilter.js';
 import { showNotification, renderEmptyState, formatWeight, formatDate } from '../utils.js';
 
-let currentFilterMode = 'all'; // 'all', 'day', 'range'
+let currentFilterMode = 'all'; // 'all', 'day', 'range' ou 'op' (Por Ordem de Produção)
+let selectedOrderId = null;
+let opOptions = [];
 let selectedFilterDate = new Date().toISOString().split('T')[0];
 let selectedStartDate = new Date().toISOString().split('T')[0];
 let selectedEndDate = new Date().toISOString().split('T')[0];
@@ -38,6 +41,9 @@ export async function render(container) {
           <button id="bill-filter-range" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
             Por Período / Semana
           </button>
+          <button id="bill-filter-op" class="${opButtonClass(currentFilterMode === 'op')}">
+            Por Ordem de Produção
+          </button>
         </div>
 
         <div id="bill-date-controls" class="flex items-center gap-3 flex-wrap">
@@ -57,6 +63,7 @@ function setupFilterControls() {
   const btnAll = document.getElementById('bill-filter-all');
   const btnDay = document.getElementById('bill-filter-day');
   const btnRange = document.getElementById('bill-filter-range');
+  const btnOp = document.getElementById('bill-filter-op');
   const dateControls = document.getElementById('bill-date-controls');
 
   if (!dateControls) return;
@@ -65,6 +72,7 @@ function setupFilterControls() {
     if (btnAll) btnAll.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
     if (btnDay) btnDay.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
     if (btnRange) btnRange.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+    if (btnOp) btnOp.className = opButtonClass(currentFilterMode === 'op');
 
     if (currentFilterMode === 'all') {
       dateControls.innerHTML = `<span class="text-xs font-bold text-text-muted bg-surface-canvas px-3 py-1.5 rounded-lg">Exibindo todas as faturas em fila</span>`;
@@ -77,6 +85,12 @@ function setupFilterControls() {
       `;
       document.getElementById('bill-single-date')?.addEventListener('change', (e) => {
         selectedFilterDate = e.target.value;
+        loadInvoiceQueue();
+      });
+    } else if (currentFilterMode === 'op') {
+      dateControls.innerHTML = opSelectHtml('bill-op-select', opOptions, selectedOrderId);
+      document.getElementById('bill-op-select')?.addEventListener('change', (e) => {
+        selectedOrderId = e.target.value;
         loadInvoiceQueue();
       });
     } else if (currentFilterMode === 'range') {
@@ -121,8 +135,17 @@ function setupFilterControls() {
     loadInvoiceQueue();
   });
 
+  btnOp?.addEventListener('click', () => {
+    currentFilterMode = 'op';
+    updateModeUI();
+    loadInvoiceQueue();
+  });
+
   updateModeUI();
 }
+
+// Pedidos de saída se ligam à OP pelos lotes separados (shipment_line_lots -> finished_lots)
+const lotOps = order => (order.shipment_lines || []).flatMap(l => (l.shipment_line_lots || []).map(x => x.finished_lots));
 
 async function loadInvoiceQueue() {
   const container = document.getElementById('billing-queue-container');
@@ -144,7 +167,10 @@ async function loadInvoiceQueue() {
         separated_kg,
         invoice_reference,
         status,
-        flavors (id, name)
+        flavors (id, name),
+        shipment_line_lots (
+          finished_lots (production_order_id, production_orders (id, order_code, production_date))
+        )
       )
     `)
     .order('created_at', { ascending: false });
@@ -156,12 +182,20 @@ async function loadInvoiceQueue() {
     query = query.gte('requested_at', selectedStartDate).lte('requested_at', selectedEndDate);
   }
 
-  const { data: orders, error } = await query;
+  const { data: allOrders, error } = await query;
 
   if (error) {
     container.innerHTML = `<div class="p-4 bg-badge-error-bg text-badge-error-text rounded-lg font-bold">Erro ao carregar fila de faturamento: ${error.message}</div>`;
     return;
   }
+
+  // Filtro por OP: pedidos que têm lotes separados vindos da OP escolhida
+  opOptions = buildOpOptions((allOrders || []).flatMap(o => lotOps(o).map(x => x?.production_orders)));
+  selectedOrderId = resolveSelectedOp(opOptions, selectedOrderId);
+  refreshOpSelect('bill-op-select', opOptions, selectedOrderId);
+  const orders = currentFilterMode === 'op'
+    ? (allOrders || []).filter(o => lotOps(o).some(x => x?.production_order_id === selectedOrderId))
+    : allOrders;
 
   const activeInvoiceOrders = (orders || []).map(o => {
     const invoiceLines = (o.shipment_lines || []).filter(l => l.status === 'separated_for_invoice');
@@ -173,7 +207,8 @@ async function loadInvoiceQueue() {
 
   if (activeInvoiceOrders.length === 0) {
     container.innerHTML = '';
-    const filterText = currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
+    const filterText = currentFilterMode === 'op' ? ' para a ordem de produção selecionada' :
+                       currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
                        currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
     container.appendChild(renderEmptyState({
       icon: 'receipt_long',

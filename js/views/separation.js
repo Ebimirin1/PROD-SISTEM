@@ -1,8 +1,11 @@
 import { supabase } from '../supabaseClient.js';
+import { opButtonClass, buildOpOptions, resolveSelectedOp, opSelectHtml, refreshOpSelect } from './opFilter.js';
 import { showNotification, renderEmptyState, formatWeight, formatDate } from '../utils.js';
 
 let currentSeparationTab = 'all'; // 'all', 'in_separation', 'completed'
-let currentFilterMode = 'all'; // 'all', 'day', 'range'
+let currentFilterMode = 'all'; // 'all', 'day', 'range' ou 'op' (Por Ordem de Produção)
+let selectedOrderId = null;
+let opOptions = [];
 let selectedFilterDate = new Date().toISOString().split('T')[0];
 let selectedStartDate = new Date().toISOString().split('T')[0];
 let selectedEndDate = new Date().toISOString().split('T')[0];
@@ -51,6 +54,9 @@ export async function render(container) {
           <button id="sep-filter-range" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
             Por Período / Semana
           </button>
+          <button id="sep-filter-op" class="${opButtonClass(currentFilterMode === 'op')}">
+            Por Ordem de Produção
+          </button>
         </div>
 
         <div id="sep-date-controls" class="flex items-center gap-3 flex-wrap">
@@ -71,6 +77,7 @@ function setupFilterControls() {
   const btnAll = document.getElementById('sep-filter-all');
   const btnDay = document.getElementById('sep-filter-day');
   const btnRange = document.getElementById('sep-filter-range');
+  const btnOp = document.getElementById('sep-filter-op');
   const dateControls = document.getElementById('sep-date-controls');
 
   if (!dateControls) return;
@@ -79,6 +86,7 @@ function setupFilterControls() {
     if (btnAll) btnAll.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
     if (btnDay) btnDay.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
     if (btnRange) btnRange.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+    if (btnOp) btnOp.className = opButtonClass(currentFilterMode === 'op');
 
     if (currentFilterMode === 'all') {
       dateControls.innerHTML = `<span class="text-xs font-bold text-text-muted bg-surface-canvas px-3 py-1.5 rounded-lg">Exibindo todos os kits de separação</span>`;
@@ -91,6 +99,12 @@ function setupFilterControls() {
       `;
       document.getElementById('sep-single-date')?.addEventListener('change', (e) => {
         selectedFilterDate = e.target.value;
+        loadSeparationPortions();
+      });
+    } else if (currentFilterMode === 'op') {
+      dateControls.innerHTML = opSelectHtml('sep-op-select', opOptions, selectedOrderId);
+      document.getElementById('sep-op-select')?.addEventListener('change', (e) => {
+        selectedOrderId = e.target.value;
         loadSeparationPortions();
       });
     } else if (currentFilterMode === 'range') {
@@ -131,6 +145,12 @@ function setupFilterControls() {
 
   btnRange?.addEventListener('click', () => {
     currentFilterMode = 'range';
+    updateModeUI();
+    loadSeparationPortions();
+  });
+
+  btnOp?.addEventListener('click', () => {
+    currentFilterMode = 'op';
     updateModeUI();
     loadSeparationPortions();
   });
@@ -181,7 +201,7 @@ async function loadSeparationPortions() {
     .select(`
       *,
       flavors (name),
-      production_orders (order_code, production_date),
+      production_orders (id, order_code, production_date),
       portion_ingredient_lines (
         id, requested_quantity, separated_quantity, unit, ingredient_lot, status, variance_reason,
         ingredients (name),
@@ -195,9 +215,16 @@ async function loadSeparationPortions() {
     return;
   }
 
+  // Opções do filtro por OP: todas as OPs que têm porções (antes de qualquer filtro)
+  opOptions = buildOpOptions((portions || []).map(p => p.production_orders));
+  selectedOrderId = resolveSelectedOp(opOptions, selectedOrderId);
+  refreshOpSelect('sep-op-select', opOptions, selectedOrderId);
+
   // Filtrar porções por data da OP conforme currentFilterMode
   let dateFilteredPortions = portions || [];
-  if (currentFilterMode === 'day' && selectedFilterDate) {
+  if (currentFilterMode === 'op') {
+    dateFilteredPortions = dateFilteredPortions.filter(p => p.production_orders?.id === selectedOrderId);
+  } else if (currentFilterMode === 'day' && selectedFilterDate) {
     dateFilteredPortions = dateFilteredPortions.filter(p => p.production_orders?.production_date === selectedFilterDate);
   } else if (currentFilterMode === 'range' && selectedStartDate && selectedEndDate) {
     dateFilteredPortions = dateFilteredPortions.filter(p => {
@@ -225,7 +252,8 @@ async function loadSeparationPortions() {
 
   if (filteredPortions.length === 0) {
     container.innerHTML = '';
-    const filterText = currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
+    const filterText = currentFilterMode === 'op' ? ' para a ordem de produção selecionada' :
+                       currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
                        currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
     container.appendChild(renderEmptyState({
       icon: 'scale',

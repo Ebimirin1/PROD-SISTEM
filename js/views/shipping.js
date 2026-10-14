@@ -1,7 +1,10 @@
 import { supabase } from '../supabaseClient.js';
+import { opButtonClass, buildOpOptions, resolveSelectedOp, opSelectHtml, refreshOpSelect } from './opFilter.js';
 import { showNotification, renderEmptyState, formatWeight, formatDate } from '../utils.js';
 
-let currentFilterMode = 'all'; // 'all', 'day', 'range'
+let currentFilterMode = 'all'; // 'all', 'day', 'range' ou 'op' (Por Ordem de Produção)
+let selectedOrderId = null;
+let opOptions = [];
 let selectedFilterDate = new Date().toISOString().split('T')[0];
 let selectedStartDate = new Date().toISOString().split('T')[0];
 let selectedEndDate = new Date().toISOString().split('T')[0];
@@ -41,6 +44,9 @@ export async function render(container) {
           </button>
           <button id="ship-filter-range" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
             Por Período / Semana
+          </button>
+          <button id="ship-filter-op" class="${opButtonClass(currentFilterMode === 'op')}">
+            Por Ordem de Produção
           </button>
         </div>
 
@@ -203,6 +209,7 @@ function setupFilterControls() {
   const btnAll = document.getElementById('ship-filter-all');
   const btnDay = document.getElementById('ship-filter-day');
   const btnRange = document.getElementById('ship-filter-range');
+  const btnOp = document.getElementById('ship-filter-op');
   const dateControls = document.getElementById('ship-date-controls');
 
   if (!dateControls) return;
@@ -211,6 +218,7 @@ function setupFilterControls() {
     if (btnAll) btnAll.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
     if (btnDay) btnDay.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
     if (btnRange) btnRange.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+    if (btnOp) btnOp.className = opButtonClass(currentFilterMode === 'op');
 
     if (currentFilterMode === 'all') {
       dateControls.innerHTML = `<span class="text-xs font-bold text-text-muted bg-surface-canvas px-3 py-1.5 rounded-lg">Exibindo todos os pedidos de saída</span>`;
@@ -223,6 +231,12 @@ function setupFilterControls() {
       `;
       document.getElementById('ship-single-date')?.addEventListener('change', (e) => {
         selectedFilterDate = e.target.value;
+        loadShipmentOrders();
+      });
+    } else if (currentFilterMode === 'op') {
+      dateControls.innerHTML = opSelectHtml('ship-op-select', opOptions, selectedOrderId);
+      document.getElementById('ship-op-select')?.addEventListener('change', (e) => {
+        selectedOrderId = e.target.value;
         loadShipmentOrders();
       });
     } else if (currentFilterMode === 'range') {
@@ -263,6 +277,12 @@ function setupFilterControls() {
 
   btnRange?.addEventListener('click', () => {
     currentFilterMode = 'range';
+    updateModeUI();
+    loadShipmentOrders();
+  });
+
+  btnOp?.addEventListener('click', () => {
+    currentFilterMode = 'op';
     updateModeUI();
     loadShipmentOrders();
   });
@@ -455,6 +475,9 @@ async function populateShipmentCustomers() {
   select.innerHTML = (partners || []).map(p => `<option value="${p.id}">${p.name} (${p.partner_type.toUpperCase()})</option>`).join('');
 }
 
+// Pedidos de saída se ligam à OP pelos lotes separados (shipment_line_lots -> finished_lots)
+const lotOps = order => (order.shipment_lines || []).flatMap(l => (l.shipment_line_lots || []).map(x => x.finished_lots));
+
 async function loadShipmentOrders() {
   const container = document.getElementById('shipments-list-container');
   if (!container) return;
@@ -466,7 +489,10 @@ async function loadShipmentOrders() {
       partners (name, partner_type),
       shipment_lines (
         id, product_type, conservation, requested_kg, separated_kg, status, invoice_reference,
-        flavors (name)
+        flavors (name),
+        shipment_line_lots (
+          finished_lots (production_order_id, production_orders (id, order_code, production_date))
+        )
       )
     `)
     .order('created_at', { ascending: false });
@@ -478,21 +504,30 @@ async function loadShipmentOrders() {
     query = query.gte('requested_at', selectedStartDate).lte('requested_at', selectedEndDate);
   }
 
-  const { data: orders, error } = await query;
+  const { data: allOrders, error } = await query;
 
   if (error) {
     container.innerHTML = `<div class="p-4 bg-badge-error-bg text-badge-error-text rounded-lg">Erro ao carregar pedidos: ${error.message}</div>`;
     return;
   }
 
+  // Filtro por OP: pedidos que têm lotes separados vindos da OP escolhida
+  opOptions = buildOpOptions((allOrders || []).flatMap(o => lotOps(o).map(x => x?.production_orders)));
+  selectedOrderId = resolveSelectedOp(opOptions, selectedOrderId);
+  refreshOpSelect('ship-op-select', opOptions, selectedOrderId);
+  const orders = currentFilterMode === 'op'
+    ? (allOrders || []).filter(o => lotOps(o).some(x => x?.production_order_id === selectedOrderId))
+    : allOrders;
+
   if (!orders || orders.length === 0) {
     container.innerHTML = '';
-    const filterText = currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
+    const filterText = currentFilterMode === 'op' ? ' para a ordem de produção selecionada' :
+                       currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
                        currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
     container.appendChild(renderEmptyState({
       icon: 'local_shipping',
       title: 'Nenhum Pedido de Saída Encontrado',
-      description: `Não há pedidos de saída correspondentes ao filtro de data selecionado${filterText}.`,
+      description: `Não há pedidos de saída correspondentes ao filtro selecionado${filterText}.`,
       actionText: 'Criar Primeiro Pedido',
       onAction: () => document.getElementById('add-shipment-order-btn')?.click()
     }));

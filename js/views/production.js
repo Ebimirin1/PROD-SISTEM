@@ -1,8 +1,11 @@
 import { supabase } from '../supabaseClient.js';
+import { opButtonClass, buildOpOptions, resolveSelectedOp, opSelectHtml, refreshOpSelect } from './opFilter.js';
 import { showNotification, renderEmptyState, formatWeight, formatDateTime, formatDate, weekdayName } from '../utils.js';
 import { renderPdvList } from './pdvList.js';
 
-let currentFilterMode = 'all'; // 'all', 'day', 'range'
+let currentFilterMode = 'all'; // 'all', 'day', 'range' ou 'op' (Por Ordem de Produção)
+let selectedOrderId = null;
+let opOptions = [];
 let currentView = 'line'; // 'line' (linha de produção) ou 'pdv' (lista final para o PDV)
 let currentStageFilter = 'all'; // 'all', 'embutimento', 'vacuo', 'completed'
 let selectedFilterDate = new Date().toISOString().split('T')[0];
@@ -62,6 +65,9 @@ export async function render(container) {
           </button>
           <button id="prod-filter-range" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
             Por Período / Semana
+          </button>
+          <button id="prod-filter-op" class="${opButtonClass(currentFilterMode === 'op')}">
+            Por Ordem de Produção
           </button>
         </div>
 
@@ -153,6 +159,7 @@ function setupFilterControls() {
   const btnAll = document.getElementById('prod-filter-all');
   const btnDay = document.getElementById('prod-filter-day');
   const btnRange = document.getElementById('prod-filter-range');
+  const btnOp = document.getElementById('prod-filter-op');
   const dateControls = document.getElementById('prod-date-controls');
 
   if (!dateControls) return;
@@ -161,6 +168,7 @@ function setupFilterControls() {
     if (btnAll) btnAll.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
     if (btnDay) btnDay.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
     if (btnRange) btnRange.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+    if (btnOp) btnOp.className = opButtonClass(currentFilterMode === 'op');
 
     if (currentFilterMode === 'all') {
       dateControls.innerHTML = `<span class="text-xs font-bold text-text-muted bg-surface-canvas px-3 py-1.5 rounded-lg">Exibindo todas as porções de produção</span>`;
@@ -173,6 +181,12 @@ function setupFilterControls() {
       `;
       document.getElementById('prod-single-date')?.addEventListener('change', (e) => {
         selectedFilterDate = e.target.value;
+        loadProductionProcessRuns();
+      });
+    } else if (currentFilterMode === 'op') {
+      dateControls.innerHTML = opSelectHtml('prod-op-select', opOptions, selectedOrderId);
+      document.getElementById('prod-op-select')?.addEventListener('change', (e) => {
+        selectedOrderId = e.target.value;
         loadProductionProcessRuns();
       });
     } else if (currentFilterMode === 'range') {
@@ -217,6 +231,12 @@ function setupFilterControls() {
     loadProductionProcessRuns();
   });
 
+  btnOp?.addEventListener('click', () => {
+    currentFilterMode = 'op';
+    updateModeUI();
+    loadProductionProcessRuns();
+  });
+
   updateModeUI();
 }
 
@@ -244,9 +264,16 @@ async function loadProductionProcessRuns() {
     return;
   }
 
+  // Opções do filtro por OP: todas as OPs que têm porções (antes de qualquer filtro)
+  opOptions = buildOpOptions((portions || []).map(p => p.production_orders));
+  selectedOrderId = resolveSelectedOp(opOptions, selectedOrderId);
+  refreshOpSelect('prod-op-select', opOptions, selectedOrderId);
+
   // Filtrar porções por data da OP conforme currentFilterMode
   let filteredPortions = portions || [];
-  if (currentFilterMode === 'day' && selectedFilterDate) {
+  if (currentFilterMode === 'op') {
+    filteredPortions = filteredPortions.filter(p => p.production_orders?.id === selectedOrderId);
+  } else if (currentFilterMode === 'day' && selectedFilterDate) {
     filteredPortions = filteredPortions.filter(p => p.production_orders?.production_date === selectedFilterDate);
   } else if (currentFilterMode === 'range' && selectedStartDate && selectedEndDate) {
     filteredPortions = filteredPortions.filter(p => {
@@ -278,7 +305,8 @@ async function loadProductionProcessRuns() {
 
   if (filteredPortions.length === 0) {
     container.innerHTML = '';
-    const filterText = currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
+    const filterText = currentFilterMode === 'op' ? ' para a ordem de produção selecionada' :
+                       currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
                        currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
     container.appendChild(renderEmptyState({
       icon: 'precision_manufacturing',
