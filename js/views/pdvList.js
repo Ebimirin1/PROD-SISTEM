@@ -14,6 +14,9 @@ function defaultWeekRange() {
 }
 
 const initialRange = defaultWeekRange();
+let filterMode = 'op'; // 'op' (por ordem de produção), 'all', 'day', 'range' — mesmos filtros das outras telas + por OP
+let selectedOrderId = null;
+let selectedDay = todayLocal();
 let startDate = initialRange.start;
 let endDate = initialRange.end;
 let onlyFinished = true;
@@ -77,7 +80,12 @@ export function buildPdvRows(order, portions) {
 // Linhas do período: uma por OP x sabor, ou somadas por sabor
 function buildPeriodRows() {
   const orders = cache.orders
-    .filter(o => o.production_date >= startDate && o.production_date <= endDate)
+    .filter(o => {
+      if (filterMode === 'op') return o.id === selectedOrderId;
+      if (filterMode === 'day') return o.production_date === selectedDay;
+      if (filterMode === 'range') return o.production_date >= startDate && o.production_date <= endDate;
+      return true; // 'all'
+    })
     .sort((a, b) => a.production_date.localeCompare(b.production_date) || a.order_code.localeCompare(b.order_code));
 
   let rows = [];
@@ -98,6 +106,23 @@ function buildPeriodRows() {
     rows = Object.values(map).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
   }
   return { rows, finishedCount, totalCount, orderCount: orders.length };
+}
+
+function scopeTitle() {
+  if (filterMode === 'op') {
+    const o = cache.orders.find(x => x.id === selectedOrderId);
+    return o ? `${o.order_code} — ${weekdayName(o.production_date)}, ${formatDate(o.production_date)}` : 'Ordem de produção';
+  }
+  if (filterMode === 'day') return `${weekdayName(selectedDay)}, ${formatDate(selectedDay)}`;
+  if (filterMode === 'range') return `${formatDate(startDate)} a ${formatDate(endDate)}`;
+  return 'Todas as ordens de produção';
+}
+
+function scopeFileName() {
+  if (filterMode === 'op') return cache.orders.find(x => x.id === selectedOrderId)?.order_code || 'op';
+  if (filterMode === 'day') return selectedDay;
+  if (filterMode === 'range') return `${startDate}_a_${endDate}`;
+  return 'geral';
 }
 
 function columns() {
@@ -144,7 +169,7 @@ function downloadCsv(rows) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `producao-${startDate}_a_${endDate}.csv`;
+  a.download = `producao-${scopeFileName()}.csv`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -164,8 +189,8 @@ function renderTable(container) {
     tableBox.innerHTML = '';
     tableBox.appendChild(renderEmptyState({
       icon: 'receipt_long',
-      title: 'Nenhuma OP no período',
-      description: 'Não há ordens de produção entre as datas selecionadas. Ajuste o período.'
+      title: 'Nenhuma OP neste filtro',
+      description: 'Não há ordens de produção para o filtro selecionado. Ajuste o filtro.'
     }));
     return;
   }
@@ -180,7 +205,7 @@ function renderTable(container) {
   tableBox.innerHTML = `
     <div class="flex flex-wrap items-center justify-between gap-space-sm">
       <div class="flex items-center gap-2 flex-wrap">
-        <h3 class="font-headline-sm text-ink-text">${esc(formatDate(startDate))} a ${esc(formatDate(endDate))}</h3>
+        <h3 class="font-headline-sm text-ink-text">${esc(scopeTitle())}</h3>
         <span class="text-xs font-bold text-text-muted">${orderCount} ${orderCount === 1 ? 'OP' : 'OPs'}</span>
         ${statusBadge}
       </div>
@@ -196,7 +221,7 @@ function renderTable(container) {
 
     ${rows.length === 0 ? `
       <div class="p-6 text-center text-xs italic text-text-muted bg-surface-canvas rounded-xl border border-border-subtle">
-        Nenhum sabor finalizado neste período. Desmarque "Somente finalizados" para ver o andamento.
+        Nenhum sabor finalizado neste filtro. Desmarque "Somente finalizados" para ver o andamento.
       </div>` : `
       <div class="overflow-x-auto rounded-xl border border-border-subtle">
         <table class="w-full text-sm">
@@ -263,20 +288,65 @@ export async function renderPdvList(container) {
     return;
   }
 
+  if (!cache.orders.some(o => o.id === selectedOrderId)) selectedOrderId = cache.orders[0].id;
+
+  const modeBtn = (mode, label) =>
+    `<button data-mode="${mode}" class="pdv-mode-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${filterMode === mode ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">${label}</button>`;
+
+  const inputCls = 'min-h-[36px] px-3 rounded-lg border border-border-subtle bg-surface-card text-xs font-bold text-ink-text focus:outline-none focus:border-bordeaux-primary';
+
+  const controlsHtml = () => {
+    if (filterMode === 'op') {
+      return `
+        <div class="flex items-center gap-2">
+          <label for="pdv-order-select" class="text-xs font-bold text-ink-text">Ordem de Produção:</label>
+          <select id="pdv-order-select" class="${inputCls}">
+            ${cache.orders.map(o => `<option value="${esc(o.id)}" ${o.id === selectedOrderId ? 'selected' : ''}>${esc(o.order_code)} — ${esc(weekdayName(o.production_date))}, ${esc(formatDate(o.production_date))}</option>`).join('')}
+          </select>
+        </div>`;
+    }
+    if (filterMode === 'day') {
+      return `
+        <div class="flex items-center gap-2">
+          <label for="pdv-day" class="text-xs font-bold text-ink-text">Data de Produção:</label>
+          <input type="date" id="pdv-day" value="${esc(selectedDay)}" class="${inputCls}">
+        </div>`;
+    }
+    if (filterMode === 'range') {
+      return `
+        <div class="flex items-center gap-2 flex-wrap">
+          <label for="pdv-start-date" class="text-xs font-bold text-ink-text">De:</label>
+          <input type="date" id="pdv-start-date" value="${esc(startDate)}" class="${inputCls}">
+          <label for="pdv-end-date" class="text-xs font-bold text-ink-text">Até:</label>
+          <input type="date" id="pdv-end-date" value="${esc(endDate)}" class="${inputCls}">
+        </div>`;
+    }
+    return '<span class="text-xs font-bold text-text-muted bg-surface-canvas px-3 py-1.5 rounded-lg">Exibindo todas as ordens de produção</span>';
+  };
+
   container.innerHTML = `
     <div class="flex flex-col gap-space-md">
-      <div class="bg-surface-card p-space-md rounded-xl border border-border-subtle shadow-sm flex flex-wrap items-center justify-between gap-space-md">
+      <div class="bg-surface-card p-space-md rounded-xl border border-border-subtle shadow-sm flex flex-col gap-space-sm">
         <div>
           <h2 class="font-headline-sm text-ink-text">Lista final para entrada no PDV</h2>
-          <p class="text-xs text-text-muted">Produção real de cada sabor (vácuo concluído) no período. Use esta tabela para dar entrada no sistema final.</p>
+          <p class="text-xs text-text-muted">Produção real de cada sabor (vácuo concluído). Use esta tabela para dar entrada no sistema final.</p>
         </div>
-        <div class="flex items-center gap-3 flex-wrap">
-          <div class="flex items-center gap-2 bg-surface-canvas px-3 py-1.5 rounded-lg border border-border-subtle flex-wrap">
-            <label for="pdv-start-date" class="text-xs font-bold text-text-muted uppercase">De:</label>
-            <input type="date" id="pdv-start-date" value="${esc(startDate)}" class="bg-transparent text-sm font-bold text-bordeaux-primary focus:outline-none cursor-pointer">
-            <label for="pdv-end-date" class="text-xs font-bold text-text-muted uppercase">Até:</label>
-            <input type="date" id="pdv-end-date" value="${esc(endDate)}" class="bg-transparent text-sm font-bold text-bordeaux-primary focus:outline-none cursor-pointer">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-label-md text-text-muted flex items-center gap-1 mr-1">
+              <span class="material-symbols-outlined text-[18px]">filter_list</span>
+              <span>Filtrar:</span>
+            </span>
+            <div id="pdv-mode-buttons" class="flex items-center gap-2 flex-wrap">
+              ${modeBtn('op', 'Por Ordem de Produção')}
+              ${modeBtn('all', 'Visão Geral')}
+              ${modeBtn('day', 'Por Dia')}
+              ${modeBtn('range', 'Por Período / Semana')}
+            </div>
           </div>
+          <div id="pdv-date-controls" class="flex items-center gap-3 flex-wrap"></div>
+        </div>
+        <div class="flex items-center gap-4 flex-wrap">
           <label class="flex items-center gap-2 text-xs font-bold text-ink-text cursor-pointer">
             <input type="checkbox" id="pdv-only-finished" ${onlyFinished ? 'checked' : ''}> Somente finalizados
           </label>
@@ -289,21 +359,48 @@ export async function renderPdvList(container) {
     </div>
   `;
 
-  const startInput = container.querySelector('#pdv-start-date');
-  const endInput = container.querySelector('#pdv-end-date');
+  const controlsBox = container.querySelector('#pdv-date-controls');
 
-  startInput?.addEventListener('change', e => {
-    if (!e.target.value) return;
-    startDate = e.target.value;
-    if (endDate < startDate) { endDate = startDate; endInput.value = endDate; }
-    renderTable(container);
+  const bindControls = () => {
+    controlsBox.innerHTML = controlsHtml();
+
+    controlsBox.querySelector('#pdv-order-select')?.addEventListener('change', e => {
+      selectedOrderId = e.target.value;
+      renderTable(container);
+    });
+    controlsBox.querySelector('#pdv-day')?.addEventListener('change', e => {
+      if (!e.target.value) return;
+      selectedDay = e.target.value;
+      renderTable(container);
+    });
+    const startInput = controlsBox.querySelector('#pdv-start-date');
+    const endInput = controlsBox.querySelector('#pdv-end-date');
+    startInput?.addEventListener('change', e => {
+      if (!e.target.value) return;
+      startDate = e.target.value;
+      if (endDate < startDate) { endDate = startDate; endInput.value = endDate; }
+      renderTable(container);
+    });
+    endInput?.addEventListener('change', e => {
+      if (!e.target.value) return;
+      endDate = e.target.value;
+      if (startDate > endDate) { startDate = endDate; startInput.value = startDate; }
+      renderTable(container);
+    });
+  };
+
+  container.querySelectorAll('.pdv-mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      filterMode = btn.dataset.mode;
+      container.querySelectorAll('.pdv-mode-btn').forEach(b => {
+        const on = b.dataset.mode === filterMode;
+        b.className = `pdv-mode-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${on ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+      });
+      bindControls();
+      renderTable(container);
+    });
   });
-  endInput?.addEventListener('change', e => {
-    if (!e.target.value) return;
-    endDate = e.target.value;
-    if (startDate > endDate) { startDate = endDate; startInput.value = startDate; }
-    renderTable(container);
-  });
+
   container.querySelector('#pdv-only-finished')?.addEventListener('change', e => {
     onlyFinished = e.target.checked;
     renderTable(container);
@@ -313,5 +410,6 @@ export async function renderPdvList(container) {
     renderTable(container);
   });
 
+  bindControls();
   renderTable(container);
 }
