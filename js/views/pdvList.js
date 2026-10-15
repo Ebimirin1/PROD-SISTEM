@@ -49,10 +49,14 @@ function addMonths(date, n) {
  * Quantidade real = soma do vácuo concluído (última etapa do fluxo).
  */
 export function buildPdvRows(order, portions, demands = []) {
+  // Uma linha por sabor + tipo de produto + conservação (o tipo vem gravado na porção).
+  // Porções antigas, sem tipo, ficam numa linha só do sabor e usam as demandas como referência.
   const byFlavor = {};
   (portions || []).filter(p => p.production_order_id === order.id).forEach(p => {
-    const row = byFlavor[p.flavor_id] || (byFlavor[p.flavor_id] = {
-      flavorId: p.flavor_id, name: p.flavors?.name || 'Sabor', portions: 0, finished: 0, plannedKg: 0, realKg: 0, lastDone: null
+    const key = `${p.flavor_id}|${p.product_type || ''}|${p.conservation || ''}`;
+    const row = byFlavor[key] || (byFlavor[key] = {
+      flavorId: p.flavor_id, name: p.flavors?.name || 'Sabor', productType: p.product_type || null, conservation: p.conservation || null,
+      portions: 0, finished: 0, plannedKg: 0, realKg: 0, lastDone: null
     });
     row.portions += 1;
     row.plannedKg += Number(p.planned_kg || 0);
@@ -86,13 +90,29 @@ export function buildPdvRows(order, portions, demands = []) {
   return Object.values(byFlavor)
     .map(r => ({
       ...r,
-      products: productsFor(r.flavorId),
+      // tipo definido na porção = produto exato; sem tipo = referência vinda das demandas
+      products: r.productType
+        ? [{ type: r.productType, conservation: r.conservation, plannedKg: r.plannedKg }]
+        : productsFor(r.flavorId),
       isFinished: r.portions > 0 && r.finished === r.portions,
       massReady: baseDate,
       expiryChilled: baseDate ? addDays(baseDate, 45) : null,
       expiryFrozen: baseDate ? addMonths(baseDate, 6) : null
     }))
-    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    .map(r => {
+      // Só mostra a validade que vale para a conservação do produto (se houver apenas uma)
+      const cons = new Set(r.products.map(e => e.conservation).filter(Boolean));
+      const onlyOne = cons.size === 1;
+      return {
+        ...r,
+        expiryChilled: !onlyOne || cons.has('resfriado') ? r.expiryChilled : null,
+        expiryFrozen: !onlyOne || cons.has('congelado') ? r.expiryFrozen : null
+      };
+    })
+    .sort((a, b) =>
+      a.name.localeCompare(b.name, 'pt-BR') ||
+      String(a.productType).localeCompare(String(b.productType)) ||
+      String(a.conservation).localeCompare(String(b.conservation)));
 }
 
 function productEntryText(e, withKg) {
@@ -129,7 +149,8 @@ function buildPeriodRows() {
   if (groupByFlavor) {
     const map = {};
     rows.forEach(r => {
-      const g = map[r.flavorId] || (map[r.flavorId] = { name: r.name, realKg: 0, plannedKg: 0, ops: new Set(), isFinished: true, productMap: new Map() });
+      const gKey = `${r.flavorId}|${r.productType || ''}|${r.conservation || ''}`;
+      const g = map[gKey] || (map[gKey] = { name: r.name, realKg: 0, plannedKg: 0, ops: new Set(), isFinished: true, productMap: new Map() });
       g.realKg += r.realKg;
       g.plannedKg += r.plannedKg;
       g.ops.add(r.order.order_code);
@@ -143,7 +164,7 @@ function buildPeriodRows() {
     });
     rows = Object.values(map)
       .map(g => ({ ...g, products: [...g.productMap.values()] }))
-      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR') || productLines(a).join().localeCompare(productLines(b).join()));
   }
   return { rows, finishedCount, totalCount, orderCount: orders.length };
 }
@@ -307,8 +328,8 @@ function renderTable(container) {
   if (rows.some(r => (r.products || []).length > 1)) {
     tableBox.insertAdjacentHTML('beforeend', `
       <p class="text-xs text-text-muted bg-surface-canvas border border-border-subtle rounded-lg px-3 py-2">
-        <b>Atenção:</b> nos sabores com mais de um produto, a quantidade real é a soma do vácuo do sabor.
-        O sistema ainda não registra o tipo de produto por porção; confira a divisão (valores entre parênteses = planejado) antes de lançar no PDV.
+        <b>Atenção:</b> nas linhas com mais de um produto, a quantidade real é a soma do vácuo do sabor.
+        Estas são porções antigas, geradas antes de o tipo ser gravado por porção; confira a divisão (valores entre parênteses = planejado) antes de lançar no PDV.
       </p>`);
   }
 
@@ -322,7 +343,7 @@ export async function renderPdvList(container) {
   const [{ data: orders, error: oErr }, { data: portions, error: pErr }, { data: demands, error: dErr }] = await Promise.all([
     supabase.from('production_orders').select('id, order_code, production_date, mass_ready_date, canceled_at').order('production_date', { ascending: false }),
     supabase.from('production_portions').select(`
-      id, production_order_id, flavor_id, portion_no, planned_kg,
+      *,
       flavors (name),
       process_runs (stage, status, actual_kg, completed_at)
     `),

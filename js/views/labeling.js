@@ -163,6 +163,8 @@ async function loadLabelingRuns() {
       flavor_id,
       portion_no,
       planned_kg,
+      product_type,
+      conservation,
       flavors (id, name),
       production_orders (
         id, order_code, production_date,
@@ -226,8 +228,9 @@ async function loadLabelingRuns() {
 
     const demands = p.production_orders?.production_demands || [];
     const matchingDemand = demands.find(d => d.flavor_id === p.flavor_id) || demands[0] || {};
-    const productType = matchingDemand.requested_product_type || 'linguica';
-    const conservation = matchingDemand.requested_conservation || 'resfriado';
+    // O tipo gravado na porção vale mais que a demanda (o sabor pode ter vários tipos na OP)
+    const productType = p.product_type || matchingDemand.requested_product_type || 'linguica';
+    const conservation = p.conservation || matchingDemand.requested_conservation || 'resfriado';
 
     const calculatedLabels = productType === 'granel' ? Math.ceil(baseKg / 10) : Math.round(baseKg * 2.5);
 
@@ -291,8 +294,8 @@ async function loadLabelingRuns() {
 
         const demands = p.production_orders?.production_demands || [];
         const matchingDemand = demands.find(d => d.flavor_id === p.flavor_id) || demands[0] || {};
-        const productType = matchingDemand.requested_product_type || 'linguica';
-        const conservation = matchingDemand.requested_conservation || 'resfriado';
+        const productType = p.product_type || matchingDemand.requested_product_type || 'linguica';
+        const conservation = p.conservation || matchingDemand.requested_conservation || 'resfriado';
         const isCongelado = conservation === 'congelado';
 
         const isGranel = productType === 'granel';

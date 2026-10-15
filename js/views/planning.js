@@ -701,55 +701,67 @@ async function processGenerateOrders(production_order_id) {
       }
     }
 
-    const flavorTotals = {};
+    // Uma porção por sabor + tipo de produto + conservação: o mesmo sabor com tipos diferentes
+    // (linguiça, massa, manta, granel, hambúrguer) não é misturado no embutimento.
+    const TYPE_ORDER = ['linguica', 'massa', 'manta', 'granel', 'hamburguer'];
+    const groups = {};
     demands.forEach(d => {
-      if (!flavorTotals[d.flavor_id]) flavorTotals[d.flavor_id] = 0;
-      flavorTotals[d.flavor_id] += Number(d.planned_kg);
+      const key = `${d.flavor_id}|${d.requested_product_type || ''}|${d.requested_conservation || ''}`;
+      if (!groups[key]) {
+        groups[key] = {
+          flavorId: d.flavor_id,
+          type: d.requested_product_type || null,
+          conservation: d.requested_conservation || null,
+          totalKg: 0,
+          demand: d
+        };
+      }
+      groups[key].totalKg += Number(d.planned_kg);
     });
 
-    for (const [flavorId, totalKg] of Object.entries(flavorTotals)) {
-      let remaining = totalKg;
-      let portionNo = 1;
+    const sortedGroups = Object.values(groups).sort((x, y) =>
+      String(x.flavorId).localeCompare(String(y.flavorId)) ||
+      (TYPE_ORDER.indexOf(x.type) - TYPE_ORDER.indexOf(y.type)) ||
+      String(x.conservation).localeCompare(String(y.conservation)));
 
-      while (remaining > 0) {
-        const portionSize = remaining;
-        const { data: portion, error: pErr } = await supabase.from('production_portions').insert({
-          production_order_id,
-          flavor_id: flavorId,
-          portion_no: portionNo,
-          planned_kg: portionSize
-        }).select().single();
+    const portionCountByFlavor = {};
+    for (const g of sortedGroups) {
+      const portionNo = (portionCountByFlavor[g.flavorId] || 0) + 1;
+      portionCountByFlavor[g.flavorId] = portionNo;
+      const portionSize = g.totalKg;
 
-        if (pErr) throw pErr;
+      const { data: portion, error: pErr } = await supabase.from('production_portions').insert({
+        production_order_id,
+        flavor_id: g.flavorId,
+        portion_no: portionNo,
+        planned_kg: portionSize,
+        product_type: g.type,
+        conservation: g.conservation
+      }).select().single();
 
-        const activeDemand = demands.find(d => d.flavor_id === flavorId);
-        if (activeDemand) {
-          const { data: formulaIngredients } = await supabase
-            .from('formula_ingredients')
-            .select('*')
-            .eq('formula_version_id', activeDemand.formula_version_id);
+      if (pErr) throw pErr;
 
-          if (formulaIngredients) {
-            const portionIngredientRows = formulaIngredients.map(fi => ({
-              portion_id: portion.id,
-              ingredient_id: fi.ingredient_id,
-              requested_quantity: (portionSize * Number(fi.ratio_pct)) / 100,
-              unit: fi.unit,
-              status: 'pending'
-            }));
-            await supabase.from('portion_ingredient_lines').insert(portionIngredientRows);
-          }
-        }
+      const { data: formulaIngredients } = await supabase
+        .from('formula_ingredients')
+        .select('*')
+        .eq('formula_version_id', g.demand.formula_version_id);
 
-        await supabase.from('process_runs').insert([
-          { portion_id: portion.id, stage: 'embutimento', status: 'pending' },
-          { portion_id: portion.id, stage: 'vacuo', status: 'pending' },
-          { portion_id: portion.id, stage: 'rotulagem', status: 'pending' }
-        ]);
-
-        remaining -= portionSize;
-        portionNo++;
+      if (formulaIngredients) {
+        const portionIngredientRows = formulaIngredients.map(fi => ({
+          portion_id: portion.id,
+          ingredient_id: fi.ingredient_id,
+          requested_quantity: (portionSize * Number(fi.ratio_pct)) / 100,
+          unit: fi.unit,
+          status: 'pending'
+        }));
+        await supabase.from('portion_ingredient_lines').insert(portionIngredientRows);
       }
+
+      await supabase.from('process_runs').insert([
+        { portion_id: portion.id, stage: 'embutimento', status: 'pending' },
+        { portion_id: portion.id, stage: 'vacuo', status: 'pending' },
+        { portion_id: portion.id, stage: 'rotulagem', status: 'pending' }
+      ]);
     }
 
     await supabase.from('production_orders').update({ generated_at: new Date().toISOString() }).eq('id', production_order_id);

@@ -6,6 +6,18 @@ import { renderPdvList } from './pdvList.js';
 let currentFilterMode = 'all'; // 'all', 'day', 'range' ou 'op' (Por Ordem de Produção)
 let selectedOrderId = null;
 let opOptions = [];
+// Categorias de produto final (ordem de exibição no embutimento)
+const PRODUCT_CATEGORIES = [
+  { key: 'linguica', label: 'Linguiça', icon: 'restaurant' },
+  { key: 'massa', label: 'Massa', icon: 'bakery_dining' },
+  { key: 'manta', label: 'Manta', icon: 'layers' },
+  { key: 'granel', label: 'Granel', icon: 'inventory_2' },
+  { key: 'hamburguer', label: 'Hambúrguer', icon: 'lunch_dining' }
+];
+const CONSERVATION_LABELS = { resfriado: 'Resfriado', congelado: 'Congelado' };
+const categoryOf = key => PRODUCT_CATEGORIES.find(c => c.key === key) || { key: 'none', label: 'Tipo não definido', icon: 'help' };
+const productFinalText = p => `${categoryOf(p.product_type).label}${p.conservation ? ` · ${CONSERVATION_LABELS[p.conservation]}` : ''}`;
+
 let currentView = 'line'; // 'line' (linha de produção) ou 'pdv' (lista final para o PDV)
 let currentStageFilter = 'all'; // 'all', 'embutimento', 'vacuo', 'completed'
 let selectedFilterDate = new Date().toISOString().split('T')[0];
@@ -319,20 +331,42 @@ async function loadProductionProcessRuns() {
 
   const { data: collaborators } = await supabase.from('collaborators').select('id, full_name').eq('active', true);
 
+  // Separa por categoria de produto final e ordena por sabor / porção
+  const categoryRank = key => { const i = PRODUCT_CATEGORIES.findIndex(c => c.key === key); return i === -1 ? PRODUCT_CATEGORIES.length : i; };
+  filteredPortions = [...filteredPortions].sort((a, b) =>
+    categoryRank(a.product_type) - categoryRank(b.product_type) ||
+    String(a.flavors?.name).localeCompare(String(b.flavors?.name), 'pt-BR') ||
+    String(a.conservation).localeCompare(String(b.conservation)) ||
+    a.portion_no - b.portion_no);
+
+  const categoryCounts = {};
+  filteredPortions.forEach(p => { const k = categoryOf(p.product_type).key; categoryCounts[k] = (categoryCounts[k] || 0) + 1; });
+  let lastCategory = null;
+
   container.innerHTML = `
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-space-md">
       ${filteredPortions.map(p => {
+        const cat = categoryOf(p.product_type);
+        const heading = cat.key !== lastCategory
+          ? `<div class="lg:col-span-2 flex items-center gap-2 pt-2 border-b-2 border-bordeaux-primary pb-1">
+               <span class="material-symbols-outlined text-bordeaux-primary text-[22px]">${cat.icon}</span>
+               <h2 class="font-headline-sm text-ink-text">${cat.label}</h2>
+               <span class="text-xs font-bold text-text-muted">${categoryCounts[cat.key]} ${categoryCounts[cat.key] === 1 ? 'porção' : 'porções'}</span>
+             </div>`
+          : '';
+        lastCategory = cat.key;
         const runs = p.process_runs || [];
         const embutimento = runs.find(r => r.stage === 'embutimento');
         const vacuo = runs.find(r => r.stage === 'vacuo');
 
-        return `
+        return heading + `
           <div class="bg-surface-card rounded-xl p-space-md shadow-sm border border-border-subtle flex flex-col justify-between gap-space-md">
             <div class="flex flex-col gap-2">
               <div class="flex items-center justify-between border-b border-border-subtle pb-2">
                 <div>
                   <span class="text-xs font-bold text-text-muted uppercase">${p.production_orders?.order_code} • ${weekdayName(p.production_orders?.production_date)}, ${formatDate(p.production_orders?.production_date)}</span>
                   <h3 class="font-headline-sm text-ink-text">${p.flavors?.name} — Porção #${p.portion_no} (${formatWeight(p.planned_kg)})</h3>
+                  <span class="inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${p.product_type ? 'bg-bordeaux-primary text-on-primary' : 'bg-surface-canvas text-text-muted border border-border-subtle'}">Produto final: ${productFinalText(p)}</span>
                 </div>
               </div>
 
