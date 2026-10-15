@@ -1,0 +1,1423 @@
+--- /tmp/orig/utils.js	2026-10-14 00:15:51.554728806 +0000
++++ js/utils.js	2026-10-14 00:15:59.368062889 +0000
+@@ -8,7 +8,8 @@
+ 
+ export function formatDate(dateStr) {
+   if (!dateStr) return '—';
+-  const date = new Date(dateStr);
++  // Datas puras (YYYY-MM-DD) são lidas como data local; new Date() as leria em UTC e mostraria o dia anterior no Brasil
++  const date = /^\d{4}-\d{2}-\d{2}$/.test(String(dateStr)) ? parseLocalDate(dateStr) : new Date(dateStr);
+   if (isNaN(date.getTime())) return dateStr;
+   return date.toLocaleDateString('pt-BR');
+ }
+@@ -65,3 +66,32 @@
+ 
+   return container;
+ }
++
++// ---- Datas e código da OP ----
++
++// Data local de hoje em YYYY-MM-DD (toISOString usa UTC e erra o dia à noite no Brasil)
++export function todayLocal() {
++  const d = new Date();
++  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
++}
++
++// Converte 'YYYY-MM-DD' em Date local, sem deslocamento de fuso
++export function parseLocalDate(str) {
++  const [y, m, d] = String(str).slice(0, 10).split('-').map(Number);
++  return new Date(y, (m || 1) - 1, d || 1);
++}
++
++// Dia da semana em português, ex.: 'Terça-feira'
++export function weekdayName(str) {
++  if (!str) return '';
++  const d = parseLocalDate(str);
++  if (isNaN(d.getTime())) return '';
++  const name = d.toLocaleDateString('pt-BR', { weekday: 'long' });
++  return name.charAt(0).toUpperCase() + name.slice(1);
++}
++
++// Código da OP a partir da data de produção: 2026-10-13 -> '13102026'
++export function buildOrderCode(str) {
++  const [y, m, d] = String(str).slice(0, 10).split('-');
++  return `${d}${m}${y}`;
++}
+--- /tmp/orig/overview.js	2026-10-14 00:15:51.554807270 +0000
++++ js/views/overview.js	2026-10-14 20:45:40.043267270 +0000
+@@ -1,5 +1,5 @@
+ import { supabase } from '../supabaseClient.js';
+-import { renderEmptyState, formatWeight, formatDate } from '../utils.js';
++import { renderEmptyState, formatWeight, formatDate, weekdayName } from '../utils.js';
+ import { renderOverviewCharts } from './overviewCharts.js';
+ 
+ // Módulo de Visão Geral (Monitor Operacional Diário / Bento Grid)
+@@ -26,7 +26,8 @@
+   };
+ }
+ 
+-let currentFilterMode = 'all'; // 'all' (Visão Geral), 'day' (Por Dia) ou 'range' (Por Período / Semana)
++let currentFilterMode = 'all'; // 'all' (Visão Geral), 'day' (Por Dia), 'range' (Por Período / Semana) ou 'op' (Por Ordem de Produção)
++let currentSelectedOrderId = null; // modo 'op' (Por Ordem de Produção)
+ let currentSelectedDate = getLocalDateString();  // YYYY-MM-DD (Padrão: Data Local Hoje)
+ const defaultWeekRange = getDefaultWeekRange();
+ let currentStartDate = defaultWeekRange.start;
+@@ -68,6 +69,15 @@
+             <button id="filter-btn-range" class="px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}">
+               Por Período / Semana
+             </button>
++            <button id="filter-btn-op" class="px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'op' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}">
++              Por Ordem de Produção
++            </button>
++          </div>
++
++          <!-- Seletor de Ordem de Produção (Exibido quando no modo Por Ordem de Produção) -->
++          <div id="op-picker-wrapper" class="${currentFilterMode === 'op' ? 'flex' : 'hidden'} items-center gap-2 bg-surface-canvas px-3 py-1.5 rounded-lg border border-border-subtle">
++            <label for="overview-op-select" class="font-label-sm text-label-sm text-text-muted uppercase">OP:</label>
++            <select id="overview-op-select" class="bg-transparent font-title-md text-title-md text-bordeaux-primary font-bold focus:outline-none cursor-pointer"></select>
+           </div>
+ 
+           <!-- Seletor de Data Única (Exibido quando no modo Por Dia) -->
+@@ -194,6 +204,9 @@
+   const btnRange = container.querySelector('#filter-btn-range');
+   const dateWrapper = container.querySelector('#date-picker-wrapper');
+   const rangeWrapper = container.querySelector('#range-picker-wrapper');
++  const btnOp = container.querySelector('#filter-btn-op');
++  const opWrapper = container.querySelector('#op-picker-wrapper');
++  const opSelect = container.querySelector('#overview-op-select');
+   const dateSelect = container.querySelector('#overview-date-select');
+   const startDateInput = container.querySelector('#overview-start-date');
+   const endDateInput = container.querySelector('#overview-end-date');
+@@ -205,6 +218,8 @@
+     if (btnDay) btnDay.className = `px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}`;
+     if (btnRange) btnRange.className = `px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}`;
+ 
++    if (btnOp) btnOp.className = `px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'op' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}`;
++    if (opWrapper) opWrapper.classList.toggle('hidden', currentFilterMode !== 'op');
+     if (dateWrapper) dateWrapper.classList.toggle('hidden', currentFilterMode !== 'day');
+     if (rangeWrapper) rangeWrapper.classList.toggle('hidden', currentFilterMode !== 'range');
+   };
+@@ -233,6 +248,19 @@
+     }
+   });
+ 
++  btnOp?.addEventListener('click', () => {
++    if (currentFilterMode !== 'op') {
++      currentFilterMode = 'op';
++      updateButtonsStyle();
++      loadOverviewData();
++    }
++  });
++
++  opSelect?.addEventListener('change', (e) => {
++    currentSelectedOrderId = e.target.value;
++    loadOverviewData();
++  });
++
+   dateSelect?.addEventListener('change', (e) => {
+     currentSelectedDate = e.target.value;
+     loadOverviewData();
+@@ -481,9 +509,10 @@
+   const runs = p.process_runs || [];
+   const completedRuns = runs.filter(r => r.status === 'completed' && r.completed_at);
+   if (completedRuns.length > 0) {
+-    const endRun = completedRuns.find(r => r.stage === 'rotulagem') ||
+-                   completedRuns.find(r => r.stage === 'vacuo') ||
++    // O fluxo termina no vácuo; a rotulagem acontece antes ou em paralelo, então só é usada como último recurso
++    const endRun = completedRuns.find(r => r.stage === 'vacuo') ||
+                    completedRuns.find(r => r.stage === 'embutimento') ||
++                   completedRuns.find(r => r.stage === 'rotulagem') ||
+                    completedRuns[0];
+     return getLocalDateString(new Date(endRun.completed_at));
+   }
+@@ -551,8 +580,7 @@
+     { data: invoiceQueue },
+     { data: portions, error: portionsErr },
+     { data: allFlavors, error: flavorsErr },
+-    { data: demands, error: demandsErr },
+-    { data: shipmentLines }
++    { data: demands, error: demandsErr }
+   ] = await Promise.all([
+     supabase.from('production_orders').select('*').order('production_date', { ascending: false }),
+     supabase.from('vw_production_order_totals').select('*'),
+@@ -577,8 +605,7 @@
+       flavor_id,
+       planned_kg,
+       flavors (id, name)
+-    `),
+-    supabase.from('shipment_lines').select('status, requested_kg, separated_kg')
++    `)
+   ]);
+ 
+   if (opsErr || portionsErr || demandsErr) {
+@@ -607,6 +634,18 @@
+     return;
+   }
+ 
++  // Popular o seletor de Ordem de Produção (mais recente primeiro; ignora OPs canceladas)
++  const selectableOps = ops.filter(o => !o.canceled_at);
++  if (!selectableOps.some(o => o.id === currentSelectedOrderId)) {
++    currentSelectedOrderId = selectableOps[0]?.id || null;
++  }
++  const opSelectEl = document.getElementById('overview-op-select');
++  if (opSelectEl) {
++    opSelectEl.innerHTML = selectableOps.map(o =>
++      `<option value="${o.id}" ${o.id === currentSelectedOrderId ? 'selected' : ''}>${o.order_code} — ${weekdayName(o.production_date)}, ${formatDate(o.production_date)}</option>`
++    ).join('');
++  }
++
+   // Atualizar campo de data de produção
+   const dateSelect = document.getElementById('overview-date-select');
+   if (dateSelect && !dateSelect.value) {
+@@ -642,7 +681,11 @@
+   let filteredPortions = augmentedPortions;
+   let filteredOps = ops;
+ 
+-  if (currentFilterMode === 'day' && currentSelectedDate) {
++  if (currentFilterMode === 'op') {
++    // Por Ordem de Produção: todas as porções da OP escolhida, sem filtro de data
++    filteredPortions = augmentedPortions.filter(p => p.production_order_id === currentSelectedOrderId);
++    filteredOps = ops.filter(o => o.id === currentSelectedOrderId);
++  } else if (currentFilterMode === 'day' && currentSelectedDate) {
+     filteredPortions = augmentedPortions.filter(p => p.completionDate === currentSelectedDate);
+     const activeOpIds = new Set(filteredPortions.map(p => p.production_order_id));
+     filteredOps = ops.filter(o => activeOpIds.has(o.id) || o.production_date === currentSelectedDate);
+@@ -653,7 +696,7 @@
+   }
+ 
+   // Renderizar Indicadores KPI
+-  renderMetricsCards(metricsContainer, filteredOps, totalsMap, statusMap, lots, invoiceQueue, filteredPortions);
++  renderMetricsCards(metricsContainer, filteredOps, totalsMap, statusMap, filteredPortions);
+ 
+   // Gráficos do fluxo (não bloqueiam o restante da tela se falharem)
+   if (chartsSection) {
+@@ -664,9 +707,7 @@
+         filteredOps,
+         filteredPortions,
+         demands,
+-        totalsMap,
+-        lots,
+-        shipmentLines
++        totalsMap
+       }).catch(err => console.error('Erro ao renderizar gráficos:', err));
+     }
+   }
+@@ -675,7 +716,7 @@
+   renderDailyProductionOrders(dailyOrdersSection, filteredPortions, opMap, statusMap);
+ }
+ 
+-function renderMetricsCards(container, filteredOps, totalsMap, statusMap, lots, invoiceQueue) {
++function renderMetricsCards(container, filteredOps, totalsMap, statusMap, portions) {
+   if (filteredOps.length === 0) {
+     container.innerHTML = `
+       <div class="p-6 bg-surface-card rounded-xl border border-border-subtle text-center text-text-muted font-body-md">
+@@ -689,8 +730,11 @@
+   const totalProducedKg = filteredOps.reduce((acc, o) => acc + Number(totalsMap[o.id]?.produced_total_kg || 0), 0);
+   const overallProgressPct = totalPlannedKg > 0 ? Math.min(100, Math.round((totalProducedKg / totalPlannedKg) * 100)) : 0;
+ 
+-  const totalStockKg = (lots || []).reduce((acc, item) => acc + Number(item.balance_kg), 0);
+-  const pendingInvoiceOrdersCount = new Set((invoiceQueue || []).map(item => item.order_code)).size;
++  // Andamento por porção: o fluxo termina no vácuo; a rotulagem corre em paralelo
++  const stageDone = (p, stage) => (p.process_runs || []).some(r => r.stage === stage && r.status === 'completed');
++  const totalPortions = (portions || []).length;
++  const finishedPortions = (portions || []).filter(p => stageDone(p, 'embutimento') && stageDone(p, 'vacuo')).length;
++  const labeledPortions = (portions || []).filter(p => stageDone(p, 'rotulagem')).length;
+ 
+   container.innerHTML = `
+     <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-space-md">
+@@ -699,11 +743,13 @@
+         <div class="absolute top-0 left-0 right-0 h-1.5 bg-bordeaux-primary"></div>
+         <div class="flex flex-col gap-1">
+           <span class="font-label-sm text-text-muted uppercase">${
++            currentFilterMode === 'op' ? 'Ordem de Produção' :
+             currentFilterMode === 'day' ? 'Monitoramento Diário' :
+             currentFilterMode === 'range' ? 'Monitoramento por Período / Semana' :
+             'Visão Geral Global'
+           }</span>
+           <h2 class="font-headline-sm text-ink-text">${
++            currentFilterMode === 'op' ? `${filteredOps[0]?.order_code || ''} • ${weekdayName(filteredOps[0]?.production_date)}` :
+             currentFilterMode === 'day' ? `Dia ${formatDate(currentSelectedDate)}` :
+             currentFilterMode === 'range' ? `${formatDate(currentStartDate)} a ${formatDate(currentEndDate)}` :
+             `${filteredOps.length} OPs Mapeadas`
+@@ -734,29 +780,23 @@
+         </div>
+       </article>
+ 
+-      <!-- Card 3: Saldo de Estoque em Câmara com Link Ver + -->
++      <!-- Card 3: Porções finalizadas (embutimento + vácuo) -->
+       <article class="bg-surface-card rounded-xl p-space-md shadow-sm border border-border-subtle flex flex-col justify-between relative overflow-hidden">
+         <div class="absolute top-0 left-0 right-0 h-1.5 bg-amber-warning"></div>
+         <div class="flex flex-col gap-1">
+-          <div class="flex items-center justify-between">
+-            <span class="font-label-sm text-text-muted uppercase">Saldo de Estoque</span>
+-            <button id="view-more-stock-btn" class="text-xs font-bold text-bordeaux-primary hover:underline flex items-center gap-0.5 cursor-pointer bg-surface-canvas px-2 py-0.5 rounded border border-border-subtle">
+-              <span>Ver +</span>
+-              <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+-            </button>
+-          </div>
+-          <h2 class="font-headline-sm text-ink-text">${formatWeight(totalStockKg)}</h2>
+-          <span class="text-xs text-text-muted mt-2">Lotes disponíveis em câmara</span>
++          <span class="font-label-sm text-text-muted uppercase">Porções Finalizadas</span>
++          <h2 class="font-headline-sm text-ink-text">${finishedPortions} de ${totalPortions}</h2>
++          <span class="text-xs text-text-muted mt-2">Embutimento e vácuo concluídos</span>
+         </div>
+       </article>
+ 
+-      <!-- Card 4: Fila de Faturamento (Quantidade de Pedidos) -->
++      <!-- Card 4: Rotulagem (paralela ao fluxo) -->
+       <article class="bg-surface-card rounded-xl p-space-md shadow-sm border border-border-subtle flex flex-col justify-between relative overflow-hidden">
+         <div class="absolute top-0 left-0 right-0 h-1.5 bg-status-info"></div>
+         <div class="flex flex-col gap-1">
+-          <span class="font-label-sm text-text-muted uppercase">Pronto para Faturamento</span>
+-          <h2 class="font-headline-sm text-status-info">${pendingInvoiceOrdersCount} ${pendingInvoiceOrdersCount === 1 ? 'pedido' : 'pedidos'}</h2>
+-          <span class="text-xs text-text-muted mt-2">${pendingInvoiceOrdersCount === 1 ? '1 pedido separado' : `${pendingInvoiceOrdersCount} pedidos separados`} na doca</span>
++          <span class="font-label-sm text-text-muted uppercase">Rotulagem</span>
++          <h2 class="font-headline-sm text-status-info">${labeledPortions} de ${totalPortions}</h2>
++          <span class="text-xs text-text-muted mt-2">Porções com rótulos prontos (acontece em paralelo)</span>
+         </div>
+       </article>
+     </section>
+@@ -767,9 +807,6 @@
+     openProductionModal();
+   });
+ 
+-  container.querySelector('#view-more-stock-btn')?.addEventListener('click', () => {
+-    openStockModal();
+-  });
+ }
+ 
+ function openStockModal() {
+--- /tmp/orig/planning.js	2026-10-14 00:15:51.554760722 +0000
++++ js/views/planning.js	2026-10-15 01:55:59.658058594 +0000
+@@ -1,7 +1,23 @@
+ import { supabase } from '../supabaseClient.js';
+-import { showNotification, renderEmptyState, formatWeight, formatDate } from '../utils.js';
++import { opButtonClass, buildOpOptions, resolveSelectedOp, opSelectHtml, refreshOpSelect } from './opFilter.js';
++import { showNotification, renderEmptyState, formatWeight, formatDate, todayLocal, weekdayName, buildOrderCode } from '../utils.js';
+ 
+-let currentFilterMode = 'all'; // 'all', 'day', 'range'
++// Sugere o código da OP pela data (DDMMAAAA). Se já existir, acrescenta -2, -3...
++async function suggestOrderCode(dateStr) {
++  const base = buildOrderCode(dateStr);
++  const { data } = await supabase.from('production_orders').select('order_code').like('order_code', `${base}%`);
++  const used = new Set((data || []).map(o => o.order_code));
++  if (!used.has(base)) return base;
++  let n = 2;
++  while (used.has(`${base}-${n}`)) n += 1;
++  return `${base}-${n}`;
++}
++
++let opCodeEdited = false;
++
++let currentFilterMode = 'all'; // 'all', 'day', 'range' ou 'op' (Por Ordem de Produção)
++let selectedOrderId = null;
++let opOptions = [];
+ let selectedFilterDate = new Date().toISOString().split('T')[0];
+ let selectedStartDate = new Date().toISOString().split('T')[0];
+ let selectedEndDate = new Date().toISOString().split('T')[0];
+@@ -43,6 +59,9 @@
+           <button id="plan-filter-range" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+             Por Período / Semana
+           </button>
++          <button id="plan-filter-op" class="${opButtonClass(currentFilterMode === 'op')}">
++            Por Ordem de Produção
++          </button>
+         </div>
+ 
+         <div id="plan-date-controls" class="flex items-center gap-3 flex-wrap">
+@@ -62,6 +81,7 @@
+   const btnAll = document.getElementById('plan-filter-all');
+   const btnDay = document.getElementById('plan-filter-day');
+   const btnRange = document.getElementById('plan-filter-range');
++  const btnOp = document.getElementById('plan-filter-op');
+   const dateControls = document.getElementById('plan-date-controls');
+ 
+   if (!dateControls) return;
+@@ -70,6 +90,7 @@
+     if (btnAll) btnAll.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+     if (btnDay) btnDay.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+     if (btnRange) btnRange.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
++    if (btnOp) btnOp.className = opButtonClass(currentFilterMode === 'op');
+ 
+     if (currentFilterMode === 'all') {
+       dateControls.innerHTML = `<span class="text-xs font-bold text-text-muted bg-surface-canvas px-3 py-1.5 rounded-lg">Exibindo todas as Ordens de Produção</span>`;
+@@ -84,6 +105,12 @@
+         selectedFilterDate = e.target.value;
+         loadOPs();
+       });
++    } else if (currentFilterMode === 'op') {
++      dateControls.innerHTML = opSelectHtml('plan-op-select', opOptions, selectedOrderId);
++      document.getElementById('plan-op-select')?.addEventListener('change', (e) => {
++        selectedOrderId = e.target.value;
++        loadOPs();
++      });
+     } else if (currentFilterMode === 'range') {
+       dateControls.innerHTML = `
+         <div class="flex items-center gap-2 flex-wrap">
+@@ -126,6 +153,12 @@
+     loadOPs();
+   });
+ 
++  btnOp?.addEventListener('click', () => {
++    currentFilterMode = 'op';
++    updateModeUI();
++    loadOPs();
++  });
++
+   updateModeUI();
+ }
+ 
+@@ -145,7 +178,8 @@
+           <div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
+             <div class="flex flex-col gap-1">
+               <label class="font-label-md text-ink-text">Código da OP</label>
+-              <input type="text" id="op-code" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold" placeholder="Ex: OP-2026-001">
++              <input type="text" id="op-code" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold" placeholder="Ex: 13102026">
++              <span id="op-code-hint" class="text-xs text-text-muted"></span>
+             </div>
+             <div class="flex flex-col gap-1">
+               <label class="font-label-md text-ink-text">Data Programada</label>
+@@ -249,16 +283,27 @@
+     </div>
+   `;
+ 
+-  document.getElementById('add-op-btn')?.addEventListener('click', () => {
+-    const today = new Date().toISOString().split('T')[0];
+-    const code = `OP-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
+-    document.getElementById('op-code').value = code;
++  const refreshOpCode = async () => {
++    const dateStr = document.getElementById('op-date')?.value;
++    const hint = document.getElementById('op-code-hint');
++    if (!dateStr) return;
++    if (hint) hint.textContent = `${weekdayName(dateStr)} • código gerado pela data (DDMMAAAA)`;
++    if (!opCodeEdited) document.getElementById('op-code').value = await suggestOrderCode(dateStr);
++  };
++
++  document.getElementById('add-op-btn')?.addEventListener('click', async () => {
++    const today = todayLocal();
++    opCodeEdited = false;
+     document.getElementById('op-date').value = today;
+     document.getElementById('op-mass-ready-date').value = today;
+     document.getElementById('op-form-container')?.classList.remove('hidden');
+     document.getElementById('demand-form-container')?.classList.add('hidden');
++    await refreshOpCode();
+   });
+ 
++  document.getElementById('op-date')?.addEventListener('change', refreshOpCode);
++  document.getElementById('op-code')?.addEventListener('input', () => { opCodeEdited = true; });
++
+   document.getElementById('op-cancel-btn')?.addEventListener('click', () => {
+     document.getElementById('op-form-container')?.classList.add('hidden');
+   });
+@@ -416,7 +461,7 @@
+   }
+ 
+   const [
+-    { data: ops, error },
++    { data: allOps, error },
+     { data: totalsData },
+     { data: statusData }
+   ] = await Promise.all([
+@@ -430,9 +475,16 @@
+     return;
+   }
+ 
++  // Filtro por OP: opções vindas da lista carregada; no modo "op" não há filtro de data na consulta
++  opOptions = buildOpOptions(allOps);
++  selectedOrderId = resolveSelectedOp(opOptions, selectedOrderId);
++  refreshOpSelect('plan-op-select', opOptions, selectedOrderId);
++  const ops = currentFilterMode === 'op' ? (allOps || []).filter(o => o.id === selectedOrderId) : allOps;
++
+   if (!ops || ops.length === 0) {
+     container.innerHTML = '';
+-    const filterText = currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
++    const filterText = currentFilterMode === 'op' ? ' para a ordem de produção selecionada' :
++                       currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
+                        currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
+     container.appendChild(renderEmptyState({
+       icon: 'calendar_today',
+@@ -474,7 +526,7 @@
+                 </div>
+                 <div>
+                   <h3 class="font-headline-sm text-ink-text">${op.order_code}</h3>
+-                  <span class="text-xs font-bold text-text-muted">Data Produção: ${formatDate(op.production_date)} | Massa Pronta: ${formatDate(op.mass_ready_date)}</span>
++                  <span class="text-xs font-bold text-text-muted">Data Produção: ${weekdayName(op.production_date)}, ${formatDate(op.production_date)} | Massa Pronta: ${formatDate(op.mass_ready_date)}</span>
+                 </div>
+               </div>
+ 
+@@ -649,55 +701,67 @@
+       }
+     }
+ 
+-    const flavorTotals = {};
++    // Uma porção por sabor + tipo de produto + conservação: o mesmo sabor com tipos diferentes
++    // (linguiça, massa, manta, granel, hambúrguer) não é misturado no embutimento.
++    const TYPE_ORDER = ['linguica', 'massa', 'manta', 'granel', 'hamburguer'];
++    const groups = {};
+     demands.forEach(d => {
+-      if (!flavorTotals[d.flavor_id]) flavorTotals[d.flavor_id] = 0;
+-      flavorTotals[d.flavor_id] += Number(d.planned_kg);
++      const key = `${d.flavor_id}|${d.requested_product_type || ''}|${d.requested_conservation || ''}`;
++      if (!groups[key]) {
++        groups[key] = {
++          flavorId: d.flavor_id,
++          type: d.requested_product_type || null,
++          conservation: d.requested_conservation || null,
++          totalKg: 0,
++          demand: d
++        };
++      }
++      groups[key].totalKg += Number(d.planned_kg);
+     });
+ 
+-    for (const [flavorId, totalKg] of Object.entries(flavorTotals)) {
+-      let remaining = totalKg;
+-      let portionNo = 1;
+-
+-      while (remaining > 0) {
+-        const portionSize = remaining;
+-        const { data: portion, error: pErr } = await supabase.from('production_portions').insert({
+-          production_order_id,
+-          flavor_id: flavorId,
+-          portion_no: portionNo,
+-          planned_kg: portionSize
+-        }).select().single();
+-
+-        if (pErr) throw pErr;
+-
+-        const activeDemand = demands.find(d => d.flavor_id === flavorId);
+-        if (activeDemand) {
+-          const { data: formulaIngredients } = await supabase
+-            .from('formula_ingredients')
+-            .select('*')
+-            .eq('formula_version_id', activeDemand.formula_version_id);
+-
+-          if (formulaIngredients) {
+-            const portionIngredientRows = formulaIngredients.map(fi => ({
+-              portion_id: portion.id,
+-              ingredient_id: fi.ingredient_id,
+-              requested_quantity: (portionSize * Number(fi.ratio_pct)) / 100,
+-              unit: fi.unit,
+-              status: 'pending'
+-            }));
+-            await supabase.from('portion_ingredient_lines').insert(portionIngredientRows);
+-          }
+-        }
+-
+-        await supabase.from('process_runs').insert([
+-          { portion_id: portion.id, stage: 'embutimento', status: 'pending' },
+-          { portion_id: portion.id, stage: 'vacuo', status: 'pending' },
+-          { portion_id: portion.id, stage: 'rotulagem', status: 'pending' }
+-        ]);
+-
+-        remaining -= portionSize;
+-        portionNo++;
++    const sortedGroups = Object.values(groups).sort((x, y) =>
++      String(x.flavorId).localeCompare(String(y.flavorId)) ||
++      (TYPE_ORDER.indexOf(x.type) - TYPE_ORDER.indexOf(y.type)) ||
++      String(x.conservation).localeCompare(String(y.conservation)));
++
++    const portionCountByFlavor = {};
++    for (const g of sortedGroups) {
++      const portionNo = (portionCountByFlavor[g.flavorId] || 0) + 1;
++      portionCountByFlavor[g.flavorId] = portionNo;
++      const portionSize = g.totalKg;
++
++      const { data: portion, error: pErr } = await supabase.from('production_portions').insert({
++        production_order_id,
++        flavor_id: g.flavorId,
++        portion_no: portionNo,
++        planned_kg: portionSize,
++        product_type: g.type,
++        conservation: g.conservation
++      }).select().single();
++
++      if (pErr) throw pErr;
++
++      const { data: formulaIngredients } = await supabase
++        .from('formula_ingredients')
++        .select('*')
++        .eq('formula_version_id', g.demand.formula_version_id);
++
++      if (formulaIngredients) {
++        const portionIngredientRows = formulaIngredients.map(fi => ({
++          portion_id: portion.id,
++          ingredient_id: fi.ingredient_id,
++          requested_quantity: (portionSize * Number(fi.ratio_pct)) / 100,
++          unit: fi.unit,
++          status: 'pending'
++        }));
++        await supabase.from('portion_ingredient_lines').insert(portionIngredientRows);
+       }
++
++      await supabase.from('process_runs').insert([
++        { portion_id: portion.id, stage: 'embutimento', status: 'pending' },
++        { portion_id: portion.id, stage: 'vacuo', status: 'pending' },
++        { portion_id: portion.id, stage: 'rotulagem', status: 'pending' }
++      ]);
+     }
+ 
+     await supabase.from('production_orders').update({ generated_at: new Date().toISOString() }).eq('id', production_order_id);
+--- /tmp/orig/production.js	2026-10-14 00:15:51.554784944 +0000
++++ js/views/production.js	2026-10-15 01:55:59.658738516 +0000
+@@ -1,7 +1,24 @@
+ import { supabase } from '../supabaseClient.js';
+-import { showNotification, renderEmptyState, formatWeight, formatDateTime, formatDate } from '../utils.js';
++import { opButtonClass, buildOpOptions, resolveSelectedOp, opSelectHtml, refreshOpSelect } from './opFilter.js';
++import { showNotification, renderEmptyState, formatWeight, formatDateTime, formatDate, weekdayName } from '../utils.js';
++import { renderPdvList } from './pdvList.js';
++
++let currentFilterMode = 'all'; // 'all', 'day', 'range' ou 'op' (Por Ordem de Produção)
++let selectedOrderId = null;
++let opOptions = [];
++// Categorias de produto final (ordem de exibição no embutimento)
++const PRODUCT_CATEGORIES = [
++  { key: 'linguica', label: 'Linguiça', icon: 'restaurant' },
++  { key: 'massa', label: 'Massa', icon: 'bakery_dining' },
++  { key: 'manta', label: 'Manta', icon: 'layers' },
++  { key: 'granel', label: 'Granel', icon: 'inventory_2' },
++  { key: 'hamburguer', label: 'Hambúrguer', icon: 'lunch_dining' }
++];
++const CONSERVATION_LABELS = { resfriado: 'Resfriado', congelado: 'Congelado' };
++const categoryOf = key => PRODUCT_CATEGORIES.find(c => c.key === key) || { key: 'none', label: 'Tipo não definido', icon: 'help' };
++const productFinalText = p => `${categoryOf(p.product_type).label}${p.conservation ? ` · ${CONSERVATION_LABELS[p.conservation]}` : ''}`;
+ 
+-let currentFilterMode = 'all'; // 'all', 'day', 'range'
++let currentView = 'line'; // 'line' (linha de produção) ou 'pdv' (lista final para o PDV)
+ let currentStageFilter = 'all'; // 'all', 'embutimento', 'vacuo', 'completed'
+ let selectedFilterDate = new Date().toISOString().split('T')[0];
+ let selectedStartDate = new Date().toISOString().split('T')[0];
+@@ -16,14 +33,19 @@
+ 
+   container.innerHTML = `
+     <div class="flex flex-col gap-space-lg">
++      <div class="flex items-center gap-1 bg-surface-card p-1 rounded-xl border border-border-subtle shadow-sm w-fit">
++        <button id="prod-view-line" class="px-4 py-2 rounded-lg font-label-md text-label-md transition-colors">Linha de produção</button>
++        <button id="prod-view-pdv" class="px-4 py-2 rounded-lg font-label-md text-label-md transition-colors">Lista final (PDV)</button>
++      </div>
++
+       <div class="flex flex-wrap items-center justify-between gap-space-md">
+         <div>
+           <h1 class="font-display-lg text-display-lg text-ink-text">Terminal de Execução de Produção</h1>
+-          <p class="font-body-md text-body-md text-text-muted">Acompanhamento em tempo real por lote total do sabor nas etapas de Embutimento e Vácuo (a etapa de Rotulagem é gerada automaticamente na tela "Contagem de Rótulos").</p>
++          <p class="font-body-md text-body-md text-text-muted">Acompanhamento por porção nas etapas de Embutimento e Vácuo. O fluxo termina no vácuo; a Rotulagem acontece antes ou em paralelo e é controlada na tela "Contagem de Rótulos".</p>
+         </div>
+ 
+         <!-- Filtros de Estágio / Status da Produção -->
+-        <div class="flex items-center gap-1 bg-surface-card p-1 rounded-xl border border-border-subtle shadow-sm flex-wrap">
++        <div id="prod-stage-filter-box" class="flex items-center gap-1 bg-surface-card p-1 rounded-xl border border-border-subtle shadow-sm flex-wrap">
+           <button id="prod-stage-all" class="stage-tab-btn px-3.5 py-2 rounded-lg font-label-md text-label-md transition-colors ${currentStageFilter === 'all' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}">
+             Todos
+           </button>
+@@ -39,6 +61,7 @@
+         </div>
+       </div>
+ 
++      <div id="production-line-view" class="flex flex-col gap-space-lg">
+       <!-- Barra de Filtros de Período / Dia (Igual à Visão Geral) -->
+       <div class="bg-surface-card p-4 rounded-xl border border-border-subtle shadow-sm flex flex-wrap items-center justify-between gap-4">
+         <div class="flex items-center gap-2 flex-wrap">
+@@ -55,6 +78,9 @@
+           <button id="prod-filter-range" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+             Por Período / Semana
+           </button>
++          <button id="prod-filter-op" class="${opButtonClass(currentFilterMode === 'op')}">
++            Por Ordem de Produção
++          </button>
+         </div>
+ 
+         <div id="prod-date-controls" class="flex items-center gap-3 flex-wrap">
+@@ -63,14 +89,43 @@
+       </div>
+ 
+       <div id="production-list-container"></div>
++      </div>
++
++      <div id="production-pdv-view" class="hidden"></div>
+     </div>
+   `;
+ 
+   setupFilterControls();
+   setupStageFilterControls(container);
++  setupViewToggle(container);
+   loadProductionProcessRuns();
+ }
+ 
++function setupViewToggle(container) {
++  const btnLine = container.querySelector('#prod-view-line');
++  const btnPdv = container.querySelector('#prod-view-pdv');
++  const lineView = container.querySelector('#production-line-view');
++  const pdvView = container.querySelector('#production-pdv-view');
++  const stageBox = container.querySelector('#prod-stage-filter-box');
++
++  const active = 'bg-bordeaux-primary text-on-primary font-bold shadow-sm';
++  const idle = 'text-text-muted hover:text-ink-text';
++
++  const apply = () => {
++    const isLine = currentView === 'line';
++    btnLine.className = `px-4 py-2 rounded-lg font-label-md text-label-md transition-colors ${isLine ? active : idle}`;
++    btnPdv.className = `px-4 py-2 rounded-lg font-label-md text-label-md transition-colors ${isLine ? idle : active}`;
++    lineView.classList.toggle('hidden', !isLine);
++    stageBox.classList.toggle('hidden', !isLine);
++    pdvView.classList.toggle('hidden', isLine);
++    if (!isLine) renderPdvList(pdvView);
++  };
++
++  btnLine.addEventListener('click', () => { currentView = 'line'; apply(); });
++  btnPdv.addEventListener('click', () => { currentView = 'pdv'; apply(); });
++  apply();
++}
++
+ function setupStageFilterControls(container) {
+   const btnAll = container.querySelector('#prod-stage-all');
+   const btnEmb = container.querySelector('#prod-stage-embutimento');
+@@ -116,6 +171,7 @@
+   const btnAll = document.getElementById('prod-filter-all');
+   const btnDay = document.getElementById('prod-filter-day');
+   const btnRange = document.getElementById('prod-filter-range');
++  const btnOp = document.getElementById('prod-filter-op');
+   const dateControls = document.getElementById('prod-date-controls');
+ 
+   if (!dateControls) return;
+@@ -124,6 +180,7 @@
+     if (btnAll) btnAll.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+     if (btnDay) btnDay.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+     if (btnRange) btnRange.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
++    if (btnOp) btnOp.className = opButtonClass(currentFilterMode === 'op');
+ 
+     if (currentFilterMode === 'all') {
+       dateControls.innerHTML = `<span class="text-xs font-bold text-text-muted bg-surface-canvas px-3 py-1.5 rounded-lg">Exibindo todas as porções de produção</span>`;
+@@ -138,6 +195,12 @@
+         selectedFilterDate = e.target.value;
+         loadProductionProcessRuns();
+       });
++    } else if (currentFilterMode === 'op') {
++      dateControls.innerHTML = opSelectHtml('prod-op-select', opOptions, selectedOrderId);
++      document.getElementById('prod-op-select')?.addEventListener('change', (e) => {
++        selectedOrderId = e.target.value;
++        loadProductionProcessRuns();
++      });
+     } else if (currentFilterMode === 'range') {
+       dateControls.innerHTML = `
+         <div class="flex items-center gap-2 flex-wrap">
+@@ -180,6 +243,12 @@
+     loadProductionProcessRuns();
+   });
+ 
++  btnOp?.addEventListener('click', () => {
++    currentFilterMode = 'op';
++    updateModeUI();
++    loadProductionProcessRuns();
++  });
++
+   updateModeUI();
+ }
+ 
+@@ -207,9 +276,16 @@
+     return;
+   }
+ 
++  // Opções do filtro por OP: todas as OPs que têm porções (antes de qualquer filtro)
++  opOptions = buildOpOptions((portions || []).map(p => p.production_orders));
++  selectedOrderId = resolveSelectedOp(opOptions, selectedOrderId);
++  refreshOpSelect('prod-op-select', opOptions, selectedOrderId);
++
+   // Filtrar porções por data da OP conforme currentFilterMode
+   let filteredPortions = portions || [];
+-  if (currentFilterMode === 'day' && selectedFilterDate) {
++  if (currentFilterMode === 'op') {
++    filteredPortions = filteredPortions.filter(p => p.production_orders?.id === selectedOrderId);
++  } else if (currentFilterMode === 'day' && selectedFilterDate) {
+     filteredPortions = filteredPortions.filter(p => p.production_orders?.production_date === selectedFilterDate);
+   } else if (currentFilterMode === 'range' && selectedStartDate && selectedEndDate) {
+     filteredPortions = filteredPortions.filter(p => {
+@@ -241,7 +317,8 @@
+ 
+   if (filteredPortions.length === 0) {
+     container.innerHTML = '';
+-    const filterText = currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
++    const filterText = currentFilterMode === 'op' ? ' para a ordem de produção selecionada' :
++                       currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
+                        currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
+     container.appendChild(renderEmptyState({
+       icon: 'precision_manufacturing',
+@@ -254,20 +331,42 @@
+ 
+   const { data: collaborators } = await supabase.from('collaborators').select('id, full_name').eq('active', true);
+ 
++  // Separa por categoria de produto final e ordena por sabor / porção
++  const categoryRank = key => { const i = PRODUCT_CATEGORIES.findIndex(c => c.key === key); return i === -1 ? PRODUCT_CATEGORIES.length : i; };
++  filteredPortions = [...filteredPortions].sort((a, b) =>
++    categoryRank(a.product_type) - categoryRank(b.product_type) ||
++    String(a.flavors?.name).localeCompare(String(b.flavors?.name), 'pt-BR') ||
++    String(a.conservation).localeCompare(String(b.conservation)) ||
++    a.portion_no - b.portion_no);
++
++  const categoryCounts = {};
++  filteredPortions.forEach(p => { const k = categoryOf(p.product_type).key; categoryCounts[k] = (categoryCounts[k] || 0) + 1; });
++  let lastCategory = null;
++
+   container.innerHTML = `
+     <div class="grid grid-cols-1 lg:grid-cols-2 gap-space-md">
+       ${filteredPortions.map(p => {
++        const cat = categoryOf(p.product_type);
++        const heading = cat.key !== lastCategory
++          ? `<div class="lg:col-span-2 flex items-center gap-2 pt-2 border-b-2 border-bordeaux-primary pb-1">
++               <span class="material-symbols-outlined text-bordeaux-primary text-[22px]">${cat.icon}</span>
++               <h2 class="font-headline-sm text-ink-text">${cat.label}</h2>
++               <span class="text-xs font-bold text-text-muted">${categoryCounts[cat.key]} ${categoryCounts[cat.key] === 1 ? 'porção' : 'porções'}</span>
++             </div>`
++          : '';
++        lastCategory = cat.key;
+         const runs = p.process_runs || [];
+         const embutimento = runs.find(r => r.stage === 'embutimento');
+         const vacuo = runs.find(r => r.stage === 'vacuo');
+ 
+-        return `
++        return heading + `
+           <div class="bg-surface-card rounded-xl p-space-md shadow-sm border border-border-subtle flex flex-col justify-between gap-space-md">
+             <div class="flex flex-col gap-2">
+               <div class="flex items-center justify-between border-b border-border-subtle pb-2">
+                 <div>
+-                  <span class="text-xs font-bold text-text-muted uppercase">${p.production_orders?.order_code} • ${formatDate(p.production_orders?.production_date)}</span>
++                  <span class="text-xs font-bold text-text-muted uppercase">${p.production_orders?.order_code} • ${weekdayName(p.production_orders?.production_date)}, ${formatDate(p.production_orders?.production_date)}</span>
+                   <h3 class="font-headline-sm text-ink-text">${p.flavors?.name} — Porção #${p.portion_no} (${formatWeight(p.planned_kg)})</h3>
++                  <span class="inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${p.product_type ? 'bg-bordeaux-primary text-on-primary' : 'bg-surface-canvas text-text-muted border border-border-subtle'}">Produto final: ${productFinalText(p)}</span>
+                 </div>
+               </div>
+ 
+@@ -414,44 +513,15 @@
+             actual_kg: actualKg
+           })
+           .eq('id', runId)
+-          .select('*, production_portions(*, production_orders(*))')
++          .select('id, stage')
+           .single();
+ 
+         if (error) throw error;
+ 
+-        if (run && run.stage === 'vacuo' && run.production_portions) {
+-          const portion = run.production_portions;
+-          const op = portion.production_orders || {};
+-          const today = new Date().toISOString().split('T')[0];
+-          const massReadyDate = op.mass_ready_date || op.production_date || today;
+-          const orderCode = op.order_code || 'OP';
+-          const lotCode = `LOT-VAC-${orderCode}-P${portion.portion_no || 1}`;
+-
+-          const { data: newLot, error: lotErr } = await supabase
+-            .from('finished_lots')
+-            .insert({
+-              production_order_id: portion.production_order_id,
+-              flavor_id: portion.flavor_id,
+-              lot_code: lotCode,
+-              product_type: 'linguica',
+-              conservation: 'resfriado',
+-              mass_ready_date: massReadyDate,
+-              produced_kg: actualKg
+-            })
+-            .select()
+-            .single();
+-
+-          if (!lotErr && newLot) {
+-            await supabase.from('inventory_movements').insert({
+-              finished_lot_id: newLot.id,
+-              movement_type: 'production_entry',
+-              quantity_delta_kg: actualKg,
+-              reference_text: `Entrada Automática Vácuo (${orderCode})`
+-            });
+-            showNotification(`Etapa de Vácuo concluída! ${actualKg} kg adicionados automaticamente ao Estoque Acabado.`, 'success');
+-          } else {
+-            showNotification('Etapa de Vácuo concluída com sucesso!', 'success');
+-          }
++        // O sistema não controla estoque: o fluxo termina no vácuo e a quantidade real
++        // alimenta a "Lista final (PDV)". Nenhum lote ou movimento de estoque é criado aqui.
++        if (run && run.stage === 'vacuo') {
++          showNotification(`Vácuo concluído! ${actualKg} kg registrados na lista final para o PDV.`, 'success');
+         } else {
+           showNotification('Etapa concluída com sucesso!', 'success');
+         }
+--- /tmp/orig/labeling.before_op.js	2026-10-14 21:36:51.165272223 +0000
++++ js/views/labeling.js	2026-10-15 01:56:35.790268476 +0000
+@@ -1,7 +1,10 @@
+ import { supabase } from '../supabaseClient.js';
++import { opButtonClass, buildOpOptions, resolveSelectedOp, opSelectHtml, refreshOpSelect } from './opFilter.js';
+ import { showNotification, renderEmptyState, formatWeight, formatDateTime, formatDate } from '../utils.js';
+ 
+-let currentFilterMode = 'all'; // 'all', 'day', 'range'
++let currentFilterMode = 'all'; // 'all', 'day', 'range' ou 'op' (Por Ordem de Produção)
++let selectedOrderId = null;
++let opOptions = [];
+ let selectedFilterDate = new Date().toISOString().split('T')[0];
+ let selectedStartDate = new Date().toISOString().split('T')[0];
+ let selectedEndDate = new Date().toISOString().split('T')[0];
+@@ -46,6 +49,9 @@
+           <button id="lbl-filter-range" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+             Por Período / Semana
+           </button>
++          <button id="lbl-filter-op" class="${opButtonClass(currentFilterMode === 'op')}">
++            Por Ordem de Produção
++          </button>
+         </div>
+ 
+         <div id="lbl-date-controls" class="flex items-center gap-3 flex-wrap">
+@@ -65,6 +71,7 @@
+   const btnAll = document.getElementById('lbl-filter-all');
+   const btnDay = document.getElementById('lbl-filter-day');
+   const btnRange = document.getElementById('lbl-filter-range');
++  const btnOp = document.getElementById('lbl-filter-op');
+   const dateControls = document.getElementById('lbl-date-controls');
+ 
+   if (!dateControls) return;
+@@ -73,6 +80,7 @@
+     if (btnAll) btnAll.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+     if (btnDay) btnDay.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+     if (btnRange) btnRange.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
++    if (btnOp) btnOp.className = opButtonClass(currentFilterMode === 'op');
+ 
+     if (currentFilterMode === 'all') {
+       dateControls.innerHTML = `<span class="text-xs font-bold text-text-muted bg-surface-canvas px-3 py-1.5 rounded-lg">Exibindo todas as porções de rótulos</span>`;
+@@ -87,6 +95,12 @@
+         selectedFilterDate = e.target.value;
+         loadLabelingRuns();
+       });
++    } else if (currentFilterMode === 'op') {
++      dateControls.innerHTML = opSelectHtml('lbl-op-select', opOptions, selectedOrderId);
++      document.getElementById('lbl-op-select')?.addEventListener('change', (e) => {
++        selectedOrderId = e.target.value;
++        loadLabelingRuns();
++      });
+     } else if (currentFilterMode === 'range') {
+       dateControls.innerHTML = `
+         <div class="flex items-center gap-2 flex-wrap">
+@@ -129,6 +143,12 @@
+     loadLabelingRuns();
+   });
+ 
++  btnOp?.addEventListener('click', () => {
++    currentFilterMode = 'op';
++    updateModeUI();
++    loadLabelingRuns();
++  });
++
+   updateModeUI();
+ }
+ 
+@@ -143,6 +163,8 @@
+       flavor_id,
+       portion_no,
+       planned_kg,
++      product_type,
++      conservation,
+       flavors (id, name),
+       production_orders (
+         id, order_code, production_date,
+@@ -159,9 +181,16 @@
+     return;
+   }
+ 
++  // Opções do filtro por OP: todas as OPs que têm porções (antes de qualquer filtro)
++  opOptions = buildOpOptions((portions || []).map(p => p.production_orders));
++  selectedOrderId = resolveSelectedOp(opOptions, selectedOrderId);
++  refreshOpSelect('lbl-op-select', opOptions, selectedOrderId);
++
+   // Filtrar porções por data da OP conforme currentFilterMode
+   let filteredPortions = portions || [];
+-  if (currentFilterMode === 'day' && selectedFilterDate) {
++  if (currentFilterMode === 'op') {
++    filteredPortions = filteredPortions.filter(p => p.production_orders?.id === selectedOrderId);
++  } else if (currentFilterMode === 'day' && selectedFilterDate) {
+     filteredPortions = filteredPortions.filter(p => p.production_orders?.production_date === selectedFilterDate);
+   } else if (currentFilterMode === 'range' && selectedStartDate && selectedEndDate) {
+     filteredPortions = filteredPortions.filter(p => {
+@@ -172,7 +201,8 @@
+ 
+   if (filteredPortions.length === 0) {
+     container.innerHTML = '';
+-    const filterText = currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
++    const filterText = currentFilterMode === 'op' ? ' para a ordem de produção selecionada' :
++                       currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
+                        currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
+     container.appendChild(renderEmptyState({
+       icon: 'label',
+@@ -198,8 +228,9 @@
+ 
+     const demands = p.production_orders?.production_demands || [];
+     const matchingDemand = demands.find(d => d.flavor_id === p.flavor_id) || demands[0] || {};
+-    const productType = matchingDemand.requested_product_type || 'linguica';
+-    const conservation = matchingDemand.requested_conservation || 'resfriado';
++    // O tipo gravado na porção vale mais que a demanda (o sabor pode ter vários tipos na OP)
++    const productType = p.product_type || matchingDemand.requested_product_type || 'linguica';
++    const conservation = p.conservation || matchingDemand.requested_conservation || 'resfriado';
+ 
+     const calculatedLabels = productType === 'granel' ? Math.ceil(baseKg / 10) : Math.round(baseKg * 2.5);
+ 
+@@ -263,8 +294,8 @@
+ 
+         const demands = p.production_orders?.production_demands || [];
+         const matchingDemand = demands.find(d => d.flavor_id === p.flavor_id) || demands[0] || {};
+-        const productType = matchingDemand.requested_product_type || 'linguica';
+-        const conservation = matchingDemand.requested_conservation || 'resfriado';
++        const productType = p.product_type || matchingDemand.requested_product_type || 'linguica';
++        const conservation = p.conservation || matchingDemand.requested_conservation || 'resfriado';
+         const isCongelado = conservation === 'congelado';
+ 
+         const isGranel = productType === 'granel';
+--- /tmp/orig/separation.before_op.js	2026-10-14 21:36:51.166766365 +0000
++++ js/views/separation.js	2026-10-14 21:37:14.257518172 +0000
+@@ -1,8 +1,11 @@
+ import { supabase } from '../supabaseClient.js';
++import { opButtonClass, buildOpOptions, resolveSelectedOp, opSelectHtml, refreshOpSelect } from './opFilter.js';
+ import { showNotification, renderEmptyState, formatWeight, formatDate } from '../utils.js';
+ 
+ let currentSeparationTab = 'all'; // 'all', 'in_separation', 'completed'
+-let currentFilterMode = 'all'; // 'all', 'day', 'range'
++let currentFilterMode = 'all'; // 'all', 'day', 'range' ou 'op' (Por Ordem de Produção)
++let selectedOrderId = null;
++let opOptions = [];
+ let selectedFilterDate = new Date().toISOString().split('T')[0];
+ let selectedStartDate = new Date().toISOString().split('T')[0];
+ let selectedEndDate = new Date().toISOString().split('T')[0];
+@@ -51,6 +54,9 @@
+           <button id="sep-filter-range" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+             Por Período / Semana
+           </button>
++          <button id="sep-filter-op" class="${opButtonClass(currentFilterMode === 'op')}">
++            Por Ordem de Produção
++          </button>
+         </div>
+ 
+         <div id="sep-date-controls" class="flex items-center gap-3 flex-wrap">
+@@ -71,6 +77,7 @@
+   const btnAll = document.getElementById('sep-filter-all');
+   const btnDay = document.getElementById('sep-filter-day');
+   const btnRange = document.getElementById('sep-filter-range');
++  const btnOp = document.getElementById('sep-filter-op');
+   const dateControls = document.getElementById('sep-date-controls');
+ 
+   if (!dateControls) return;
+@@ -79,6 +86,7 @@
+     if (btnAll) btnAll.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+     if (btnDay) btnDay.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+     if (btnRange) btnRange.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
++    if (btnOp) btnOp.className = opButtonClass(currentFilterMode === 'op');
+ 
+     if (currentFilterMode === 'all') {
+       dateControls.innerHTML = `<span class="text-xs font-bold text-text-muted bg-surface-canvas px-3 py-1.5 rounded-lg">Exibindo todos os kits de separação</span>`;
+@@ -93,6 +101,12 @@
+         selectedFilterDate = e.target.value;
+         loadSeparationPortions();
+       });
++    } else if (currentFilterMode === 'op') {
++      dateControls.innerHTML = opSelectHtml('sep-op-select', opOptions, selectedOrderId);
++      document.getElementById('sep-op-select')?.addEventListener('change', (e) => {
++        selectedOrderId = e.target.value;
++        loadSeparationPortions();
++      });
+     } else if (currentFilterMode === 'range') {
+       dateControls.innerHTML = `
+         <div class="flex items-center gap-2 flex-wrap">
+@@ -135,6 +149,12 @@
+     loadSeparationPortions();
+   });
+ 
++  btnOp?.addEventListener('click', () => {
++    currentFilterMode = 'op';
++    updateModeUI();
++    loadSeparationPortions();
++  });
++
+   updateModeUI();
+ }
+ 
+@@ -181,7 +201,7 @@
+     .select(`
+       *,
+       flavors (name),
+-      production_orders (order_code, production_date),
++      production_orders (id, order_code, production_date),
+       portion_ingredient_lines (
+         id, requested_quantity, separated_quantity, unit, ingredient_lot, status, variance_reason,
+         ingredients (name),
+@@ -195,9 +215,16 @@
+     return;
+   }
+ 
++  // Opções do filtro por OP: todas as OPs que têm porções (antes de qualquer filtro)
++  opOptions = buildOpOptions((portions || []).map(p => p.production_orders));
++  selectedOrderId = resolveSelectedOp(opOptions, selectedOrderId);
++  refreshOpSelect('sep-op-select', opOptions, selectedOrderId);
++
+   // Filtrar porções por data da OP conforme currentFilterMode
+   let dateFilteredPortions = portions || [];
+-  if (currentFilterMode === 'day' && selectedFilterDate) {
++  if (currentFilterMode === 'op') {
++    dateFilteredPortions = dateFilteredPortions.filter(p => p.production_orders?.id === selectedOrderId);
++  } else if (currentFilterMode === 'day' && selectedFilterDate) {
+     dateFilteredPortions = dateFilteredPortions.filter(p => p.production_orders?.production_date === selectedFilterDate);
+   } else if (currentFilterMode === 'range' && selectedStartDate && selectedEndDate) {
+     dateFilteredPortions = dateFilteredPortions.filter(p => {
+@@ -225,7 +252,8 @@
+ 
+   if (filteredPortions.length === 0) {
+     container.innerHTML = '';
+-    const filterText = currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
++    const filterText = currentFilterMode === 'op' ? ' para a ordem de produção selecionada' :
++                       currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
+                        currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
+     container.appendChild(renderEmptyState({
+       icon: 'scale',
+--- /tmp/orig/shipping.before_op.js	2026-10-14 21:36:51.168252538 +0000
++++ js/views/shipping.js	2026-10-14 21:37:14.259043793 +0000
+@@ -1,7 +1,10 @@
+ import { supabase } from '../supabaseClient.js';
++import { opButtonClass, buildOpOptions, resolveSelectedOp, opSelectHtml, refreshOpSelect } from './opFilter.js';
+ import { showNotification, renderEmptyState, formatWeight, formatDate } from '../utils.js';
+ 
+-let currentFilterMode = 'all'; // 'all', 'day', 'range'
++let currentFilterMode = 'all'; // 'all', 'day', 'range' ou 'op' (Por Ordem de Produção)
++let selectedOrderId = null;
++let opOptions = [];
+ let selectedFilterDate = new Date().toISOString().split('T')[0];
+ let selectedStartDate = new Date().toISOString().split('T')[0];
+ let selectedEndDate = new Date().toISOString().split('T')[0];
+@@ -42,6 +45,9 @@
+           <button id="ship-filter-range" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+             Por Período / Semana
+           </button>
++          <button id="ship-filter-op" class="${opButtonClass(currentFilterMode === 'op')}">
++            Por Ordem de Produção
++          </button>
+         </div>
+ 
+         <div id="ship-date-controls" class="flex items-center gap-3 flex-wrap">
+@@ -203,6 +209,7 @@
+   const btnAll = document.getElementById('ship-filter-all');
+   const btnDay = document.getElementById('ship-filter-day');
+   const btnRange = document.getElementById('ship-filter-range');
++  const btnOp = document.getElementById('ship-filter-op');
+   const dateControls = document.getElementById('ship-date-controls');
+ 
+   if (!dateControls) return;
+@@ -211,6 +218,7 @@
+     if (btnAll) btnAll.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+     if (btnDay) btnDay.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+     if (btnRange) btnRange.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
++    if (btnOp) btnOp.className = opButtonClass(currentFilterMode === 'op');
+ 
+     if (currentFilterMode === 'all') {
+       dateControls.innerHTML = `<span class="text-xs font-bold text-text-muted bg-surface-canvas px-3 py-1.5 rounded-lg">Exibindo todos os pedidos de saída</span>`;
+@@ -225,6 +233,12 @@
+         selectedFilterDate = e.target.value;
+         loadShipmentOrders();
+       });
++    } else if (currentFilterMode === 'op') {
++      dateControls.innerHTML = opSelectHtml('ship-op-select', opOptions, selectedOrderId);
++      document.getElementById('ship-op-select')?.addEventListener('change', (e) => {
++        selectedOrderId = e.target.value;
++        loadShipmentOrders();
++      });
+     } else if (currentFilterMode === 'range') {
+       dateControls.innerHTML = `
+         <div class="flex items-center gap-2 flex-wrap">
+@@ -267,6 +281,12 @@
+     loadShipmentOrders();
+   });
+ 
++  btnOp?.addEventListener('click', () => {
++    currentFilterMode = 'op';
++    updateModeUI();
++    loadShipmentOrders();
++  });
++
+   updateModeUI();
+ }
+ 
+@@ -455,6 +475,9 @@
+   select.innerHTML = (partners || []).map(p => `<option value="${p.id}">${p.name} (${p.partner_type.toUpperCase()})</option>`).join('');
+ }
+ 
++// Pedidos de saída se ligam à OP pelos lotes separados (shipment_line_lots -> finished_lots)
++const lotOps = order => (order.shipment_lines || []).flatMap(l => (l.shipment_line_lots || []).map(x => x.finished_lots));
++
+ async function loadShipmentOrders() {
+   const container = document.getElementById('shipments-list-container');
+   if (!container) return;
+@@ -466,7 +489,10 @@
+       partners (name, partner_type),
+       shipment_lines (
+         id, product_type, conservation, requested_kg, separated_kg, status, invoice_reference,
+-        flavors (name)
++        flavors (name),
++        shipment_line_lots (
++          finished_lots (production_order_id, production_orders (id, order_code, production_date))
++        )
+       )
+     `)
+     .order('created_at', { ascending: false });
+@@ -478,21 +504,30 @@
+     query = query.gte('requested_at', selectedStartDate).lte('requested_at', selectedEndDate);
+   }
+ 
+-  const { data: orders, error } = await query;
++  const { data: allOrders, error } = await query;
+ 
+   if (error) {
+     container.innerHTML = `<div class="p-4 bg-badge-error-bg text-badge-error-text rounded-lg">Erro ao carregar pedidos: ${error.message}</div>`;
+     return;
+   }
+ 
++  // Filtro por OP: pedidos que têm lotes separados vindos da OP escolhida
++  opOptions = buildOpOptions((allOrders || []).flatMap(o => lotOps(o).map(x => x?.production_orders)));
++  selectedOrderId = resolveSelectedOp(opOptions, selectedOrderId);
++  refreshOpSelect('ship-op-select', opOptions, selectedOrderId);
++  const orders = currentFilterMode === 'op'
++    ? (allOrders || []).filter(o => lotOps(o).some(x => x?.production_order_id === selectedOrderId))
++    : allOrders;
++
+   if (!orders || orders.length === 0) {
+     container.innerHTML = '';
+-    const filterText = currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
++    const filterText = currentFilterMode === 'op' ? ' para a ordem de produção selecionada' :
++                       currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
+                        currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
+     container.appendChild(renderEmptyState({
+       icon: 'local_shipping',
+       title: 'Nenhum Pedido de Saída Encontrado',
+-      description: `Não há pedidos de saída correspondentes ao filtro de data selecionado${filterText}.`,
++      description: `Não há pedidos de saída correspondentes ao filtro selecionado${filterText}.`,
+       actionText: 'Criar Primeiro Pedido',
+       onAction: () => document.getElementById('add-shipment-order-btn')?.click()
+     }));
+--- /tmp/orig/billing.before_op.js	2026-10-14 21:36:51.169771760 +0000
++++ js/views/billing.js	2026-10-14 21:37:14.259429700 +0000
+@@ -1,7 +1,10 @@
+ import { supabase } from '../supabaseClient.js';
++import { opButtonClass, buildOpOptions, resolveSelectedOp, opSelectHtml, refreshOpSelect } from './opFilter.js';
+ import { showNotification, renderEmptyState, formatWeight, formatDate } from '../utils.js';
+ 
+-let currentFilterMode = 'all'; // 'all', 'day', 'range'
++let currentFilterMode = 'all'; // 'all', 'day', 'range' ou 'op' (Por Ordem de Produção)
++let selectedOrderId = null;
++let opOptions = [];
+ let selectedFilterDate = new Date().toISOString().split('T')[0];
+ let selectedStartDate = new Date().toISOString().split('T')[0];
+ let selectedEndDate = new Date().toISOString().split('T')[0];
+@@ -38,6 +41,9 @@
+           <button id="bill-filter-range" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+             Por Período / Semana
+           </button>
++          <button id="bill-filter-op" class="${opButtonClass(currentFilterMode === 'op')}">
++            Por Ordem de Produção
++          </button>
+         </div>
+ 
+         <div id="bill-date-controls" class="flex items-center gap-3 flex-wrap">
+@@ -57,6 +63,7 @@
+   const btnAll = document.getElementById('bill-filter-all');
+   const btnDay = document.getElementById('bill-filter-day');
+   const btnRange = document.getElementById('bill-filter-range');
++  const btnOp = document.getElementById('bill-filter-op');
+   const dateControls = document.getElementById('bill-date-controls');
+ 
+   if (!dateControls) return;
+@@ -65,6 +72,7 @@
+     if (btnAll) btnAll.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+     if (btnDay) btnDay.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+     if (btnRange) btnRange.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
++    if (btnOp) btnOp.className = opButtonClass(currentFilterMode === 'op');
+ 
+     if (currentFilterMode === 'all') {
+       dateControls.innerHTML = `<span class="text-xs font-bold text-text-muted bg-surface-canvas px-3 py-1.5 rounded-lg">Exibindo todas as faturas em fila</span>`;
+@@ -79,6 +87,12 @@
+         selectedFilterDate = e.target.value;
+         loadInvoiceQueue();
+       });
++    } else if (currentFilterMode === 'op') {
++      dateControls.innerHTML = opSelectHtml('bill-op-select', opOptions, selectedOrderId);
++      document.getElementById('bill-op-select')?.addEventListener('change', (e) => {
++        selectedOrderId = e.target.value;
++        loadInvoiceQueue();
++      });
+     } else if (currentFilterMode === 'range') {
+       dateControls.innerHTML = `
+         <div class="flex items-center gap-2 flex-wrap">
+@@ -121,9 +135,18 @@
+     loadInvoiceQueue();
+   });
+ 
++  btnOp?.addEventListener('click', () => {
++    currentFilterMode = 'op';
++    updateModeUI();
++    loadInvoiceQueue();
++  });
++
+   updateModeUI();
+ }
+ 
++// Pedidos de saída se ligam à OP pelos lotes separados (shipment_line_lots -> finished_lots)
++const lotOps = order => (order.shipment_lines || []).flatMap(l => (l.shipment_line_lots || []).map(x => x.finished_lots));
++
+ async function loadInvoiceQueue() {
+   const container = document.getElementById('billing-queue-container');
+   if (!container) return;
+@@ -144,7 +167,10 @@
+         separated_kg,
+         invoice_reference,
+         status,
+-        flavors (id, name)
++        flavors (id, name),
++        shipment_line_lots (
++          finished_lots (production_order_id, production_orders (id, order_code, production_date))
++        )
+       )
+     `)
+     .order('created_at', { ascending: false });
+@@ -156,13 +182,21 @@
+     query = query.gte('requested_at', selectedStartDate).lte('requested_at', selectedEndDate);
+   }
+ 
+-  const { data: orders, error } = await query;
++  const { data: allOrders, error } = await query;
+ 
+   if (error) {
+     container.innerHTML = `<div class="p-4 bg-badge-error-bg text-badge-error-text rounded-lg font-bold">Erro ao carregar fila de faturamento: ${error.message}</div>`;
+     return;
+   }
+ 
++  // Filtro por OP: pedidos que têm lotes separados vindos da OP escolhida
++  opOptions = buildOpOptions((allOrders || []).flatMap(o => lotOps(o).map(x => x?.production_orders)));
++  selectedOrderId = resolveSelectedOp(opOptions, selectedOrderId);
++  refreshOpSelect('bill-op-select', opOptions, selectedOrderId);
++  const orders = currentFilterMode === 'op'
++    ? (allOrders || []).filter(o => lotOps(o).some(x => x?.production_order_id === selectedOrderId))
++    : allOrders;
++
+   const activeInvoiceOrders = (orders || []).map(o => {
+     const invoiceLines = (o.shipment_lines || []).filter(l => l.status === 'separated_for_invoice');
+     return {
+@@ -173,7 +207,8 @@
+ 
+   if (activeInvoiceOrders.length === 0) {
+     container.innerHTML = '';
+-    const filterText = currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
++    const filterText = currentFilterMode === 'op' ? ' para a ordem de produção selecionada' :
++                       currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
+                        currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
+     container.appendChild(renderEmptyState({
+       icon: 'receipt_long',
+--- /tmp/orig/inventory.before_op.js	2026-10-14 21:36:51.171050181 +0000
++++ js/views/inventory.js	2026-10-14 21:37:14.258479069 +0000
+@@ -1,8 +1,11 @@
+ import { supabase } from '../supabaseClient.js';
++import { opButtonClass, buildOpOptions, resolveSelectedOp, opSelectHtml, refreshOpSelect } from './opFilter.js';
+ import { showNotification, renderEmptyState, formatWeight, formatDate } from '../utils.js';
+ 
+ let currentSelectedWeek = 'all'; // 'all' ou 'Semana XX / YYYY'
+-let currentFilterMode = 'all'; // 'all', 'day', 'range'
++let currentFilterMode = 'all'; // 'all', 'day', 'range' ou 'op' (Por Ordem de Produção)
++let selectedOrderId = null;
++let opOptions = [];
+ let selectedFilterDate = new Date().toISOString().split('T')[0];
+ let selectedStartDate = new Date().toISOString().split('T')[0];
+ let selectedEndDate = new Date().toISOString().split('T')[0];
+@@ -72,6 +75,9 @@
+           <button id="inv-filter-range" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}">
+             Por Período / Semana
+           </button>
++          <button id="inv-filter-op" class="${opButtonClass(currentFilterMode === 'op')}">
++            Por Ordem de Produção
++          </button>
+         </div>
+ 
+         <div id="inv-date-controls" class="flex items-center gap-3 flex-wrap">
+@@ -191,6 +197,7 @@
+   const btnAll = document.getElementById('inv-filter-all');
+   const btnDay = document.getElementById('inv-filter-day');
+   const btnRange = document.getElementById('inv-filter-range');
++  const btnOp = document.getElementById('inv-filter-op');
+   const dateControls = document.getElementById('inv-date-controls');
+ 
+   if (!dateControls) return;
+@@ -199,6 +206,7 @@
+     if (btnAll) btnAll.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+     if (btnDay) btnDay.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
+     if (btnRange) btnRange.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'bg-surface-canvas text-ink-text hover:bg-surface-container'}`;
++    if (btnOp) btnOp.className = opButtonClass(currentFilterMode === 'op');
+ 
+     if (currentFilterMode === 'all') {
+       dateControls.innerHTML = `<span class="text-xs font-bold text-text-muted bg-surface-canvas px-3 py-1.5 rounded-lg">Exibindo todo o estoque</span>`;
+@@ -213,6 +221,12 @@
+         selectedFilterDate = e.target.value;
+         loadInventory();
+       });
++    } else if (currentFilterMode === 'op') {
++      dateControls.innerHTML = opSelectHtml('inv-op-select', opOptions, selectedOrderId);
++      document.getElementById('inv-op-select')?.addEventListener('change', (e) => {
++        selectedOrderId = e.target.value;
++        loadInventory();
++      });
+     } else if (currentFilterMode === 'range') {
+       dateControls.innerHTML = `
+         <div class="flex items-center gap-2 flex-wrap">
+@@ -255,6 +269,12 @@
+     loadInventory();
+   });
+ 
++  btnOp?.addEventListener('click', () => {
++    currentFilterMode = 'op';
++    updateModeUI();
++    loadInventory();
++  });
++
+   updateModeUI();
+ }
+ 
+@@ -288,7 +308,7 @@
+     supabase.from('finished_lots').select(`
+       id, lot_code, created_at, mass_ready_date, product_type, conservation, produced_kg,
+       flavors (id, name),
+-      production_orders (production_date, order_code)
++      production_orders (id, production_date, order_code)
+     `).order('created_at', { ascending: false })
+   ]);
+ 
+@@ -297,6 +317,11 @@
+     return;
+   }
+ 
++  // Filtro por OP: opções vindas dos lotes que têm OP de origem
++  opOptions = buildOpOptions((lots || []).map(l => l.production_orders));
++  selectedOrderId = resolveSelectedOp(opOptions, selectedOrderId);
++  refreshOpSelect('inv-op-select', opOptions, selectedOrderId);
++
+   if (!inventory || inventory.length === 0) {
+     container.innerHTML = '';
+     container.appendChild(renderEmptyState({
+@@ -321,7 +346,10 @@
+     const rawProdDate = lotObj.production_orders?.production_date || lotObj.mass_ready_date || item.expiry_date;
+     const prodDate = rawProdDate ? rawProdDate.split('T')[0] : new Date().toISOString().split('T')[0];
+ 
+-    // Aplicar filtro de data
++    // Aplicar filtro por OP / data
++    if (currentFilterMode === 'op' && lotObj.production_orders?.id !== selectedOrderId) {
++      return;
++    }
+     if (currentFilterMode === 'day' && selectedFilterDate && prodDate !== selectedFilterDate) {
+       return;
+     }
+@@ -368,12 +396,13 @@
+ 
+   if (displayWeeks.length === 0) {
+     container.innerHTML = '';
+-    const filterText = currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
++    const filterText = currentFilterMode === 'op' ? ' para a ordem de produção selecionada' :
++                       currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
+                        currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
+     container.appendChild(renderEmptyState({
+       icon: 'inventory_2',
+       title: 'Nenhum Item de Estoque Encontrado',
+-      description: `Não há lotes em estoque correspondentes ao filtro de data selecionado${filterText}.`,
++      description: `Não há lotes em estoque correspondentes ao filtro selecionado${filterText}.`,
+       actionText: null
+     }));
+     return;
