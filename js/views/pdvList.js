@@ -21,7 +21,10 @@ let startDate = initialRange.start;
 let endDate = initialRange.end;
 let onlyFinished = true;
 let groupByFlavor = false;
-let cache = { orders: [], portions: [] };
+let cache = { orders: [], portions: [], demands: [] };
+
+const PRODUCT_LABELS = { manta: 'Manta', massa: 'Massa', linguica: 'Linguiça', granel: 'Granel', hamburguer: 'Hambúrguer' };
+const CONSERVATION_LABELS = { resfriado: 'Resfriado', congelado: 'Congelado' };
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -45,7 +48,7 @@ function addMonths(date, n) {
  * Sabor finalizado = todas as porções com embutimento e vácuo concluídos.
  * Quantidade real = soma do vácuo concluído (última etapa do fluxo).
  */
-export function buildPdvRows(order, portions) {
+export function buildPdvRows(order, portions, demands = []) {
   const byFlavor = {};
   (portions || []).filter(p => p.production_order_id === order.id).forEach(p => {
     const row = byFlavor[p.flavor_id] || (byFlavor[p.flavor_id] = {
@@ -66,15 +69,44 @@ export function buildPdvRows(order, portions) {
   const base = order.mass_ready_date || order.production_date;
   const baseDate = base ? parseLocalDate(base) : null;
 
+  // Produto(s) do sabor na OP, vindos das demandas do planejamento (tipo + conservação)
+  const productsFor = flavorId => {
+    const map = new Map();
+    (demands || [])
+      .filter(d => d.production_order_id === order.id && d.flavor_id === flavorId)
+      .forEach(d => {
+        const key = `${d.requested_product_type || ''}|${d.requested_conservation || ''}`;
+        const entry = map.get(key) || { type: d.requested_product_type || null, conservation: d.requested_conservation || null, plannedKg: 0 };
+        entry.plannedKg += Number(d.planned_kg || 0);
+        map.set(key, entry);
+      });
+    return [...map.values()].sort((a, b) => String(a.type).localeCompare(String(b.type)));
+  };
+
   return Object.values(byFlavor)
     .map(r => ({
       ...r,
+      products: productsFor(r.flavorId),
       isFinished: r.portions > 0 && r.finished === r.portions,
       massReady: baseDate,
       expiryChilled: baseDate ? addDays(baseDate, 45) : null,
       expiryFrozen: baseDate ? addMonths(baseDate, 6) : null
     }))
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+}
+
+function productEntryText(e, withKg) {
+  const name = e.type ? PRODUCT_LABELS[e.type] : 'Não definido';
+  const cons = e.conservation ? ` · ${CONSERVATION_LABELS[e.conservation]}` : '';
+  const kg = withKg ? ` (${fmtKg(e.plannedKg)} kg)` : '';
+  return `${name}${cons}${kg}`;
+}
+
+// Texto do(s) produto(s); com mais de um, mostra o planejado de cada um
+function productLines(r) {
+  const list = r.products || [];
+  if (list.length === 0) return ['Não definido'];
+  return list.map(e => productEntryText(e, list.length > 1));
 }
 
 // Linhas do período: uma por OP x sabor, ou somadas por sabor
@@ -89,7 +121,7 @@ function buildPeriodRows() {
     .sort((a, b) => a.production_date.localeCompare(b.production_date) || a.order_code.localeCompare(b.order_code));
 
   let rows = [];
-  orders.forEach(o => buildPdvRows(o, cache.portions).forEach(r => rows.push({ ...r, order: o })));
+  orders.forEach(o => buildPdvRows(o, cache.portions, cache.demands).forEach(r => rows.push({ ...r, order: o })));
   const finishedCount = rows.filter(r => r.isFinished).length;
   const totalCount = rows.length;
   if (onlyFinished) rows = rows.filter(r => r.isFinished);
@@ -97,13 +129,21 @@ function buildPeriodRows() {
   if (groupByFlavor) {
     const map = {};
     rows.forEach(r => {
-      const g = map[r.flavorId] || (map[r.flavorId] = { name: r.name, realKg: 0, plannedKg: 0, ops: new Set(), isFinished: true });
+      const g = map[r.flavorId] || (map[r.flavorId] = { name: r.name, realKg: 0, plannedKg: 0, ops: new Set(), isFinished: true, productMap: new Map() });
       g.realKg += r.realKg;
       g.plannedKg += r.plannedKg;
       g.ops.add(r.order.order_code);
+      (r.products || []).forEach(e => {
+        const key = `${e.type || ''}|${e.conservation || ''}`;
+        const cur = g.productMap.get(key) || { type: e.type, conservation: e.conservation, plannedKg: 0 };
+        cur.plannedKg += e.plannedKg;
+        g.productMap.set(key, cur);
+      });
       if (!r.isFinished) g.isFinished = false;
     });
-    rows = Object.values(map).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    rows = Object.values(map)
+      .map(g => ({ ...g, products: [...g.productMap.values()] }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
   }
   return { rows, finishedCount, totalCount, orderCount: orders.length };
 }
@@ -125,10 +165,18 @@ function scopeFileName() {
   return 'geral';
 }
 
+// Produto: tipo (linguiça, massa, granel...) e conservação definidos no planejamento
+const PRODUCT_COLUMN = {
+  label: 'Produto',
+  get: r => productLines(r).join(' + '),
+  cell: r => productLines(r).map(t => `<span class="block font-bold text-ink-text">${esc(t)}</span>`).join('')
+};
+
 function columns() {
   if (groupByFlavor) {
     return [
       { label: 'Sabor', get: r => r.name, bold: true },
+      PRODUCT_COLUMN,
       { label: 'Quantidade real (kg)', get: r => fmtKg(r.realKg), num: true, ok: true },
       { label: 'Planejado (kg)', get: r => fmtKg(r.plannedKg), num: true, muted: true },
       { label: 'OPs no período', get: r => [...r.ops].join(', ') }
@@ -138,6 +186,7 @@ function columns() {
     { label: 'OP', get: r => r.order.order_code, bold: true },
     { label: 'Dia', get: r => `${weekdayName(r.order.production_date)}, ${formatDate(r.order.production_date)}` },
     { label: 'Sabor', get: r => r.name, bold: true },
+    PRODUCT_COLUMN,
     { label: 'Quantidade real (kg)', get: r => fmtKg(r.realKg), num: true, ok: true },
     { label: 'Planejado (kg)', get: r => fmtKg(r.plannedKg), num: true, muted: true },
     { label: 'Massa pronta', get: r => fmtDate(r.massReady) },
@@ -234,7 +283,7 @@ function renderTable(container) {
           <tbody>
             ${rows.map(r => `
               <tr class="border-t border-border-subtle">
-                ${cols.map(c => `<td class="px-3 py-2 ${c.num ? 'text-right tabular-nums' : ''} ${c.bold ? 'font-bold text-ink-text' : ''} ${c.ok ? 'font-bold text-status-success' : ''} ${c.muted ? 'text-text-muted' : ''}">${esc(c.get(r))}</td>`).join('')}
+                ${cols.map(c => `<td class="px-3 py-2 ${c.num ? 'text-right tabular-nums' : ''} ${c.bold ? 'font-bold text-ink-text' : ''} ${c.ok ? 'font-bold text-status-success' : ''} ${c.muted ? 'text-text-muted' : ''}">${c.cell ? c.cell(r) : esc(c.get(r))}</td>`).join('')}
                 <td class="px-3 py-2 text-xs font-bold ${r.isFinished ? 'text-status-success' : 'text-amber-warning'}">
                   ${r.isFinished ? 'Finalizado' : (r.portions ? `Em produção (${r.finished}/${r.portions} porções)` : 'Em produção')}
                 </td>
@@ -255,6 +304,14 @@ function renderTable(container) {
       </div>`}
   `;
 
+  if (rows.some(r => (r.products || []).length > 1)) {
+    tableBox.insertAdjacentHTML('beforeend', `
+      <p class="text-xs text-text-muted bg-surface-canvas border border-border-subtle rounded-lg px-3 py-2">
+        <b>Atenção:</b> nos sabores com mais de um produto, a quantidade real é a soma do vácuo do sabor.
+        O sistema ainda não registra o tipo de produto por porção; confira a divisão (valores entre parênteses = planejado) antes de lançar no PDV.
+      </p>`);
+  }
+
   tableBox.querySelector('#pdv-copy-btn')?.addEventListener('click', () => copyTable(rows));
   tableBox.querySelector('#pdv-csv-btn')?.addEventListener('click', () => downloadCsv(rows));
 }
@@ -262,21 +319,22 @@ function renderTable(container) {
 export async function renderPdvList(container) {
   container.innerHTML = '<div class="p-6 text-center text-text-muted text-sm">Carregando produção real...</div>';
 
-  const [{ data: orders, error: oErr }, { data: portions, error: pErr }] = await Promise.all([
+  const [{ data: orders, error: oErr }, { data: portions, error: pErr }, { data: demands, error: dErr }] = await Promise.all([
     supabase.from('production_orders').select('id, order_code, production_date, mass_ready_date, canceled_at').order('production_date', { ascending: false }),
     supabase.from('production_portions').select(`
       id, production_order_id, flavor_id, portion_no, planned_kg,
       flavors (name),
       process_runs (stage, status, actual_kg, completed_at)
-    `)
+    `),
+    supabase.from('production_demands').select('production_order_id, flavor_id, planned_kg, requested_product_type, requested_conservation')
   ]);
 
-  if (oErr || pErr) {
-    container.innerHTML = `<div class="p-4 bg-badge-error-bg text-badge-error-text rounded-lg">Erro ao carregar a produção: ${esc((oErr || pErr).message)}</div>`;
+  if (oErr || pErr || dErr) {
+    container.innerHTML = `<div class="p-4 bg-badge-error-bg text-badge-error-text rounded-lg">Erro ao carregar a produção: ${esc((oErr || pErr || dErr).message)}</div>`;
     return;
   }
 
-  cache = { orders: (orders || []).filter(o => !o.canceled_at), portions: portions || [] };
+  cache = { orders: (orders || []).filter(o => !o.canceled_at), portions: portions || [], demands: demands || [] };
 
   if (cache.orders.length === 0) {
     container.innerHTML = '';
