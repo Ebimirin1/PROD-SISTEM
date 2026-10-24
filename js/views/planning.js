@@ -1,5 +1,7 @@
 import { supabase } from '../supabaseClient.js';
 import { opButtonClass, buildOpOptions, resolveSelectedOp, opSelectHtml, refreshOpSelect } from './opFilter.js';
+import { showSeasoningForOrder } from './separation.js';
+import { navigateTo } from '../app.js';
 import { showNotification, renderEmptyState, formatWeight, formatDate, todayLocal, weekdayName, buildOrderCode } from '../utils.js';
 
 // Sugere o código da OP pela data (DDMMAAAA). Se já existir, acrescenta -2, -3...
@@ -541,7 +543,12 @@ async function loadOPs() {
                   <button class="generate-orders-btn px-4 py-2 rounded-lg bg-bordeaux-primary text-on-primary font-title-md hover:bg-wine-deep transition-colors shadow-sm" data-id="${op.id}">
                     Gerar Ordens de Produção
                   </button>
-                ` : `<span class="px-3 py-1 rounded text-xs font-bold bg-surface-container-low text-status-success">Ordens Geradas ✓</span>`}
+                ` : `
+                  <span class="px-3 py-1 rounded text-xs font-bold bg-surface-container-low text-status-success">Ordens Geradas ✓</span>
+                  <button class="seasoning-batches-btn px-3 py-2 rounded-lg bg-surface-canvas text-bordeaux-primary text-xs font-bold hover:bg-surface-container transition-colors flex items-center gap-1" data-id="${op.id}">
+                    <span class="material-symbols-outlined text-[18px]">blender</span> Temperos por Batelada
+                  </button>
+                `}
               </div>
             </div>
 
@@ -612,6 +619,14 @@ async function loadOPs() {
           button.textContent = originalLabel;
         }
       }
+    });
+  });
+
+  // Atalho para as bateladas de tempero da mexedeira desta OP (tela de Separação)
+  container.querySelectorAll('.seasoning-batches-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      showSeasoningForOrder(e.currentTarget.dataset.id);
+      navigateTo('separation');
     });
   });
 
@@ -843,7 +858,7 @@ async function processGenerateOrders(production_order_id) {
       if (rErr) throw new Error(`Erro ao criar etapas da porção: ${rErr.message}`);
     }
 
-    showNotification('Ordens de Produção, Bateladas e Porções geradas com sucesso!', 'success');
+    showNotification('Ordens de Produção, Bateladas e Porções geradas com sucesso! Veja os temperos por batelada da mexedeira em "Temperos por Batelada".', 'success');
     loadOPs();
   } catch (err) {
     // Desfaz o que foi criado nesta tentativa (linhas de insumo e etapas saem em cascata com a porção)
