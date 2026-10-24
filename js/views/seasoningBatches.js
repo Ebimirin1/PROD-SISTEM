@@ -1,88 +1,85 @@
-// Temperos por batelada da mexedeira: a massa de cada sabor (carne + tempero) é batida
-// em bateladas de no máximo 150 kg (podem ser menores). Cada batelada recebe os temperos na mesma proporção
-// das linhas de insumo geradas para as porções daquele sabor na OP.
+// Bateladas da mexedeira: todas as linguiças usam a mesma massa-base (carne + tempero base),
+// batida em bateladas de no máximo 150 kg (podem ser menores). Os insumos de cada sabor
+// entram depois, na separação por porção — não fazem parte da batelada.
 
 export const MIXER_MAX_KG = 150;
 
-// Trabalha em gramas (milésimos) inteiras para as somas fecharem sem erro de ponto flutuante
-const toMilli = v => Math.round(Number(v) * 1000);
-const fromMilli = m => m / 1000;
+// Massa-base única das linguiças, por batelada de 150 kg (planilha da produção).
+// Não depende de cadastro: vale para todo sabor, exceto hambúrguer.
+export const BASE_RECIPE_KG = 150;
+export const BASE_MEAT_CUTS = ['Copa Lombo', 'Pernil']; // partes iguais
+export const BASE_SEASONINGS = [
+  { name: 'Água', kg: 1.500 },
+  { name: 'Condimento Linguiça Toscana (0538)', kg: 1.135 },
+  { name: 'Curamax (F) (199)', kg: 0.158 },
+  { name: 'Fixamax (0695)', kg: 0.907 },
+  { name: 'Fosmax (204)', kg: 0.295 },
+  { name: 'Alho em Pasta (3175)', kg: 0.681 },
+  { name: 'Shelfmax (4425)', kg: 2.838 },
+  { name: 'Sal', kg: 0.386 },
+  { name: 'Noz Moscada', kg: 0.182 },
+  { name: 'Orégano', kg: 0.068 },
+  { name: 'Corante Carmim', kg: 0.017 }
+];
+
+// Tipos de produto que saem da massa-base de linguiça
+export const usesLinguicaBase = productType => productType !== 'hamburguer';
+
+// Trabalha em gramas inteiras para as somas fecharem sem erro de ponto flutuante
+const toG = v => Math.round(Number(v) * 1000);
+const fromG = g => g / 1000;
 
 // Divide o total no menor número de bateladas de até 150 kg, com pesos iguais
 // (320 kg viram 106,667 + 106,667 + 106,666 em vez de 150 + 150 + 20).
 export function splitBatches(totalKg, maxKg = MIXER_MAX_KG) {
-  const totalG = toMilli(totalKg);
+  const totalG = toG(totalKg);
   if (totalG <= 0) return [];
-  const count = Math.ceil(totalG / toMilli(maxKg));
+  const count = Math.ceil(totalG / toG(maxKg));
   const base = Math.floor(totalG / count);
   const extra = totalG - base * count;
-  return Array.from({ length: count }, (_, i) => fromMilli(base + (i < extra ? 1 : 0)));
+  return Array.from({ length: count }, (_, i) => fromG(base + (i < extra ? 1 : 0)));
 }
 
-// portions: production_portions com flavors, production_orders e portion_ingredient_lines (com ingredients)
-// Retorna um grupo por OP + sabor, cada um com suas bateladas e os temperos de cada batelada.
-export function buildSeasoningBatches(portions, maxKg = MIXER_MAX_KG) {
-  const groups = new Map();
+// Composição de uma batelada: temperos na proporção da planilha; a carne completa o peso
+export function batchComposition(batchKg) {
+  const sizeG = toG(batchKg);
+  const seasonings = BASE_SEASONINGS.map(s => ({
+    name: s.name,
+    kg: fromG(Math.round(toG(s.kg) * sizeG / toG(BASE_RECIPE_KG)))
+  }));
+  const seasoningG = seasonings.reduce((sum, s) => sum + toG(s.kg), 0);
+  const meatG = Math.max(0, sizeG - seasoningG);
+  const perCut = Math.floor(meatG / BASE_MEAT_CUTS.length);
+  const meat = BASE_MEAT_CUTS.map((name, i) => ({
+    name,
+    kg: fromG(perCut + (i === 0 ? meatG - perCut * BASE_MEAT_CUTS.length : 0))
+  }));
+  return { totalKg: fromG(sizeG), meatKg: fromG(meatG), seasoningKg: fromG(seasoningG), meat, seasonings };
+}
+
+// portions: production_portions com flavors e production_orders.
+// Retorna uma entrada por OP com o total de massa-base (todas as linguiças juntas) e as bateladas.
+export function buildBaseBatches(portions, maxKg = MIXER_MAX_KG) {
+  const orders = new Map();
 
   (portions || []).forEach(p => {
-    const key = `${p.production_order_id}|${p.flavor_id}`;
-    if (!groups.has(key)) {
-      groups.set(key, {
-        key,
-        order: p.production_orders || null,
-        flavorId: p.flavor_id,
-        flavorName: p.flavors?.name || 'Sabor não identificado',
-        portions: [],
-        totalG: 0,
-        ingredients: new Map()
-      });
-    }
-    const g = groups.get(key);
-    g.portions.push(p);
-    g.totalG += toMilli(p.planned_kg);
-    (p.portion_ingredient_lines || []).forEach(l => {
-      const name = l.ingredients?.name || 'Insumo não identificado';
-      const ingKey = `${l.ingredient_id || name}|${l.unit}`;
-      if (!g.ingredients.has(ingKey)) g.ingredients.set(ingKey, { name, unit: l.unit, totalM: 0 });
-      g.ingredients.get(ingKey).totalM += toMilli(l.requested_quantity);
-    });
+    if (!usesLinguicaBase(p.product_type)) return;
+    const key = p.production_order_id;
+    if (!orders.has(key)) orders.set(key, { key, order: p.production_orders || null, totalG: 0, flavors: new Map() });
+    const o = orders.get(key);
+    const g = toG(p.planned_kg);
+    o.totalG += g;
+    const name = p.flavors?.name || 'Sabor não identificado';
+    o.flavors.set(name, (o.flavors.get(name) || 0) + g);
   });
 
-  return [...groups.values()].map(g => {
-    const ingredients = [...g.ingredients.values()].sort((a, b) => b.totalM - a.totalM || a.name.localeCompare(b.name));
-    const sizes = splitBatches(fromMilli(g.totalG), maxKg).map(toMilli);
-
-    // Rateio proporcional; a última batelada fecha a conta para a soma bater com o total
-    const allocated = ingredients.map(() => 0);
-    const batches = sizes.map((sizeG, idx) => {
-      const isLast = idx === sizes.length - 1;
-      const items = ingredients.map((ing, i) => {
-        const m = isLast ? ing.totalM - allocated[i] : Math.round(ing.totalM * sizeG / g.totalG);
-        allocated[i] += m;
-        return { name: ing.name, unit: ing.unit, quantity: fromMilli(m) };
-      });
-      const seasoningKgM = items.filter(it => it.unit === 'kg').reduce((s, it) => s + toMilli(it.quantity), 0);
-      return {
-        batchNo: idx + 1,
-        totalKg: fromMilli(sizeG),
-        seasoningKg: fromMilli(seasoningKgM),
-        meatKg: fromMilli(Math.max(0, sizeG - seasoningKgM)),
-        items
-      };
-    });
-
-    return {
-      key: g.key,
-      order: g.order,
-      flavorId: g.flavorId,
-      flavorName: g.flavorName,
-      portions: g.portions,
-      totalKg: fromMilli(g.totalG),
-      ingredients: ingredients.map(i => ({ name: i.name, unit: i.unit, quantity: fromMilli(i.totalM) })),
-      batches
-    };
-  }).sort((a, b) =>
+  return [...orders.values()].map(o => ({
+    key: o.key,
+    order: o.order,
+    totalKg: fromG(o.totalG),
+    flavors: [...o.flavors.entries()].map(([name, g]) => ({ name, kg: fromG(g) })).sort((a, b) => b.kg - a.kg || a.name.localeCompare(b.name)),
+    batches: splitBatches(fromG(o.totalG), maxKg).map((kg, i) => ({ batchNo: i + 1, ...batchComposition(kg) }))
+  })).sort((a, b) =>
     String(b.order?.production_date || '').localeCompare(String(a.order?.production_date || '')) ||
-    String(a.order?.order_code || '').localeCompare(String(b.order?.order_code || '')) ||
-    a.flavorName.localeCompare(b.flavorName));
+    String(a.order?.order_code || '').localeCompare(String(b.order?.order_code || '')));
 }

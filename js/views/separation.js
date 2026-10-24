@@ -1,9 +1,9 @@
 import { supabase } from '../supabaseClient.js';
 import { opButtonClass, buildOpOptions, resolveSelectedOp, opSelectHtml, refreshOpSelect } from './opFilter.js';
 import { showNotification, renderEmptyState, formatWeight, formatDate } from '../utils.js';
-import { buildSeasoningBatches, MIXER_MAX_KG } from './seasoningBatches.js';
+import { buildBaseBatches, MIXER_MAX_KG } from './seasoningBatches.js';
 
-let currentView = 'kits'; // 'kits' (Kits por Porção) ou 'temperos' (Temperos por Batelada)
+let currentView = 'kits'; // 'kits' (Kits por Porção) ou 'temperos' (Bateladas de Massa-Base)
 let currentSeparationTab = 'all'; // 'all', 'in_separation', 'completed'
 let currentFilterMode = 'all'; // 'all', 'day', 'range' ou 'op' (Por Ordem de Produção)
 let selectedOrderId = null;
@@ -12,7 +12,7 @@ let selectedFilterDate = new Date().toISOString().split('T')[0];
 let selectedStartDate = new Date().toISOString().split('T')[0];
 let selectedEndDate = new Date().toISOString().split('T')[0];
 
-// Abre a tela já em "Temperos por Batelada" filtrada pela OP (usado pelo Planejamento)
+// Abre a tela já em "Bateladas de Massa-Base" filtrada pela OP (usado pelo Planejamento)
 export function showSeasoningForOrder(orderId) {
   currentView = 'temperos';
   currentFilterMode = 'op';
@@ -49,7 +49,7 @@ export async function render(container) {
         </div>
       </div>
 
-      <!-- Visão: Kits por Porção ou Temperos por Batelada da mexedeira -->
+      <!-- Visão: Kits por Porção ou Bateladas de Massa-Base da mexedeira -->
       <div class="flex items-center gap-1 bg-surface-card p-1 rounded-xl border border-border-subtle shadow-sm self-start">
         <button id="sep-view-kits" class="${viewBtnClass(currentView === 'kits')}">
           <span class="material-symbols-outlined text-[18px]">scale</span>
@@ -57,7 +57,7 @@ export async function render(container) {
         </button>
         <button id="sep-view-temperos" class="${viewBtnClass(currentView === 'temperos')}">
           <span class="material-symbols-outlined text-[18px]">blender</span>
-          <span>Temperos por Batelada (mexedeira ${MIXER_MAX_KG} kg)</span>
+          <span>Bateladas de Massa-Base (mexedeira ${MIXER_MAX_KG} kg)</span>
         </button>
       </div>
 
@@ -404,12 +404,8 @@ async function loadSeparationPortions() {
   });
 }
 
-const formatQty = (qty, unit) => unit === 'kg'
-  ? formatWeight(qty)
-  : `${Number(qty).toLocaleString('pt-BR', { maximumFractionDigits: 3 })} ${unit}`;
-
 function renderSeasoningBatches(container, portions) {
-  const groups = buildSeasoningBatches(portions);
+  const groups = buildBaseBatches(portions);
 
   if (groups.length === 0) {
     container.innerHTML = '';
@@ -418,8 +414,8 @@ function renderSeasoningBatches(container, portions) {
                        currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
     container.appendChild(renderEmptyState({
       icon: 'blender',
-      title: 'Nenhuma Batelada de Tempero Encontrada',
-      description: `Não há porções geradas${filterText}. As bateladas de tempero aparecem aqui depois de clicar em "Gerar Ordens de Produção" na tela de Planejamento.`,
+      title: 'Nenhuma Batelada de Massa-Base Encontrada',
+      description: `Não há linguiças geradas${filterText}. As bateladas aparecem aqui depois de clicar em "Gerar Ordens de Produção" na tela de Planejamento.`,
       actionText: null
     }));
     return;
@@ -428,53 +424,54 @@ function renderSeasoningBatches(container, portions) {
   container.innerHTML = `
     <div class="flex flex-col gap-space-md">
       <div class="p-3 rounded-lg bg-surface-canvas border border-border-subtle text-xs text-text-muted">
-        A massa de cada sabor (carne + tempero) é dividida em bateladas de no máximo <strong class="text-ink-text">${MIXER_MAX_KG} kg</strong>, a capacidade da mexedeira.
-        Quando passa disso, o total é dividido em bateladas de pesos iguais, e os temperos de cada uma seguem a proporção da formulação.
+        Todas as linguiças da OP usam a mesma massa-base (carne + tempero base), sem depender de cadastro.
+        O total é batido em bateladas de no máximo <strong class="text-ink-text">${MIXER_MAX_KG} kg</strong>, a capacidade da mexedeira; quando passa disso, as bateladas ficam com pesos iguais.
+        Os insumos de cada sabor entram depois, nos kits por porção.
       </div>
       ${groups.map(g => `
         <div class="bg-surface-card rounded-xl p-space-md shadow-sm border border-border-subtle flex flex-col gap-space-md">
           <div class="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle pb-2">
             <div>
-              <span class="text-xs font-bold text-text-muted uppercase">${g.order?.order_code || 'OP'} • ${formatDate(g.order?.production_date)}</span>
-              <h3 class="font-headline-sm text-ink-text">${g.flavorName}</h3>
-              <span class="text-xs text-text-muted">Porções: ${g.portions.map(p => `#${p.portion_no}${p.product_type ? ` ${p.product_type}` : ''} (${formatWeight(p.planned_kg)})`).join(' • ')}</span>
+              <span class="text-xs font-bold text-text-muted uppercase">${formatDate(g.order?.production_date)}</span>
+              <h3 class="font-headline-sm text-ink-text">${g.order?.order_code || 'OP'} — Massa-Base de Linguiça</h3>
+              <span class="text-xs text-text-muted">${g.flavors.map(f => `${f.name} (${formatWeight(f.kg)})`).join(' • ')}</span>
             </div>
             <div class="flex items-center gap-2 text-xs font-bold">
-              <span class="px-2.5 py-1 rounded-full bg-surface-canvas text-ink-text">Massa total: ${formatWeight(g.totalKg)}</span>
+              <span class="px-2.5 py-1 rounded-full bg-surface-canvas text-ink-text">Massa-base total: ${formatWeight(g.totalKg)}</span>
               <span class="px-2.5 py-1 rounded-full bg-badge-warning-bg text-badge-warning-text">${g.batches.length} batelada${g.batches.length > 1 ? 's' : ''}</span>
             </div>
           </div>
 
-          ${g.ingredients.length === 0 ? `
-            <div class="p-3 rounded-lg bg-badge-error-bg text-badge-error-text text-xs font-bold">
-              Este sabor não tem temperos nas linhas de insumo. Confira a formulação em "Cadastros & Fórmulas".
-            </div>
-          ` : `
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-sm">
-              ${g.batches.map(b => `
-                <div class="p-3 bg-surface-canvas rounded-lg border border-border-subtle flex flex-col gap-2 text-xs">
-                  <div class="flex items-center justify-between font-bold text-ink-text">
-                    <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[18px] text-bordeaux-primary">blender</span> Batelada ${b.batchNo} de ${g.batches.length}</span>
-                    <span class="text-bordeaux-primary">${formatWeight(b.totalKg)}</span>
-                  </div>
-                  <div class="flex items-center justify-between text-text-muted border-b border-border-subtle/50 pb-1">
-                    <span>Carne: <strong class="text-ink-text">${formatWeight(b.meatKg)}</strong></span>
-                    <span>Tempero: <strong class="text-ink-text">${formatWeight(b.seasoningKg)}</strong></span>
-                  </div>
-                  <table class="w-full">
-                    <tbody class="divide-y divide-border-subtle/50">
-                      ${b.items.map(it => `
-                        <tr>
-                          <td class="py-1 text-ink-text">${it.name}</td>
-                          <td class="py-1 text-right font-bold text-ink-text">${formatQty(it.quantity, it.unit)}</td>
-                        </tr>
-                      `).join('')}
-                    </tbody>
-                  </table>
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-sm">
+            ${g.batches.map(b => `
+              <div class="p-3 bg-surface-canvas rounded-lg border border-border-subtle flex flex-col gap-2 text-xs">
+                <div class="flex items-center justify-between font-bold text-ink-text">
+                  <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[18px] text-bordeaux-primary">blender</span> Batelada ${b.batchNo} de ${g.batches.length}</span>
+                  <span class="text-bordeaux-primary">${formatWeight(b.totalKg)}</span>
                 </div>
-              `).join('')}
-            </div>
-          `}
+                <table class="w-full">
+                  <tbody class="divide-y divide-border-subtle/50">
+                    ${b.meat.map(m => `
+                      <tr>
+                        <td class="py-1 font-bold text-bordeaux-primary">${m.name}</td>
+                        <td class="py-1 text-right font-bold text-ink-text">${formatWeight(m.kg)}</td>
+                      </tr>
+                    `).join('')}
+                    ${b.seasonings.map(it => `
+                      <tr>
+                        <td class="py-1 text-ink-text">${it.name}</td>
+                        <td class="py-1 text-right font-bold text-ink-text">${formatWeight(it.kg)}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+                <div class="flex items-center justify-between text-text-muted border-t border-border-subtle pt-1">
+                  <span>Carne: <strong class="text-ink-text">${formatWeight(b.meatKg)}</strong></span>
+                  <span>Tempero: <strong class="text-ink-text">${formatWeight(b.seasoningKg)}</strong></span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
         </div>
       `).join('')}
     </div>
