@@ -1,11 +1,11 @@
-// Bateladas da mexedeira: todas as linguiças usam a mesma massa-base (carne + tempero base),
+// Bateladas da mexedeira: todos os produtos da OP usam a mesma massa-base (carne + tempero base),
 // batida em bateladas de no máximo 150 kg (podem ser menores). Os insumos de cada sabor
 // entram depois, na separação por porção — não fazem parte da batelada.
 
 export const MIXER_MAX_KG = 150;
 
-// Massa-base única das linguiças, por batelada de 150 kg (planilha da produção).
-// Não depende de cadastro: vale para todo sabor, exceto hambúrguer.
+// Massa-base única, por batelada de 150 kg (planilha da produção).
+// Não depende de cadastro: vale para todo sabor e todo tipo de produto.
 export const BASE_RECIPE_KG = 150;
 export const BASE_MEAT_CUTS = ['Copa Lombo', 'Pernil']; // partes iguais
 export const BASE_SEASONINGS = [
@@ -22,22 +22,22 @@ export const BASE_SEASONINGS = [
   { name: 'Corante Carmim', kg: 0.017 }
 ];
 
-// Tipos de produto que saem da massa-base de linguiça
-export const usesLinguicaBase = productType => productType !== 'hamburguer';
-
 // Trabalha em gramas inteiras para as somas fecharem sem erro de ponto flutuante
 const toG = v => Math.round(Number(v) * 1000);
 const fromG = g => g / 1000;
 
-// Divide o total no menor número de bateladas de até 150 kg, com pesos iguais
-// (320 kg viram 106,667 + 106,667 + 106,666 em vez de 150 + 150 + 20).
+// Divide o total em bateladas cheias de 150 kg; a última fica com o restante
+// (200 kg viram 150 + 50).
 export function splitBatches(totalKg, maxKg = MIXER_MAX_KG) {
-  const totalG = toG(totalKg);
-  if (totalG <= 0) return [];
-  const count = Math.ceil(totalG / toG(maxKg));
-  const base = Math.floor(totalG / count);
-  const extra = totalG - base * count;
-  return Array.from({ length: count }, (_, i) => fromG(base + (i < extra ? 1 : 0)));
+  const maxG = toG(maxKg);
+  let remaining = toG(totalKg);
+  const sizes = [];
+  while (remaining > 0) {
+    const size = Math.min(remaining, maxG);
+    sizes.push(fromG(size));
+    remaining -= size;
+  }
+  return sizes;
 }
 
 // Composição de uma batelada: temperos na proporção da planilha; a carne completa o peso
@@ -58,12 +58,11 @@ export function batchComposition(batchKg) {
 }
 
 // portions: production_portions com flavors e production_orders.
-// Retorna uma entrada por OP com o total de massa-base (todas as linguiças juntas) e as bateladas.
+// Retorna uma entrada por OP com a massada total (todos os produtos juntos) e as bateladas.
 export function buildBaseBatches(portions, maxKg = MIXER_MAX_KG) {
   const orders = new Map();
 
   (portions || []).forEach(p => {
-    if (!usesLinguicaBase(p.product_type)) return;
     const key = p.production_order_id;
     if (!orders.has(key)) orders.set(key, { key, order: p.production_orders || null, totalG: 0, flavors: new Map() });
     const o = orders.get(key);

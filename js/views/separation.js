@@ -415,7 +415,7 @@ function renderSeasoningBatches(container, portions) {
     container.appendChild(renderEmptyState({
       icon: 'blender',
       title: 'Nenhuma Batelada de Massa-Base Encontrada',
-      description: `Não há linguiças geradas${filterText}. As bateladas aparecem aqui depois de clicar em "Gerar Ordens de Produção" na tela de Planejamento.`,
+      description: `Não há porções geradas${filterText}. As bateladas aparecem aqui depois de clicar em "Gerar Ordens de Produção" na tela de Planejamento.`,
       actionText: null
     }));
     return;
@@ -424,8 +424,8 @@ function renderSeasoningBatches(container, portions) {
   container.innerHTML = `
     <div class="flex flex-col gap-space-md">
       <div class="p-3 rounded-lg bg-surface-canvas border border-border-subtle text-xs text-text-muted">
-        Todas as linguiças da OP usam a mesma massa-base (carne + tempero base), sem depender de cadastro.
-        O total é batido em bateladas de no máximo <strong class="text-ink-text">${MIXER_MAX_KG} kg</strong>, a capacidade da mexedeira; quando passa disso, as bateladas ficam com pesos iguais.
+        Todos os produtos da OP formam uma massada total com a mesma massa-base (carne + tempero base), sem depender de cadastro.
+        A massada é batida em bateladas cheias de <strong class="text-ink-text">${MIXER_MAX_KG} kg</strong>, a capacidade da mexedeira, e a última fica com o restante.
         Os insumos de cada sabor entram depois, nos kits por porção.
       </div>
       ${groups.map(g => `
@@ -433,7 +433,7 @@ function renderSeasoningBatches(container, portions) {
           <div class="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle pb-2">
             <div>
               <span class="text-xs font-bold text-text-muted uppercase">${formatDate(g.order?.production_date)}</span>
-              <h3 class="font-headline-sm text-ink-text">${g.order?.order_code || 'OP'} — Massa-Base de Linguiça</h3>
+              <h3 class="font-headline-sm text-ink-text">${g.order?.order_code || 'OP'} — Massada Total</h3>
               <span class="text-xs text-text-muted">${g.flavors.map(f => `${f.name} (${formatWeight(f.kg)})`).join(' • ')}</span>
             </div>
             <div class="flex items-center gap-2 text-xs font-bold">
