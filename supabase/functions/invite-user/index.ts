@@ -4,11 +4,28 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
+
+// Telas aceitas pelo CHECK de public.user_screen_permissions (schema.sql)
+const VALID_SCREENS = [
+  'overview', 'planning', 'catalogs', 'separation', 'production',
+  'inventory', 'shipping', 'billing', 'users',
+];
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
+  }
+  if (req.method !== 'POST') {
+    return json({ error: 'Método não permitido.' }, 405);
   }
 
   try {
@@ -19,98 +36,111 @@ serve(async (req) => {
       throw new Error('Configuração do servidor ausente (SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY).');
     }
 
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
 
+    // 1. Autorização: somente administrador ativo pode cadastrar usuários.
+    //    O token é o access_token da sessão do usuário logado (não a chave pública).
+    const authHeader = req.headers.get('Authorization') ?? '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    if (!token) {
+      return json({ error: 'Não autenticado.' }, 401);
+    }
+
+    const { data: callerData, error: callerErr } = await supabaseAdmin.auth.getUser(token);
+    if (callerErr || !callerData?.user) {
+      return json({ error: 'Sessão inválida ou expirada. Entre novamente.' }, 401);
+    }
+
+    const { data: callerProfile, error: profileErr } = await supabaseAdmin
+      .from('app_users')
+      .select('is_admin, active')
+      .eq('user_id', callerData.user.id)
+      .maybeSingle();
+
+    if (profileErr) {
+      return json({ error: `Erro ao verificar permissões: ${profileErr.message}` }, 500);
+    }
+    if (!callerProfile || !callerProfile.active || !callerProfile.is_admin) {
+      return json({ error: 'Apenas administradores ativos podem cadastrar usuários.' }, 403);
+    }
+
+    // 2. Validação da entrada
     const { email, displayName, screenPermissions, isAdmin, password } = await req.json();
 
-    if (!email || !displayName) {
-      return new Response(JSON.stringify({ error: 'E-mail e nome são obrigatórios.' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    const cleanEmail = typeof email === 'string' ? email.trim() : '';
+    const cleanName = typeof displayName === 'string' ? displayName.trim() : '';
+    if (!cleanEmail || !cleanName) {
+      return json({ error: 'E-mail e nome são obrigatórios.' }, 400);
     }
 
+    const cleanPassword = typeof password === 'string' ? password.trim() : '';
+    if (cleanPassword && cleanPassword.length < 6) {
+      return json({ error: 'A senha deve ter pelo menos 6 caracteres.' }, 400);
+    }
+
+    const requested: string[] = Array.isArray(screenPermissions) ? screenPermissions.map(String) : [];
+    const screens = [...new Set(requested.filter((s) => VALID_SCREENS.includes(s)))];
+    const ignored = requested.filter((s) => !VALID_SCREENS.includes(s));
+
+    // 3. Criação no Auth
     let userId: string;
-
-    // Se senha foi fornecida, criar usuário direto sem necessidade de confirmação por e-mail
-    if (password && typeof password === 'string' && password.trim().length > 0) {
+    if (cleanPassword) {
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password: password.trim(),
+        email: cleanEmail,
+        password: cleanPassword,
         email_confirm: true,
-        user_metadata: { name: displayName }
+        user_metadata: { name: cleanName },
       });
-
-      if (authError) {
-        return new Response(JSON.stringify({ error: authError.message }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
+      if (authError) return json({ error: authError.message }, 400);
       userId = authData.user.id;
     } else {
-      // Caso contrário, convidar via e-mail
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email);
-
-      if (authError) {
-        return new Response(JSON.stringify({ error: authError.message }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(cleanEmail);
+      if (authError) return json({ error: authError.message }, 400);
       userId = authData.user.id;
     }
 
-    // Criar ou atualizar registro em app_users
+    // 4. Perfil e permissões
     const { error: userTableErr } = await supabaseAdmin
       .from('app_users')
       .upsert({
         user_id: userId,
-        display_name: displayName,
+        display_name: cleanName,
         is_admin: Boolean(isAdmin),
-        active: true
+        active: true,
+        updated_at: new Date().toISOString(),
       });
 
     if (userTableErr) {
-      return new Response(JSON.stringify({ error: `Usuário criado no Auth, mas erro ao salvar perfil: ${userTableErr.message}` }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return json({ error: `Usuário criado no Auth, mas erro ao salvar perfil: ${userTableErr.message}` }, 500);
     }
 
-    // Se houver permissões de tela
-    if (Array.isArray(screenPermissions) && screenPermissions.length > 0) {
-      const rows = screenPermissions.map((screen_key: string) => ({
+    let permWarning = '';
+    if (!isAdmin && screens.length > 0) {
+      const rows = screens.map((screen_key) => ({
         user_id: userId,
-        screen_key
+        screen_key,
+        granted_by: callerData.user.id,
       }));
-
       const { error: permErr } = await supabaseAdmin
         .from('user_screen_permissions')
-        .insert(rows);
-
+        .upsert(rows, { onConflict: 'user_id,screen_key' });
       if (permErr) {
-        console.error('Erro ao salvar permissões:', permErr);
+        permWarning = ` Atenção: as permissões de tela não foram salvas (${permErr.message}). Edite o usuário para concedê-las.`;
       }
     }
+    if (ignored.length > 0) {
+      permWarning += ` Telas não reconhecidas pelo banco e ignoradas: ${ignored.join(', ')}.`;
+    }
 
-    const message = password
-      ? 'Usuário cadastrado com sucesso com senha direta! Não é necessário e-mail de confirmação.'
-      : 'Convite enviado e permissões atribuídas com sucesso!';
+    const message = (cleanPassword
+      ? 'Usuário cadastrado com sucesso com senha direta.'
+      : 'Convite enviado e permissões atribuídas com sucesso.') + permWarning;
 
-    return new Response(
-      JSON.stringify({ message, userId }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    );
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return json({ message, userId });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return json({ error: msg }, 500);
   }
 });
