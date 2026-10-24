@@ -546,7 +546,7 @@ async function loadOPs() {
                 ` : `
                   <span class="px-3 py-1 rounded text-xs font-bold bg-surface-container-low text-status-success">Ordens Geradas ✓</span>
                   <button class="seasoning-batches-btn px-3 py-2 rounded-lg bg-surface-canvas text-bordeaux-primary text-xs font-bold hover:bg-surface-container transition-colors flex items-center gap-1" data-id="${op.id}">
-                    <span class="material-symbols-outlined text-[18px]">blender</span> Temperos por Batelada
+                    <span class="material-symbols-outlined text-[18px]">blender</span> Bateladas de Massa-Base
                   </button>
                 `}
               </div>
@@ -622,7 +622,7 @@ async function loadOPs() {
     });
   });
 
-  // Atalho para as bateladas de tempero da mexedeira desta OP (tela de Separação)
+  // Atalho para as bateladas de massa-base da mexedeira desta OP (tela de Separação)
   container.querySelectorAll('.seasoning-batches-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       showSeasoningForOrder(e.currentTarget.dataset.id);
@@ -858,7 +858,7 @@ async function processGenerateOrders(production_order_id) {
       if (rErr) throw new Error(`Erro ao criar etapas da porção: ${rErr.message}`);
     }
 
-    showNotification('Ordens de Produção, Bateladas e Porções geradas com sucesso! Veja os temperos por batelada da mexedeira em "Temperos por Batelada".', 'success');
+    showNotification('Ordens de Produção, Bateladas e Porções geradas com sucesso! Veja as bateladas da mexedeira em "Bateladas de Massa-Base".', 'success');
     loadOPs();
   } catch (err) {
     // Desfaz o que foi criado nesta tentativa (linhas de insumo e etapas saem em cascata com a porção)
