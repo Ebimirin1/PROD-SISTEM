@@ -595,8 +595,23 @@ async function loadOPs() {
   // Listener para gerar ordens de produção
   container.querySelectorAll('.generate-orders-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
-      const opId = e.currentTarget.dataset.id;
-      await processGenerateOrders(opId);
+      const button = e.currentTarget;
+      const opId = button.dataset.id;
+      if (button.disabled) return;
+      const originalLabel = button.textContent;
+      button.disabled = true;
+      button.classList.add('opacity-60', 'cursor-wait');
+      button.textContent = 'Gerando ordens...';
+      try {
+        await processGenerateOrders(opId);
+      } finally {
+        // Se a tela for recarregada pelo loadOPs(), este botão já terá sido substituído
+        if (button.isConnected) {
+          button.disabled = false;
+          button.classList.remove('opacity-60', 'cursor-wait');
+          button.textContent = originalLabel;
+        }
+      }
     });
   });
 
@@ -660,11 +675,25 @@ async function openAddDemandModal(production_order_id) {
 // ----------------------------------------------------
 // LÓGICA DE GERAÇÃO DE ORDENS
 // ----------------------------------------------------
+// Trava local contra cliques repetidos enquanto a geração está em andamento
+const generatingOrders = new Set();
+
+// Trabalha em gramas inteiras para não criar bateladas/porções de "0,000 kg" por erro de ponto flutuante
+const toGrams = kg => Math.round(Number(kg) * 1000);
+const fromGrams = g => g / 1000;
+
 async function processGenerateOrders(production_order_id) {
+  if (generatingOrders.has(production_order_id)) return;
+  generatingOrders.add(production_order_id);
+
+  // Tudo o que for criado fica registrado para ser desfeito se algo falhar no meio
+  const created = { batchIds: [], portionIds: [], claimed: false };
+
   try {
+    // 1. Pré-requisitos (antes de qualquer gravação)
     const { data: demands, error: dErr } = await supabase
       .from('production_demands')
-      .select('*, formula_versions(*, meat_profiles(*))')
+      .select('*, formula_versions(id, status, base_mass_pct, meat_profile_id)')
       .eq('production_order_id', production_order_id);
 
     if (dErr) throw dErr;
@@ -672,51 +701,102 @@ async function processGenerateOrders(production_order_id) {
       showNotification('Adicione pelo menos uma demanda à OP antes de gerar ordens.', 'error');
       return;
     }
+    const semFormula = demands.filter(d => !d.formula_versions);
+    if (semFormula.length > 0) {
+      throw new Error('Há demandas sem formulação vinculada (ou sem permissão de leitura da formulação). Revise as demandas antes de gerar.');
+    }
 
-    const profileTotals = {};
-    demands.forEach(d => {
-      const profileId = d.formula_versions.meat_profile_id;
-      const basePct = Number(d.formula_versions.base_mass_pct) / 100;
-      const baseMassKg = Number(d.planned_kg) * basePct;
+    const { count: existingBatches, error: bcErr } = await supabase
+      .from('mass_base_batches')
+      .select('id', { count: 'exact', head: true })
+      .eq('production_order_id', production_order_id);
+    if (bcErr) throw bcErr;
+    if (existingBatches > 0) {
+      showNotification('Esta OP já possui bateladas geradas. Nada foi alterado.', 'error');
+      loadOPs();
+      return;
+    }
 
-      if (!profileTotals[profileId]) profileTotals[profileId] = 0;
-      profileTotals[profileId] += baseMassKg;
+    // Insumos de cada versão de formulação usada (uma consulta só)
+    const formulaIds = [...new Set(demands.map(d => d.formula_version_id))];
+    const { data: allFormulaIngredients, error: fiErr } = await supabase
+      .from('formula_ingredients')
+      .select('formula_version_id, ingredient_id, ratio_pct, unit')
+      .in('formula_version_id', formulaIds);
+    if (fiErr) throw fiErr;
+    const ingredientsByFormula = {};
+    (allFormulaIngredients || []).forEach(fi => {
+      (ingredientsByFormula[fi.formula_version_id] ||= []).push(fi);
     });
 
-    for (const [profileId, totalMassKg] of Object.entries(profileTotals)) {
-      let remaining = totalMassKg;
-      let batchNo = 1;
+    // 2. Trava no banco: só uma geração por OP. Se outro clique/usuário já marcou, nenhuma linha volta.
+    const { data: claimedRows, error: claimErr } = await supabase
+      .from('production_orders')
+      .update({ generated_at: new Date().toISOString() })
+      .eq('id', production_order_id)
+      .is('generated_at', null)
+      .is('canceled_at', null)
+      .select('id');
+    if (claimErr) throw claimErr;
+    if (!claimedRows || claimedRows.length === 0) {
+      showNotification('As ordens desta OP já foram geradas (ou a OP está cancelada). Nada foi duplicado.', 'error');
+      loadOPs();
+      return;
+    }
+    created.claimed = true;
 
+    // 3. Bateladas de massa-base por perfil de carne, até 150 kg cada
+    const profileGrams = {};
+    demands.forEach(d => {
+      const profileId = d.formula_versions.meat_profile_id;
+      const baseG = toGrams(Number(d.planned_kg) * Number(d.formula_versions.base_mass_pct) / 100);
+      profileGrams[profileId] = (profileGrams[profileId] || 0) + baseG;
+    });
+
+    const MAX_BATCH_G = 150000;
+    const batchRows = [];
+    for (const [profileId, totalG] of Object.entries(profileGrams)) {
+      let remaining = totalG;
+      let batchNo = 1;
       while (remaining > 0) {
-        const batchSize = Math.min(remaining, 150);
-        await supabase.from('mass_base_batches').insert({
+        const sizeG = Math.min(remaining, MAX_BATCH_G);
+        batchRows.push({
           production_order_id,
           meat_profile_id: profileId,
           batch_no: batchNo,
-          planned_total_kg: batchSize,
+          planned_total_kg: fromGrams(sizeG),
           status: 'planned'
         });
-        remaining -= batchSize;
+        remaining -= sizeG;
         batchNo++;
       }
     }
 
-    // Uma porção por sabor + tipo de produto + conservação: o mesmo sabor com tipos diferentes
-    // (linguiça, massa, manta, granel, hambúrguer) não é misturado no embutimento.
+    if (batchRows.length > 0) {
+      const { data: insertedBatches, error: bErr } = await supabase
+        .from('mass_base_batches')
+        .insert(batchRows)
+        .select('id');
+      if (bErr) throw new Error(`Erro ao criar bateladas: ${bErr.message}`);
+      created.batchIds = (insertedBatches || []).map(b => b.id);
+    }
+
+    // 4. Uma porção por sabor + tipo de produto + conservação (+ versão de formulação):
+    //    o mesmo sabor com tipos diferentes não é misturado no embutimento.
     const TYPE_ORDER = ['linguica', 'massa', 'manta', 'granel', 'hamburguer'];
     const groups = {};
     demands.forEach(d => {
-      const key = `${d.flavor_id}|${d.requested_product_type || ''}|${d.requested_conservation || ''}`;
+      const key = `${d.flavor_id}|${d.requested_product_type || ''}|${d.requested_conservation || ''}|${d.formula_version_id}`;
       if (!groups[key]) {
         groups[key] = {
           flavorId: d.flavor_id,
+          formulaVersionId: d.formula_version_id,
           type: d.requested_product_type || null,
           conservation: d.requested_conservation || null,
-          totalKg: 0,
-          demand: d
+          totalG: 0
         };
       }
-      groups[key].totalKg += Number(d.planned_kg);
+      groups[key].totalG += toGrams(d.planned_kg);
     });
 
     const sortedGroups = Object.values(groups).sort((x, y) =>
@@ -728,47 +808,65 @@ async function processGenerateOrders(production_order_id) {
     for (const g of sortedGroups) {
       const portionNo = (portionCountByFlavor[g.flavorId] || 0) + 1;
       portionCountByFlavor[g.flavorId] = portionNo;
-      const portionSize = g.totalKg;
+      const portionKg = fromGrams(g.totalG);
 
       const { data: portion, error: pErr } = await supabase.from('production_portions').insert({
         production_order_id,
         flavor_id: g.flavorId,
         portion_no: portionNo,
-        planned_kg: portionSize,
+        planned_kg: portionKg,
         product_type: g.type,
         conservation: g.conservation
-      }).select().single();
+      }).select('id').single();
+      if (pErr) throw new Error(`Erro ao criar porção: ${pErr.message}`);
+      created.portionIds.push(portion.id);
 
-      if (pErr) throw pErr;
-
-      const { data: formulaIngredients } = await supabase
-        .from('formula_ingredients')
-        .select('*')
-        .eq('formula_version_id', g.demand.formula_version_id);
-
-      if (formulaIngredients) {
+      const formulaIngredients = ingredientsByFormula[g.formulaVersionId] || [];
+      if (formulaIngredients.length > 0) {
         const portionIngredientRows = formulaIngredients.map(fi => ({
           portion_id: portion.id,
           ingredient_id: fi.ingredient_id,
-          requested_quantity: (portionSize * Number(fi.ratio_pct)) / 100,
+          // 3 casas (g quando a unidade é kg); nunca 0, pois o banco exige quantidade > 0
+          requested_quantity: Math.max(0.001, Math.round(portionKg * Number(fi.ratio_pct) * 10) / 1000),
           unit: fi.unit,
           status: 'pending'
         }));
-        await supabase.from('portion_ingredient_lines').insert(portionIngredientRows);
+        const { error: liErr } = await supabase.from('portion_ingredient_lines').insert(portionIngredientRows);
+        if (liErr) throw new Error(`Erro ao criar linhas de insumo: ${liErr.message}`);
       }
 
-      await supabase.from('process_runs').insert([
+      const { error: rErr } = await supabase.from('process_runs').insert([
         { portion_id: portion.id, stage: 'embutimento', status: 'pending' },
         { portion_id: portion.id, stage: 'vacuo', status: 'pending' },
         { portion_id: portion.id, stage: 'rotulagem', status: 'pending' }
       ]);
+      if (rErr) throw new Error(`Erro ao criar etapas da porção: ${rErr.message}`);
     }
-
-    await supabase.from('production_orders').update({ generated_at: new Date().toISOString() }).eq('id', production_order_id);
 
     showNotification('Ordens de Produção, Bateladas e Porções geradas com sucesso!', 'success');
     loadOPs();
   } catch (err) {
-    showNotification(`Erro ao gerar ordens: ${err.message}`, 'error');
+    // Desfaz o que foi criado nesta tentativa (linhas de insumo e etapas saem em cascata com a porção)
+    const rollbackErrors = [];
+    if (created.portionIds.length > 0) {
+      const { error } = await supabase.from('production_portions').delete().in('id', created.portionIds);
+      if (error) rollbackErrors.push(`porções: ${error.message}`);
+    }
+    if (created.batchIds.length > 0) {
+      const { error } = await supabase.from('mass_base_batches').delete().in('id', created.batchIds);
+      if (error) rollbackErrors.push(`bateladas: ${error.message}`);
+    }
+    if (created.claimed) {
+      const { error } = await supabase.from('production_orders').update({ generated_at: null }).eq('id', production_order_id);
+      if (error) rollbackErrors.push(`OP: ${error.message}`);
+    }
+
+    const rollbackMsg = rollbackErrors.length > 0
+      ? ` ATENÇÃO: não foi possível desfazer tudo (${rollbackErrors.join('; ')}). Avise o administrador antes de tentar de novo.`
+      : (created.claimed ? ' Nada foi gravado; você pode tentar novamente.' : '');
+    showNotification(`Erro ao gerar ordens: ${err.message}.${rollbackMsg}`, 'error');
+    loadOPs();
+  } finally {
+    generatingOrders.delete(production_order_id);
   }
 }
