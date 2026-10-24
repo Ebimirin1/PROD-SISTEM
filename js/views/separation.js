@@ -1,7 +1,9 @@
 import { supabase } from '../supabaseClient.js';
 import { opButtonClass, buildOpOptions, resolveSelectedOp, opSelectHtml, refreshOpSelect } from './opFilter.js';
 import { showNotification, renderEmptyState, formatWeight, formatDate } from '../utils.js';
+import { buildSeasoningBatches, MIXER_MAX_KG } from './seasoningBatches.js';
 
+let currentView = 'kits'; // 'kits' (Kits por Porção) ou 'temperos' (Temperos por Batelada)
 let currentSeparationTab = 'all'; // 'all', 'in_separation', 'completed'
 let currentFilterMode = 'all'; // 'all', 'day', 'range' ou 'op' (Por Ordem de Produção)
 let selectedOrderId = null;
@@ -9,6 +11,15 @@ let opOptions = [];
 let selectedFilterDate = new Date().toISOString().split('T')[0];
 let selectedStartDate = new Date().toISOString().split('T')[0];
 let selectedEndDate = new Date().toISOString().split('T')[0];
+
+// Abre a tela já em "Temperos por Batelada" filtrada pela OP (usado pelo Planejamento)
+export function showSeasoningForOrder(orderId) {
+  currentView = 'temperos';
+  currentFilterMode = 'op';
+  selectedOrderId = orderId;
+}
+
+const viewBtnClass = active => `px-4 py-2 rounded-lg font-label-md text-label-md transition-colors flex items-center gap-1.5 ${active ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}`;
 
 export async function render(container) {
   const today = new Date().toISOString().split('T')[0];
@@ -25,7 +36,7 @@ export async function render(container) {
         </div>
 
         <!-- Filtros de Status de Separação -->
-        <div class="flex items-center gap-1 bg-surface-card p-1 rounded-xl border border-border-subtle shadow-sm">
+        <div id="sep-status-tabs" class="${currentView === 'kits' ? '' : 'hidden '}flex items-center gap-1 bg-surface-card p-1 rounded-xl border border-border-subtle shadow-sm">
           <button id="sep-tab-all" class="sep-tab-btn px-4 py-2 rounded-lg font-label-md text-label-md transition-colors ${currentSeparationTab === 'all' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}">
             Todos
           </button>
@@ -36,6 +47,18 @@ export async function render(container) {
             Concluído
           </button>
         </div>
+      </div>
+
+      <!-- Visão: Kits por Porção ou Temperos por Batelada da mexedeira -->
+      <div class="flex items-center gap-1 bg-surface-card p-1 rounded-xl border border-border-subtle shadow-sm self-start">
+        <button id="sep-view-kits" class="${viewBtnClass(currentView === 'kits')}">
+          <span class="material-symbols-outlined text-[18px]">scale</span>
+          <span>Kits por Porção</span>
+        </button>
+        <button id="sep-view-temperos" class="${viewBtnClass(currentView === 'temperos')}">
+          <span class="material-symbols-outlined text-[18px]">blender</span>
+          <span>Temperos por Batelada (mexedeira ${MIXER_MAX_KG} kg)</span>
+        </button>
       </div>
 
       <!-- Barra de Filtros de Período / Dia (Igual à Visão Geral) -->
@@ -68,6 +91,7 @@ export async function render(container) {
     </div>
   `;
 
+  setupViewToggle(container);
   setupTabListeners(container);
   setupFilterControls();
   loadSeparationPortions();
@@ -158,6 +182,23 @@ function setupFilterControls() {
   updateModeUI();
 }
 
+function setupViewToggle(container) {
+  const btnKits = container.querySelector('#sep-view-kits');
+  const btnTemperos = container.querySelector('#sep-view-temperos');
+  const statusTabs = container.querySelector('#sep-status-tabs');
+
+  const setView = (view) => {
+    currentView = view;
+    if (btnKits) btnKits.className = viewBtnClass(view === 'kits');
+    if (btnTemperos) btnTemperos.className = viewBtnClass(view === 'temperos');
+    statusTabs?.classList.toggle('hidden', view !== 'kits');
+    loadSeparationPortions();
+  };
+
+  btnKits?.addEventListener('click', () => setView('kits'));
+  btnTemperos?.addEventListener('click', () => setView('temperos'));
+}
+
 function setupTabListeners(container) {
   const tabAll = container.querySelector('#sep-tab-all');
   const tabInSeparation = container.querySelector('#sep-tab-in_separation');
@@ -203,7 +244,7 @@ async function loadSeparationPortions() {
       flavors (name),
       production_orders (id, order_code, production_date),
       portion_ingredient_lines (
-        id, requested_quantity, separated_quantity, unit, ingredient_lot, status, variance_reason,
+        id, ingredient_id, requested_quantity, separated_quantity, unit, ingredient_lot, status, variance_reason,
         ingredients (name),
         collaborators (full_name)
       )
@@ -231,6 +272,11 @@ async function loadSeparationPortions() {
       const pDate = p.production_orders?.production_date;
       return pDate && pDate >= selectedStartDate && pDate <= selectedEndDate;
     });
+  }
+
+  if (currentView === 'temperos') {
+    renderSeasoningBatches(container, dateFilteredPortions);
+    return;
   }
 
   // Mapear e calcular estado de cada porção
@@ -356,4 +402,81 @@ async function loadSeparationPortions() {
       }
     });
   });
+}
+
+const formatQty = (qty, unit) => unit === 'kg'
+  ? formatWeight(qty)
+  : `${Number(qty).toLocaleString('pt-BR', { maximumFractionDigits: 3 })} ${unit}`;
+
+function renderSeasoningBatches(container, portions) {
+  const groups = buildSeasoningBatches(portions);
+
+  if (groups.length === 0) {
+    container.innerHTML = '';
+    const filterText = currentFilterMode === 'op' ? ' para a ordem de produção selecionada' :
+                       currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
+                       currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
+    container.appendChild(renderEmptyState({
+      icon: 'blender',
+      title: 'Nenhuma Batelada de Tempero Encontrada',
+      description: `Não há porções geradas${filterText}. As bateladas de tempero aparecem aqui depois de clicar em "Gerar Ordens de Produção" na tela de Planejamento.`,
+      actionText: null
+    }));
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="flex flex-col gap-space-md">
+      <div class="p-3 rounded-lg bg-surface-canvas border border-border-subtle text-xs text-text-muted">
+        A massa de cada sabor (carne + tempero) é dividida em bateladas de no máximo <strong class="text-ink-text">${MIXER_MAX_KG} kg</strong>, a capacidade da mexedeira.
+        Quando passa disso, o total é dividido em bateladas de pesos iguais, e os temperos de cada uma seguem a proporção da formulação.
+      </div>
+      ${groups.map(g => `
+        <div class="bg-surface-card rounded-xl p-space-md shadow-sm border border-border-subtle flex flex-col gap-space-md">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle pb-2">
+            <div>
+              <span class="text-xs font-bold text-text-muted uppercase">${g.order?.order_code || 'OP'} • ${formatDate(g.order?.production_date)}</span>
+              <h3 class="font-headline-sm text-ink-text">${g.flavorName}</h3>
+              <span class="text-xs text-text-muted">Porções: ${g.portions.map(p => `#${p.portion_no}${p.product_type ? ` ${p.product_type}` : ''} (${formatWeight(p.planned_kg)})`).join(' • ')}</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs font-bold">
+              <span class="px-2.5 py-1 rounded-full bg-surface-canvas text-ink-text">Massa total: ${formatWeight(g.totalKg)}</span>
+              <span class="px-2.5 py-1 rounded-full bg-badge-warning-bg text-badge-warning-text">${g.batches.length} batelada${g.batches.length > 1 ? 's' : ''}</span>
+            </div>
+          </div>
+
+          ${g.ingredients.length === 0 ? `
+            <div class="p-3 rounded-lg bg-badge-error-bg text-badge-error-text text-xs font-bold">
+              Este sabor não tem temperos nas linhas de insumo. Confira a formulação em "Cadastros & Fórmulas".
+            </div>
+          ` : `
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-sm">
+              ${g.batches.map(b => `
+                <div class="p-3 bg-surface-canvas rounded-lg border border-border-subtle flex flex-col gap-2 text-xs">
+                  <div class="flex items-center justify-between font-bold text-ink-text">
+                    <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[18px] text-bordeaux-primary">blender</span> Batelada ${b.batchNo} de ${g.batches.length}</span>
+                    <span class="text-bordeaux-primary">${formatWeight(b.totalKg)}</span>
+                  </div>
+                  <div class="flex items-center justify-between text-text-muted border-b border-border-subtle/50 pb-1">
+                    <span>Carne: <strong class="text-ink-text">${formatWeight(b.meatKg)}</strong></span>
+                    <span>Tempero: <strong class="text-ink-text">${formatWeight(b.seasoningKg)}</strong></span>
+                  </div>
+                  <table class="w-full">
+                    <tbody class="divide-y divide-border-subtle/50">
+                      ${b.items.map(it => `
+                        <tr>
+                          <td class="py-1 text-ink-text">${it.name}</td>
+                          <td class="py-1 text-right font-bold text-ink-text">${formatQty(it.quantity, it.unit)}</td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+      `).join('')}
+    </div>
+  `;
 }
