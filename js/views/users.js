@@ -1,19 +1,53 @@
 import { supabase } from '../supabaseClient.js';
 import { SUPABASE_URL } from '../config.js';
 import { showNotification, renderEmptyState } from '../utils.js';
+import { SCREENS, SCREEN_KEYS } from '../screens.js';
 
-const ALL_SCREENS = [
-  { key: 'overview', label: 'Visão Geral' },
-  { key: 'planning', label: 'Planejamento' },
-  { key: 'catalogs', label: 'Cadastros & Fórmulas' },
-  { key: 'separation', label: 'Separação Insumos' },
-  { key: 'production', label: 'Produção' },
-  { key: 'labeling', label: 'Contagem de Rótulos' },
-  { key: 'inventory', label: 'Estoque & Cura' },
-  { key: 'shipping', label: 'Pedidos & Expedição' },
-  { key: 'billing', label: 'Faturamento' },
-  { key: 'users', label: 'Usuários & Acessos' }
-];
+// Caixas de seleção de telas, com atalho para marcar/desmarcar todas
+function renderScreenChecks(checkClass) {
+  return `
+    <div class="flex flex-wrap items-center gap-2">
+      <button type="button" data-check-all="${checkClass}" class="px-3 py-1 rounded border border-border-subtle text-xs font-bold hover:bg-surface-canvas">Marcar todas</button>
+      <button type="button" data-uncheck-all="${checkClass}" class="px-3 py-1 rounded border border-border-subtle text-xs font-bold hover:bg-surface-canvas">Desmarcar todas</button>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-space-sm text-xs">
+      ${SCREENS.map(s => `
+        <label class="flex items-start gap-2 p-2 bg-surface-canvas rounded">
+          <input type="checkbox" value="${s.key}" class="${checkClass} accent-bordeaux-primary mt-0.5">
+          <span><span class="font-bold">${s.title}</span>${s.includes ? `<span class="block text-[11px] text-text-muted">${s.includes}</span>` : ''}</span>
+        </label>
+      `).join('')}
+    </div>
+  `;
+}
+
+// Administrador já vê todas as telas: as caixas ficam travadas enquanto a opção estiver marcada
+function syncAdminLock(adminCheckboxId, checkClass) {
+  const isAdmin = document.getElementById(adminCheckboxId)?.checked;
+  document.querySelectorAll(`.${checkClass}`).forEach(cb => {
+    cb.disabled = isAdmin;
+    cb.closest('label')?.classList.toggle('opacity-50', isAdmin);
+  });
+  document.querySelectorAll(`[data-check-all="${checkClass}"], [data-uncheck-all="${checkClass}"]`).forEach(btn => {
+    btn.disabled = isAdmin;
+    btn.classList.toggle('opacity-50', isAdmin);
+  });
+}
+
+function setupScreenCheckShortcuts() {
+  document.querySelectorAll('[data-check-all]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll(`.${btn.dataset.checkAll}`).forEach(cb => { cb.checked = true; });
+    });
+  });
+  document.querySelectorAll('[data-uncheck-all]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll(`.${btn.dataset.uncheckAll}`).forEach(cb => { cb.checked = false; });
+    });
+  });
+  document.getElementById('invite-is-admin')?.addEventListener('change', () => syncAdminLock('invite-is-admin', 'screen-perm-check'));
+  document.getElementById('edit-is-admin')?.addEventListener('change', () => syncAdminLock('edit-is-admin', 'edit-perm-check'));
+}
 
 export async function render(container) {
   container.innerHTML = `
@@ -56,13 +90,7 @@ export async function render(container) {
 
           <div class="border-t border-border-subtle pt-space-md flex flex-col gap-2">
             <label class="font-title-md text-ink-text">Permissões de Acesso por Tela (Operário)</label>
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-space-sm text-xs">
-              ${ALL_SCREENS.map(s => `
-                <label class="flex items-center gap-2 p-2 bg-surface-canvas rounded">
-                  <input type="checkbox" value="${s.key}" class="screen-perm-check accent-bordeaux-primary"> ${s.label}
-                </label>
-              `).join('')}
-            </div>
+            ${renderScreenChecks('screen-perm-check')}
           </div>
 
           <div class="flex items-center gap-2 justify-end">
@@ -93,13 +121,7 @@ export async function render(container) {
 
           <div class="border-t border-border-subtle pt-space-md flex flex-col gap-2">
             <label class="font-title-md text-ink-text">Permissões Específicas por Tela</label>
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-space-sm text-xs">
-              ${ALL_SCREENS.map(s => `
-                <label class="flex items-center gap-2 p-2 bg-surface-canvas rounded">
-                  <input type="checkbox" value="${s.key}" class="edit-perm-check accent-bordeaux-primary"> ${s.label}
-                </label>
-              `).join('')}
-            </div>
+            ${renderScreenChecks('edit-perm-check')}
           </div>
 
           <div class="flex items-center gap-2 justify-end">
@@ -115,6 +137,7 @@ export async function render(container) {
 
   setupInviteForm();
   setupEditForm();
+  setupScreenCheckShortcuts();
   loadUsers();
 }
 
@@ -125,6 +148,7 @@ function setupInviteForm() {
     document.getElementById('invite-password').value = '';
     document.getElementById('invite-is-admin').checked = false;
     document.querySelectorAll('.screen-perm-check').forEach(cb => cb.checked = false);
+    syncAdminLock('invite-is-admin', 'screen-perm-check');
     document.getElementById('invite-form-container')?.classList.remove('hidden');
     document.getElementById('edit-user-container')?.classList.add('hidden');
   });
@@ -168,7 +192,9 @@ function setupInviteForm() {
             displayName,
             password: password ? password.trim() : null,
             isAdmin,
-            screenPermissions
+            screenPermissions,
+            // O link do convite volta para este mesmo endereço, onde a pessoa define a senha
+            redirectTo: window.location.origin + window.location.pathname
           })
         });
       } catch (netErr) {
@@ -211,19 +237,29 @@ function setupEditForm() {
 
       if (uErr) throw uErr;
 
-      await supabase.from('user_screen_permissions').delete().eq('user_id', userId);
+      // Grava primeiro as telas marcadas e só depois remove as desmarcadas:
+      // se a gravação falhar, o usuário não perde as permissões que já tinha.
+      const selectedKeys = isAdmin ? [] : [...document.querySelectorAll('.edit-perm-check:checked')].map(cb => cb.value);
 
-      if (!isAdmin) {
-        const selectedScreens = [];
-        document.querySelectorAll('.edit-perm-check:checked').forEach(cb => {
-          selectedScreens.push({ user_id: userId, screen_key: cb.value });
-        });
-
-        if (selectedScreens.length > 0) {
-          const { error: pErr } = await supabase.from('user_screen_permissions').insert(selectedScreens);
-          if (pErr) throw pErr;
+      if (selectedKeys.length > 0) {
+        const { error: pErr } = await supabase
+          .from('user_screen_permissions')
+          .upsert(selectedKeys.map(screen_key => ({ user_id: userId, screen_key })), { onConflict: 'user_id,screen_key' });
+        if (pErr) {
+          if (pErr.code === '23514') {
+            throw new Error('O banco ainda não aceita alguma das telas marcadas. Rode o arquivo migration_screen_permissions.sql no Supabase (SQL Editor) e tente de novo.');
+          }
+          throw pErr;
         }
       }
+
+      const removedKeys = SCREEN_KEYS.filter(k => !selectedKeys.includes(k));
+      const { error: dErr } = await supabase
+        .from('user_screen_permissions')
+        .delete()
+        .eq('user_id', userId)
+        .in('screen_key', removedKeys);
+      if (dErr) throw dErr;
 
       showNotification('Permissões do usuário atualizadas com sucesso!', 'success');
       document.getElementById('edit-user-container')?.classList.add('hidden');
@@ -278,8 +314,8 @@ async function loadUsers() {
         <tbody class="divide-y divide-border-subtle text-ink-text">
           ${users.map(u => {
             const perms = (u.user_screen_permissions || []).map(p => {
-              const found = ALL_SCREENS.find(s => s.key === p.screen_key);
-              return found ? found.label : p.screen_key;
+              const found = SCREENS.find(s => s.key === p.screen_key);
+              return found ? found.title : p.screen_key;
             });
 
             return `
@@ -330,6 +366,7 @@ async function loadUsers() {
       document.querySelectorAll('.edit-perm-check').forEach(cb => {
         cb.checked = perms.includes(cb.value);
       });
+      syncAdminLock('edit-is-admin', 'edit-perm-check');
 
       document.getElementById('invite-form-container')?.classList.add('hidden');
       document.getElementById('edit-user-container')?.classList.remove('hidden');

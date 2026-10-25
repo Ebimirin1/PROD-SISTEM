@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient.js';
 import { showNotification } from './utils.js';
+import { SCREEN_KEYS } from './screens.js';
 
 export const state = {
   user: null,
@@ -39,7 +40,7 @@ export async function getCurrentUser() {
 
   // Se for admin, concede todas as permissões
   if (appUser.is_admin) {
-    state.permissions = ['overview', 'planning', 'catalogs', 'separation', 'production', 'labeling', 'inventory', 'shipping', 'billing', 'users'];
+    state.permissions = [...SCREEN_KEYS];
   } else {
     const { data: perms } = await supabase
       .from('user_screen_permissions')
