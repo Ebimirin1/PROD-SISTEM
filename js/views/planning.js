@@ -189,8 +189,9 @@ async function renderOPsTab() {
     <div class="flex flex-col gap-space-md">
       <!-- Form para Criar OP -->
       <div id="op-form-container" class="hidden bg-surface-card p-space-lg rounded-xl border border-border-subtle shadow-sm flex flex-col gap-space-md">
-        <h3 class="font-title-lg text-title-lg text-ink-text">Abrir Nova Ordem de Produção Consolidada</h3>
+        <h3 id="op-form-title" class="font-title-lg text-title-lg text-ink-text">Abrir Nova Ordem de Produção Consolidada</h3>
         <form id="op-form" class="flex flex-col gap-space-md">
+          <input type="hidden" id="op-edit-id">
           <div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
             <div class="flex flex-col gap-1">
               <label class="font-label-md text-ink-text">Código da OP</label>
@@ -209,16 +210,17 @@ async function renderOPsTab() {
 
           <div class="flex items-center gap-2 justify-end">
             <button type="button" id="op-cancel-btn" class="min-h-[44px] px-4 rounded-lg bg-surface-canvas hover:bg-surface-variant text-ink-text font-title-md">Cancelar</button>
-            <button type="submit" class="min-h-[44px] px-5 rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md">Criar OP (Rascunho)</button>
+            <button type="submit" id="op-submit-btn" class="min-h-[44px] px-5 rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md">Criar OP (Rascunho)</button>
           </div>
         </form>
       </div>
 
       <!-- Form/Modal para Adicionar Linha de Demanda -->
       <div id="demand-form-container" class="hidden bg-surface-card p-space-lg rounded-xl border border-border-subtle shadow-sm flex flex-col gap-space-md">
-        <h3 class="font-title-lg text-title-lg text-ink-text">Adicionar Linha de Demanda à OP</h3>
+        <h3 id="demand-form-title" class="font-title-lg text-title-lg text-ink-text">Adicionar Linha de Demanda à OP</h3>
         <form id="demand-form" class="flex flex-col gap-space-md">
           <input type="hidden" id="demand-op-id">
+          <input type="hidden" id="demand-edit-id">
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
             <!-- Campo Obrigatório: Selecione o Sabor -->
@@ -310,6 +312,9 @@ async function renderOPsTab() {
   document.getElementById('add-op-btn')?.addEventListener('click', async () => {
     const today = todayLocal();
     opCodeEdited = false;
+    document.getElementById('op-edit-id').value = '';
+    document.getElementById('op-form-title').textContent = 'Abrir Nova Ordem de Produção Consolidada';
+    document.getElementById('op-submit-btn').textContent = 'Criar OP (Rascunho)';
     document.getElementById('op-date').value = today;
     document.getElementById('op-mass-ready-date').value = today;
     document.getElementById('op-form-container')?.classList.remove('hidden');
@@ -329,19 +334,32 @@ async function renderOPsTab() {
     const order_code = document.getElementById('op-code').value.trim();
     const production_date = document.getElementById('op-date').value;
     const mass_ready_date = document.getElementById('op-mass-ready-date').value || production_date;
+    const editId = document.getElementById('op-edit-id').value;
 
     try {
-      const { error } = await supabase.from('production_orders').insert({
-        order_code,
-        production_date,
-        mass_ready_date
-      });
-      if (error) throw error;
-      showNotification('Ordem de Produção criada com sucesso!', 'success');
+      if (editId) {
+        // Só altera enquanto as ordens não foram geradas (o filtro em generated_at evita corrida com a geração)
+        const { data: updated, error } = await supabase.from('production_orders')
+          .update({ order_code, production_date, mass_ready_date })
+          .eq('id', editId)
+          .is('generated_at', null)
+          .select('id');
+        if (error) throw error;
+        if (!updated || updated.length === 0) throw new Error(LOCKED_MSG);
+        showNotification('Ordem de Produção atualizada!', 'success');
+      } else {
+        const { error } = await supabase.from('production_orders').insert({
+          order_code,
+          production_date,
+          mass_ready_date
+        });
+        if (error) throw error;
+        showNotification('Ordem de Produção criada com sucesso!', 'success');
+      }
       document.getElementById('op-form-container')?.classList.add('hidden');
       loadOPs();
     } catch (err) {
-      showNotification(`Erro ao criar OP: ${err.message}`, 'error');
+      showNotification(`Erro ao ${editId ? 'salvar' : 'criar'} OP: ${err.message}`, 'error');
     }
   });
 
@@ -375,6 +393,7 @@ function setupDemandForm() {
     errorDiv?.classList.add('hidden');
 
     const opId = document.getElementById('demand-op-id').value;
+    const editId = document.getElementById('demand-edit-id').value;
     const flavorId = document.getElementById('demand-flavor-select').value;
     const plannedKg = parseFloat(document.getElementById('demand-planned-kg').value);
     const destinationKey = document.getElementById('demand-destination-select').value;
@@ -425,8 +444,9 @@ function setupDemandForm() {
         throw new Error(`O sabor "${flavorName}" não possui uma receita/formulação ATIVA. Por favor, acesse a tela "Cadastros & Fórmulas" e ative uma receita para este sabor.`);
       }
 
-      const { error: insertErr } = await supabase.from('production_demands').insert({
-        production_order_id: opId,
+      await assertOpEditable(opId);
+
+      const row = {
         flavor_id: flavorId,
         formula_version_id: activeVersion.id,
         destination_key: destinationKey,
@@ -435,11 +455,17 @@ function setupDemandForm() {
         requested_conservation: conservation,
         planned_kg: plannedKg,
         notes: notes || null
-      });
+      };
 
-      if (insertErr) throw insertErr;
-
-      showNotification('Demanda adicionada com sucesso à OP!', 'success');
+      if (editId) {
+        const { error: updateErr } = await supabase.from('production_demands').update(row).eq('id', editId);
+        if (updateErr) throw updateErr;
+        showNotification('Linha de demanda atualizada!', 'success');
+      } else {
+        const { error: insertErr } = await supabase.from('production_demands').insert({ production_order_id: opId, ...row });
+        if (insertErr) throw insertErr;
+        showNotification('Demanda adicionada com sucesso à OP!', 'success');
+      }
       formContainer?.classList.add('hidden');
       loadOPs();
     } catch (err) {
@@ -462,7 +488,7 @@ async function loadOPs() {
     .select(`
       *,
       production_demands (
-        id, planned_kg, destination_key, destination_partner_id, requested_product_type, requested_conservation,
+        id, flavor_id, planned_kg, destination_key, destination_partner_id, requested_product_type, requested_conservation, notes,
         flavors (name),
         partners (name),
         formula_versions (id, base_mass_pct, meat_profile_id, formula_ingredients (ratio_pct, unit, ingredients(name)))
@@ -556,6 +582,9 @@ async function loadOPs() {
                 }">Status: ${opStatus.toUpperCase()}</span>
 
                 ${!generated ? `
+                  <button class="edit-op-btn px-3 py-2 rounded-lg bg-surface-canvas text-bordeaux-primary text-xs font-bold hover:bg-surface-container transition-colors flex items-center gap-1" data-id="${op.id}">
+                    <span class="material-symbols-outlined text-[18px]">edit</span> Editar OP
+                  </button>
                   <button class="generate-orders-btn px-4 py-2 rounded-lg bg-bordeaux-primary text-on-primary font-title-md hover:bg-wine-deep transition-colors shadow-sm" data-id="${op.id}">
                     Gerar Ordens de Produção
                   </button>
@@ -576,9 +605,15 @@ async function loadOPs() {
                 <button class="op-flavor-map-btn text-xs font-bold text-bordeaux-primary flex items-center gap-1 hover:underline" data-opid="${op.id}">
                   <span class="material-symbols-outlined text-[16px]">print</span> Mapa Sabor × Destino
                 </button>
+                ${!generated ? `
                 <button class="add-demand-btn text-xs font-bold text-bordeaux-primary flex items-center gap-1 hover:underline" data-opid="${op.id}">
                   <span class="material-symbols-outlined text-[16px]">add</span> Adicionar Linha de Demanda
                 </button>
+                ` : `
+                <span class="text-xs font-bold text-text-muted flex items-center gap-1" title="Depois de geradas as ordens, a OP não pode mais ser alterada">
+                  <span class="material-symbols-outlined text-[16px]">lock</span> OP travada
+                </span>
+                `}
                 </div>
               </div>
 
@@ -591,11 +626,12 @@ async function loadOPs() {
                       <th class="py-2 px-3">Tipo Solicitado</th>
                       <th class="py-2 px-3">Conservação</th>
                       <th class="py-2 px-3 text-right">Qtd Pretendida (kg)</th>
+                      ${!generated ? '<th class="py-2 px-3 text-right">Ações</th>' : ''}
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-border-subtle text-xs">
                     ${(op.production_demands || []).length === 0
-                      ? `<tr><td colspan="5" class="py-3 px-3 text-center text-text-muted">Nenhuma demanda lançada nesta OP.</td></tr>`
+                      ? `<tr><td colspan="${generated ? 5 : 6}" class="py-3 px-3 text-center text-text-muted">Nenhuma demanda lançada nesta OP.</td></tr>`
                       : (op.production_demands || []).map(d => `
                         <tr>
                           <td class="py-2 px-3 font-bold text-bordeaux-primary">${d.flavors?.name || 'Sabor Não Identificado'}</td>
@@ -603,6 +639,16 @@ async function loadOPs() {
                           <td class="py-2 px-3 capitalize">${d.requested_product_type || '—'}</td>
                           <td class="py-2 px-3 capitalize">${d.requested_conservation || '—'}</td>
                           <td class="py-2 px-3 text-right font-bold">${formatWeight(d.planned_kg)}</td>
+                          ${!generated ? `
+                          <td class="py-2 px-3 text-right whitespace-nowrap">
+                            <button class="edit-demand-btn p-1 rounded text-bordeaux-primary hover:bg-surface-container" title="Editar linha" data-opid="${op.id}" data-id="${d.id}">
+                              <span class="material-symbols-outlined text-[18px]">edit</span>
+                            </button>
+                            <button class="delete-demand-btn p-1 rounded text-alert-critical hover:bg-surface-container" title="Excluir linha" data-opid="${op.id}" data-id="${d.id}">
+                              <span class="material-symbols-outlined text-[18px]">delete</span>
+                            </button>
+                          </td>
+                          ` : ''}
                         </tr>
                       `).join('')}
                   </tbody>
@@ -666,9 +712,73 @@ async function loadOPs() {
       await openAddDemandModal(opId);
     });
   });
+
+  // Edição da OP (só aparece enquanto as ordens não foram geradas)
+  container.querySelectorAll('.edit-op-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const op = ops.find(o => o.id === e.currentTarget.dataset.id);
+      if (op) openEditOpForm(op);
+    });
+  });
+
+  container.querySelectorAll('.edit-demand-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const { opid, id } = e.currentTarget.dataset;
+      const demand = ops.find(o => o.id === opid)?.production_demands?.find(d => d.id === id);
+      if (demand) await openAddDemandModal(opid, demand);
+    });
+  });
+
+  container.querySelectorAll('.delete-demand-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const { opid, id } = e.currentTarget.dataset;
+      const demand = ops.find(o => o.id === opid)?.production_demands?.find(d => d.id === id);
+      if (!confirm(`Excluir a linha de ${demand?.flavors?.name || 'demanda'} (${formatWeight(demand?.planned_kg)})?`)) return;
+      try {
+        await assertOpEditable(opid);
+        const { error } = await supabase.from('production_demands').delete().eq('id', id);
+        if (error) throw error;
+        showNotification('Linha de demanda excluída.', 'success');
+      } catch (err) {
+        showNotification(`Erro ao excluir linha: ${err.message}`, 'error');
+      }
+      loadOPs();
+    });
+  });
 }
 
-async function openAddDemandModal(production_order_id) {
+const LOCKED_MSG = 'As ordens desta OP já foram geradas (ou a OP está cancelada); ela não pode mais ser alterada.';
+
+// Confere no banco, antes de gravar, se a OP ainda está em rascunho (ordens não geradas)
+async function assertOpEditable(production_order_id) {
+  const { data, error } = await supabase
+    .from('production_orders')
+    .select('generated_at, canceled_at')
+    .eq('id', production_order_id)
+    .single();
+  if (error) throw error;
+  if (data.generated_at || data.canceled_at) {
+    loadOPs();
+    throw new Error(LOCKED_MSG);
+  }
+}
+
+function openEditOpForm(op) {
+  opCodeEdited = true; // mantém o código atual mesmo se a data mudar
+  document.getElementById('op-edit-id').value = op.id;
+  document.getElementById('op-form-title').textContent = `Editar Ordem de Produção ${op.order_code}`;
+  document.getElementById('op-submit-btn').textContent = 'Salvar Alterações';
+  document.getElementById('op-code').value = op.order_code;
+  document.getElementById('op-date').value = op.production_date;
+  document.getElementById('op-mass-ready-date').value = op.mass_ready_date || '';
+  document.getElementById('op-code-hint').textContent = `${weekdayName(op.production_date)}`;
+  document.getElementById('demand-form-container')?.classList.add('hidden');
+  const formContainer = document.getElementById('op-form-container');
+  formContainer?.classList.remove('hidden');
+  formContainer?.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function openAddDemandModal(production_order_id, demand = null) {
   const formContainer = document.getElementById('demand-form-container');
   const errorDiv = document.getElementById('demand-form-error');
   const flavorSelect = document.getElementById('demand-flavor-select');
@@ -676,8 +786,11 @@ async function openAddDemandModal(production_order_id) {
 
   if (errorDiv) errorDiv.classList.add('hidden');
   document.getElementById('demand-op-id').value = production_order_id;
-  document.getElementById('demand-planned-kg').value = '';
-  document.getElementById('demand-notes').value = '';
+  document.getElementById('demand-edit-id').value = demand?.id || '';
+  document.getElementById('demand-form-title').textContent = demand ? 'Editar Linha de Demanda da OP' : 'Adicionar Linha de Demanda à OP';
+  document.getElementById('demand-submit-btn').textContent = demand ? 'Salvar Alterações' : 'Salvar Demanda';
+  document.getElementById('demand-planned-kg').value = demand ? demand.planned_kg : '';
+  document.getElementById('demand-notes').value = demand?.notes || '';
 
   const { data: flavors, error: fErr } = await supabase
     .from('flavors')
@@ -710,6 +823,16 @@ async function openAddDemandModal(production_order_id) {
     <option value="">Geral / Nenhum Parceiro Específico</option>
     ${(partners || []).map(p => `<option value="${p.id}">${p.name} (${p.partner_type.toUpperCase()})</option>`).join('')}
   `;
+
+  const destSelect = document.getElementById('demand-destination-select');
+  destSelect.value = demand?.destination_key || 'emporio';
+  destSelect.dispatchEvent(new Event('change')); // ajusta a obrigatoriedade do parceiro
+  document.getElementById('demand-product-type-select').value = demand?.requested_product_type || 'linguica';
+  document.getElementById('demand-conservation-select').value = demand?.requested_conservation || 'resfriado';
+  if (demand) {
+    flavorSelect.value = demand.flavor_id;
+    partnerSelect.value = demand.destination_partner_id || '';
+  }
 
   document.getElementById('op-form-container')?.classList.add('hidden');
   formContainer?.classList.remove('hidden');
