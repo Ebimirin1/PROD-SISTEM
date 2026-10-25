@@ -275,7 +275,7 @@ async function loadSeparationPortions() {
   }
 
   if (currentView === 'temperos') {
-    renderSeasoningBatches(container, dateFilteredPortions);
+    await renderSeasoningBatches(container, dateFilteredPortions);
     return;
   }
 
@@ -404,7 +404,63 @@ async function loadSeparationPortions() {
   });
 }
 
-function renderSeasoningBatches(container, portions) {
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// Pesagens confirmadas dos itens das bateladas, por "opId|batelada|item".
+// Se a tabela ainda não existir no banco, devolve missingTable para a tela avisar.
+async function loadBaseBatchSeparations(orderIds) {
+  if (orderIds.length === 0) return { map: new Map(), missingTable: false };
+  const { data, error } = await supabase
+    .from('base_batch_item_separations')
+    .select('id, production_order_id, batch_no, item_name, separated_kg, lot_code, separated_at')
+    .in('production_order_id', orderIds);
+  if (error) {
+    const missingTable = error.code === '42P01' || error.code === 'PGRST205' || /base_batch_item_separations/.test(error.message || '');
+    if (!missingTable) showNotification(`Erro ao carregar pesagens das bateladas: ${error.message}`, 'error');
+    return { map: new Map(), missingTable };
+  }
+  return { map: new Map((data || []).map(r => [`${r.production_order_id}|${r.batch_no}|${r.item_name}`, r])), missingTable: false };
+}
+
+function batchItemRow(g, b, item, kind, sep, canConfirm) {
+  const key = `${g.key}|${b.batchNo}|${item.name}`;
+  const nameClass = kind === 'carne' ? 'font-bold text-bordeaux-primary' : 'text-ink-text';
+  if (sep) {
+    return `
+      <div class="py-1.5 flex flex-col gap-0.5">
+        <div class="flex items-center justify-between">
+          <span class="${nameClass}">${esc(item.name)}</span>
+          <span class="font-bold text-ink-text">${formatWeight(item.kg)}</span>
+        </div>
+        <div class="flex items-center justify-between text-text-muted">
+          <span>Separado: <strong class="text-ink-text">${formatWeight(sep.separated_kg)}</strong> • Lote: <strong class="text-ink-text">${esc(sep.lot_code)}</strong></span>
+          <span class="flex items-center gap-2">
+            <span class="text-status-success font-bold">✓</span>
+            <button class="undo-batch-item-btn text-[11px] font-bold text-text-muted hover:text-alert-critical hover:underline" data-sep-id="${esc(sep.id)}">Desfazer</button>
+          </span>
+        </div>
+      </div>`;
+  }
+  return `
+    <div class="py-1.5 flex flex-col gap-1">
+      <div class="flex items-center justify-between">
+        <span class="${nameClass}">${esc(item.name)}</span>
+        <span class="font-bold text-ink-text">${formatWeight(item.kg)}</span>
+      </div>
+      ${canConfirm ? `
+        <div class="grid grid-cols-3 gap-1.5 items-center">
+          <input type="text" class="batch-lot-input px-2 py-1 rounded border border-border-subtle bg-surface-card" placeholder="Lote">
+          <input type="number" step="0.001" min="0.001" class="batch-qty-input px-2 py-1 rounded border border-border-subtle bg-surface-card font-bold" value="${item.kg}">
+          <button class="confirm-batch-item-btn min-h-[32px] px-2 rounded bg-bordeaux-primary text-on-primary font-bold hover:bg-wine-deep transition-colors"
+            data-order-id="${esc(g.key)}" data-batch-no="${b.batchNo}" data-item-name="${esc(item.name)}" data-item-kind="${kind}" data-requested="${item.kg}" data-key="${esc(key)}">
+            Confirmar
+          </button>
+        </div>
+      ` : ''}
+    </div>`;
+}
+
+async function renderSeasoningBatches(container, portions) {
   const groups = buildBaseBatches(portions);
 
   if (groups.length === 0) {
@@ -421,20 +477,28 @@ function renderSeasoningBatches(container, portions) {
     return;
   }
 
+  const { map: separations, missingTable } = await loadBaseBatchSeparations(groups.map(g => g.key));
+  const canConfirm = !missingTable;
+
   container.innerHTML = `
     <div class="flex flex-col gap-space-md">
       <div class="p-3 rounded-lg bg-surface-canvas border border-border-subtle text-xs text-text-muted">
         Todos os produtos da OP formam uma massada total com a mesma massa-base (carne + tempero base), sem depender de cadastro.
         A massada é batida em bateladas cheias de <strong class="text-ink-text">${MIXER_MAX_KG} kg</strong>, a capacidade da mexedeira, e a última fica com o restante.
-        Os insumos de cada sabor entram depois, nos kits por porção.
+        Confirme a pesagem e o lote de cada item; os insumos de cada sabor entram depois, nos kits por porção.
       </div>
+      ${missingTable ? `
+        <div class="p-3 rounded-lg bg-badge-warning-bg text-badge-warning-text text-xs font-bold">
+          A confirmação de pesagem e lote ainda não está ativa: rode o arquivo migration_base_batch_separations.sql no SQL Editor do Supabase.
+        </div>
+      ` : ''}
       ${groups.map(g => `
         <div class="bg-surface-card rounded-xl p-space-md shadow-sm border border-border-subtle flex flex-col gap-space-md">
           <div class="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle pb-2">
             <div>
               <span class="text-xs font-bold text-text-muted uppercase">${formatDate(g.order?.production_date)}</span>
-              <h3 class="font-headline-sm text-ink-text">${g.order?.order_code || 'OP'} — Massada Total</h3>
-              <span class="text-xs text-text-muted">${g.flavors.map(f => `${f.name} (${formatWeight(f.kg)})`).join(' • ')}</span>
+              <h3 class="font-headline-sm text-ink-text">${esc(g.order?.order_code || 'OP')} — Massada Total</h3>
+              <span class="text-xs text-text-muted">${g.flavors.map(f => `${esc(f.name)} (${formatWeight(f.kg)})`).join(' • ')}</span>
             </div>
             <div class="flex items-center gap-2 text-xs font-bold">
               <span class="px-2.5 py-1 rounded-full bg-surface-canvas text-ink-text">Massa-base total: ${formatWeight(g.totalKg)}</span>
@@ -443,37 +507,84 @@ function renderSeasoningBatches(container, portions) {
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-sm">
-            ${g.batches.map(b => `
+            ${g.batches.map(b => {
+              const items = [...b.meat.map(m => ({ item: m, kind: 'carne' })), ...b.seasonings.map(t => ({ item: t, kind: 'tempero' }))];
+              const sepOf = it => separations.get(`${g.key}|${b.batchNo}|${it.name}`);
+              const doneCount = items.filter(({ item }) => sepOf(item)).length;
+              const allDone = doneCount === items.length;
+              return `
               <div class="p-3 bg-surface-canvas rounded-lg border border-border-subtle flex flex-col gap-2 text-xs">
                 <div class="flex items-center justify-between font-bold text-ink-text">
                   <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[18px] text-bordeaux-primary">blender</span> Batelada ${b.batchNo} de ${g.batches.length}</span>
                   <span class="text-bordeaux-primary">${formatWeight(b.totalKg)}</span>
                 </div>
-                <table class="w-full">
-                  <tbody class="divide-y divide-border-subtle/50">
-                    ${b.meat.map(m => `
-                      <tr>
-                        <td class="py-1 font-bold text-bordeaux-primary">${m.name}</td>
-                        <td class="py-1 text-right font-bold text-ink-text">${formatWeight(m.kg)}</td>
-                      </tr>
-                    `).join('')}
-                    ${b.seasonings.map(it => `
-                      <tr>
-                        <td class="py-1 text-ink-text">${it.name}</td>
-                        <td class="py-1 text-right font-bold text-ink-text">${formatWeight(it.kg)}</td>
-                      </tr>
-                    `).join('')}
-                  </tbody>
-                </table>
+                <span class="self-start px-2 py-0.5 rounded-full font-bold ${allDone ? 'bg-surface-container-low text-status-success' : 'bg-badge-warning-bg text-badge-warning-text'}">
+                  ${allDone ? 'Batelada separada ✓' : `Separados: ${doneCount} de ${items.length}`}
+                </span>
+                <div class="flex flex-col divide-y divide-border-subtle/50">
+                  ${items.map(({ item, kind }) => batchItemRow(g, b, item, kind, sepOf(item), canConfirm)).join('')}
+                </div>
                 <div class="flex items-center justify-between text-text-muted border-t border-border-subtle pt-1">
                   <span>Carne: <strong class="text-ink-text">${formatWeight(b.meatKg)}</strong></span>
                   <span>Tempero: <strong class="text-ink-text">${formatWeight(b.seasoningKg)}</strong></span>
                 </div>
-              </div>
-            `).join('')}
+              </div>`;
+            }).join('')}
           </div>
         </div>
       `).join('')}
     </div>
   `;
+
+  container.querySelectorAll('.confirm-batch-item-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const button = e.currentTarget;
+      const row = button.parentElement;
+      const lot = row.querySelector('.batch-lot-input')?.value.trim();
+      const qty = parseFloat(row.querySelector('.batch-qty-input')?.value);
+
+      if (!lot) {
+        showNotification('Informe o lote do item.', 'error');
+        return;
+      }
+      if (isNaN(qty) || qty <= 0) {
+        showNotification('Informe uma quantidade pesada válida.', 'error');
+        return;
+      }
+
+      button.disabled = true;
+      try {
+        const { error } = await supabase.from('base_batch_item_separations').insert({
+          production_order_id: button.dataset.orderId,
+          batch_no: Number(button.dataset.batchNo),
+          item_name: button.dataset.itemName,
+          item_kind: button.dataset.itemKind,
+          requested_kg: Number(button.dataset.requested),
+          separated_kg: qty,
+          lot_code: lot
+        });
+        if (error) throw error;
+        showNotification('Pesagem e lote confirmados!', 'success');
+        loadSeparationPortions();
+      } catch (err) {
+        button.disabled = false;
+        showNotification(`Erro ao confirmar pesagem: ${err.message}`, 'error');
+      }
+    });
+  });
+
+  container.querySelectorAll('.undo-batch-item-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const button = e.currentTarget;
+      button.disabled = true;
+      const { error } = await supabase.from('base_batch_item_separations').delete().eq('id', button.dataset.sepId);
+      if (error) {
+        button.disabled = false;
+        showNotification(`Erro ao desfazer pesagem: ${error.message}`, 'error');
+        return;
+      }
+      showNotification('Pesagem desfeita. Pese o item novamente.', 'success');
+      loadSeparationPortions();
+    });
+  });
 }
