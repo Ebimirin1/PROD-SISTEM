@@ -1,6 +1,7 @@
 import { supabase } from '../supabaseClient.js';
 import { opButtonClass, buildOpOptions, resolveSelectedOp, opSelectHtml, refreshOpSelect } from './opFilter.js';
 import { showSeasoningForOrder } from './separation.js';
+import { openFlavorDestinationMap } from './flavorDestinationMap.js';
 import { navigateTo } from '../app.js';
 import { showNotification, renderEmptyState, formatWeight, formatDate, todayLocal, weekdayName, buildOrderCode } from '../utils.js';
 
@@ -16,6 +17,7 @@ async function suggestOrderCode(dateStr) {
 }
 
 let opCodeEdited = false;
+let lastLoadedOps = []; // OPs exibidas no filtro atual (usadas no mapa Sabor × Destino)
 
 let currentFilterMode = 'all'; // 'all', 'day', 'range' ou 'op' (Por Ordem de Produção)
 let selectedOrderId = null;
@@ -38,6 +40,10 @@ export async function render(container) {
           <p class="font-body-md text-body-md text-text-muted">Gestão de OPs consolidadas, demandas por canal, cálculo de receitas e geração de bateladas/porções.</p>
         </div>
         <div class="flex items-center gap-space-sm flex-wrap">
+          <button id="flavor-map-btn" class="min-h-[44px] px-4 rounded-lg bg-surface-card hover:bg-surface-container text-bordeaux-primary border border-border-subtle font-title-md flex items-center gap-2 transition-colors shadow-sm">
+            <span class="material-symbols-outlined text-[20px]">table_view</span>
+            <span>Mapa Sabor × Destino</span>
+          </button>
           <button id="add-op-btn" class="min-h-[44px] px-5 rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md flex items-center gap-2 transition-colors shadow-sm">
             <span class="material-symbols-outlined text-[20px]">add_circle</span>
             <span>Abrir Nova OP</span>
@@ -77,6 +83,14 @@ export async function render(container) {
 
   setupFilterControls();
   renderOPsTab();
+
+  document.getElementById('flavor-map-btn')?.addEventListener('click', () => {
+    const scope = currentFilterMode === 'op' ? `OP ${lastLoadedOps[0]?.order_code || ''}` :
+                  currentFilterMode === 'day' ? `Produção do dia ${formatDate(selectedFilterDate)}` :
+                  currentFilterMode === 'range' ? `Produção de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` :
+                  'Todas as OPs';
+    openFlavorDestinationMap(lastLoadedOps, `${scope} (${lastLoadedOps.length} OP${lastLoadedOps.length === 1 ? '' : 's'})`);
+  });
 }
 
 function setupFilterControls() {
@@ -448,8 +462,9 @@ async function loadOPs() {
     .select(`
       *,
       production_demands (
-        id, planned_kg, destination_key, requested_product_type, requested_conservation,
+        id, planned_kg, destination_key, destination_partner_id, requested_product_type, requested_conservation,
         flavors (name),
+        partners (name),
         formula_versions (id, base_mass_pct, meat_profile_id, formula_ingredients (ratio_pct, unit, ingredients(name)))
       )
     `)
@@ -482,6 +497,7 @@ async function loadOPs() {
   selectedOrderId = resolveSelectedOp(opOptions, selectedOrderId);
   refreshOpSelect('plan-op-select', opOptions, selectedOrderId);
   const ops = currentFilterMode === 'op' ? (allOps || []).filter(o => o.id === selectedOrderId) : allOps;
+  lastLoadedOps = ops || [];
 
   if (!ops || ops.length === 0) {
     container.innerHTML = '';
@@ -556,9 +572,14 @@ async function loadOPs() {
             <div class="flex flex-col gap-space-sm">
               <div class="flex items-center justify-between">
                 <h4 class="font-title-md text-ink-text">Demandas da OP Consolidada</h4>
+                <div class="flex items-center gap-3 flex-wrap justify-end">
+                <button class="op-flavor-map-btn text-xs font-bold text-bordeaux-primary flex items-center gap-1 hover:underline" data-opid="${op.id}">
+                  <span class="material-symbols-outlined text-[16px]">print</span> Mapa Sabor × Destino
+                </button>
                 <button class="add-demand-btn text-xs font-bold text-bordeaux-primary flex items-center gap-1 hover:underline" data-opid="${op.id}">
                   <span class="material-symbols-outlined text-[16px]">add</span> Adicionar Linha de Demanda
                 </button>
+                </div>
               </div>
 
               <div class="overflow-x-auto">
@@ -627,6 +648,14 @@ async function loadOPs() {
     btn.addEventListener('click', (e) => {
       showSeasoningForOrder(e.currentTarget.dataset.id);
       navigateTo('separation');
+    });
+  });
+
+  // Mapa Sabor × Destino de uma OP só
+  container.querySelectorAll('.op-flavor-map-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const op = ops.find(o => o.id === e.currentTarget.dataset.opid);
+      if (op) openFlavorDestinationMap([op], `OP ${op.order_code} · Produção ${weekdayName(op.production_date)}, ${formatDate(op.production_date)}`);
     });
   });
 
