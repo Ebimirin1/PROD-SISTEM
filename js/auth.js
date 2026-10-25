@@ -59,8 +59,21 @@ export function hasPermission(screenKey) {
   return state.permissions.includes(screenKey);
 }
 
-export async function login(email, password) {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+// Usuários cadastrados pelo administrador entram só com o login; no Supabase Auth eles
+// existem como <login>@sgp-industrial.local (ver migration_internal_users.sql).
+// Quem digitar um e-mail completo (ex.: administrador antigo) entra com ele.
+export const INTERNAL_EMAIL_DOMAIN = 'sgp-industrial.local';
+
+export function loginToEmail(loginOrEmail) {
+  const value = loginOrEmail.trim().toLowerCase();
+  return value.includes('@') ? value : `${value}@${INTERNAL_EMAIL_DOMAIN}`;
+}
+
+export async function login(loginOrEmail, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({ email: loginToEmail(loginOrEmail), password });
+  if (error && /invalid login credentials/i.test(error.message)) {
+    throw new Error('Usuário ou senha incorretos.');
+  }
   if (error) {
     throw error;
   }

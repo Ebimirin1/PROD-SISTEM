@@ -8,7 +8,7 @@ Ele utiliza HTML5, CSS (Tailwind via CDN / Material Symbols) e JavaScript ES6+ n
 1. **Segurança de Chaves e Credenciais:**
    - Use no frontend apenas a Project URL e a Publishable Key (`sb_publishable_...`).
    - Nunca expor `service_role`, chaves secretas ou senhas no Git ou no navegador.
-   - Operações administrativas com privilégios elevados devem ser realizadas via Supabase Edge Function (`supabase/functions/invite-user`).
+   - Cadastro e troca de senha de usuários são funções SQL `security definer` que conferem `app_is_admin()` (`migration_internal_users.sql`); não há Edge Function.
 
 2. **Convenções de Código:**
    - Trabalhe na branch `main`.

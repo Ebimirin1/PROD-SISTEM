@@ -1,6 +1,6 @@
 // Lista única das telas do sistema: menu (app.js), permissões do administrador (auth.js)
 // e cadastro de acessos (users.js) leem daqui. Tela nova = uma linha aqui
-// + a chave no CHECK de user_screen_permissions e em VALID_SCREENS da Edge Function invite-user.
+// + a chave no CHECK de user_screen_permissions (schema.sql e uma migration).
 export const SCREENS = [
   { key: 'overview', title: 'Visão Geral', icon: 'grid_view', includes: '' },
   { key: 'planning', title: 'Planejamento', icon: 'calendar_today', includes: 'Ordens de Produção, Mapa Sabor × Destino' },

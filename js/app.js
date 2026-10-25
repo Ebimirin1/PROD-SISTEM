@@ -1,31 +1,15 @@
 import { getCurrentUser, login, logout, state, hasPermission } from './auth.js';
 import { showNotification } from './utils.js';
-import { supabase, authLinkType, authLinkError } from './supabaseClient.js';
 import { SCREENS } from './screens.js';
 
 let currentScreenKey = null;
 
 async function init() {
   setupLoginForm();
-  setupForgotPassword();
-  setupSetPasswordForm();
   setupLogoutButton();
   setupMobileSidebar();
 
-  const user = await getCurrentUser();
-  if (authLinkError && !user) {
-    showLoginModal();
-    showLoginError(`Link de acesso inválido ou vencido (${authLinkError}). Peça um novo convite ou use "Esqueci minha senha".`);
-    return;
-  }
-
-  // Veio do link do convite ou de "Esqueci minha senha": pede a senha antes de abrir o sistema
-  if (user && (authLinkType === 'invite' || authLinkType === 'recovery')) {
-    showSetPasswordModal();
-    return;
-  }
-
-  enterApp(user);
+  enterApp(await getCurrentUser());
 }
 
 function enterApp(user) {
@@ -45,74 +29,6 @@ function enterApp(user) {
       showNotification('Você não possui permissão para acessar nenhuma tela.', 'error');
     }
   }
-}
-
-function showLoginError(message) {
-  const errorDiv = document.getElementById('login-error');
-  if (!errorDiv) return;
-  errorDiv.innerText = message;
-  errorDiv.classList.remove('hidden');
-}
-
-function showSetPasswordModal() {
-  document.getElementById('login-modal')?.classList.add('hidden');
-  document.getElementById('app-container')?.classList.add('hidden');
-  document.getElementById('set-password-modal')?.classList.remove('hidden');
-}
-
-function setupSetPasswordForm() {
-  const form = document.getElementById('set-password-form');
-  const errorDiv = document.getElementById('set-password-error');
-  const submitBtn = document.getElementById('set-password-submit-btn');
-  if (!form) return;
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    errorDiv.classList.add('hidden');
-    const password = document.getElementById('new-password').value;
-    const confirm = document.getElementById('new-password-confirm').value;
-    if (password !== confirm) {
-      errorDiv.innerText = 'As senhas não conferem.';
-      errorDiv.classList.remove('hidden');
-      return;
-    }
-
-    submitBtn.disabled = true;
-    try {
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) throw error;
-      document.getElementById('set-password-modal')?.classList.add('hidden');
-      showNotification('Senha definida! Use este e-mail e senha nos próximos acessos.', 'success');
-      enterApp(await getCurrentUser());
-    } catch (err) {
-      errorDiv.innerText = err.message || 'Não foi possível salvar a senha.';
-      errorDiv.classList.remove('hidden');
-    } finally {
-      submitBtn.disabled = false;
-    }
-  });
-}
-
-function setupForgotPassword() {
-  document.getElementById('forgot-password-btn')?.addEventListener('click', async () => {
-    const infoDiv = document.getElementById('login-info');
-    document.getElementById('login-error')?.classList.add('hidden');
-    const email = document.getElementById('login-email').value.trim();
-    if (!email) {
-      showLoginError('Digite seu e-mail no campo acima e clique de novo em "Esqueci minha senha".');
-      return;
-    }
-
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + window.location.pathname
-    });
-    if (error) {
-      showLoginError(`Não foi possível enviar o e-mail: ${error.message}`);
-      return;
-    }
-    infoDiv.innerText = `Se ${email} estiver cadastrado, um link para definir a senha foi enviado. Confira também a caixa de spam.`;
-    infoDiv.classList.remove('hidden');
-  });
 }
 
 function showLoginModal() {

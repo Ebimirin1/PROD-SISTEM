@@ -18,12 +18,11 @@ Aplicação web para planejamento de produção, cálculo de insumos, acompanham
    -- Arquivo: bootstrap_admin.sql
    ```
 
-### 2. Edge Function para Convite de Usuários
-A função de convite/criação de novos usuários roda em Supabase Edge Functions usando a chave `service_role` (armazenada em Supabase Secrets).
-Para publicar a Edge Function:
-```bash
-supabase functions deploy invite-user --project-ref ywnsowvomewoyedqozuh
-```
+### 2. Cadastro de Usuários (login e senha, sem e-mail)
+Rode `migration_internal_users.sql` no SQL Editor do Supabase. Ele cria as funções `admin_create_user` e
+`admin_set_user_password`, que só funcionam para administrador ativo. Em **Usuários & Acessos** o administrador
+cadastra usuário (login) e senha; a pessoa entra digitando só o login. Por dentro, cada login vira o e-mail
+técnico `<login>@sgp-industrial.local` no Supabase Auth, e nenhum e-mail é enviado. Não há Edge Function.
 
 ### 3. Execução Local & GitHub Pages
 O frontend é composto inteiramente por arquivos estáticos (`index.html`, CSS, JS) e pode ser servido localmente via qualquer servidor estático ou publicado via GitHub Pages:
