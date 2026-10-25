@@ -26,7 +26,7 @@ function getDefaultWeekRange() {
   };
 }
 
-let currentFilterMode = 'all'; // 'all' (Visão Geral), 'day' (Por Dia), 'range' (Por Período / Semana) ou 'op' (Por Ordem de Produção)
+let currentFilterMode = 'op'; // padrão 'op' na OP mais recente; 'all' (Visão Geral), 'day' (Por Dia), 'range' (Por Período / Semana) ou 'op' (Por Ordem de Produção)
 let currentSelectedOrderId = null; // modo 'op' (Por Ordem de Produção)
 let currentSelectedDate = getLocalDateString();  // YYYY-MM-DD (Padrão: Data Local Hoje)
 const defaultWeekRange = getDefaultWeekRange();

@@ -2,7 +2,7 @@ import { supabase } from '../supabaseClient.js';
 import { opButtonClass, buildOpOptions, resolveSelectedOp, opSelectHtml, refreshOpSelect } from './opFilter.js';
 import { showNotification, renderEmptyState, formatWeight, formatDate } from '../utils.js';
 
-let currentFilterMode = 'all'; // 'all', 'day', 'range' ou 'op' (Por Ordem de Produção)
+let currentFilterMode = 'op'; // 'op' (Por Ordem de Produção, padrão: OP mais recente), 'all', 'day' ou 'range'
 let selectedOrderId = null;
 let opOptions = [];
 let selectedFilterDate = new Date().toISOString().split('T')[0];
@@ -513,6 +513,11 @@ async function loadShipmentOrders() {
 
   // Filtro por OP: pedidos que têm lotes separados vindos da OP escolhida
   opOptions = buildOpOptions((allOrders || []).flatMap(o => lotOps(o).map(x => x?.production_orders)));
+  // Sem nenhuma OP, o filtro padrão por OP não tem o que mostrar: volta para Visão Geral
+  if (currentFilterMode === 'op' && !opOptions.length) {
+    document.getElementById('ship-filter-all')?.click();
+    return;
+  }
   selectedOrderId = resolveSelectedOp(opOptions, selectedOrderId);
   refreshOpSelect('ship-op-select', opOptions, selectedOrderId);
   const orders = currentFilterMode === 'op'

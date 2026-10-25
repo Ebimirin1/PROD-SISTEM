@@ -3,7 +3,7 @@ import { opButtonClass, buildOpOptions, resolveSelectedOp, opSelectHtml, refresh
 import { showNotification, renderEmptyState, formatWeight, formatDate } from '../utils.js';
 
 let currentSelectedWeek = 'all'; // 'all' ou 'Semana XX / YYYY'
-let currentFilterMode = 'all'; // 'all', 'day', 'range' ou 'op' (Por Ordem de Produção)
+let currentFilterMode = 'op'; // 'op' (Por Ordem de Produção, padrão: OP mais recente), 'all', 'day' ou 'range'
 let selectedOrderId = null;
 let opOptions = [];
 let selectedFilterDate = new Date().toISOString().split('T')[0];
@@ -319,6 +319,11 @@ async function loadInventory() {
 
   // Filtro por OP: opções vindas dos lotes que têm OP de origem
   opOptions = buildOpOptions((lots || []).map(l => l.production_orders));
+  // Sem nenhuma OP, o filtro padrão por OP não tem o que mostrar: volta para Visão Geral
+  if (currentFilterMode === 'op' && !opOptions.length) {
+    document.getElementById('inv-filter-all')?.click();
+    return;
+  }
   selectedOrderId = resolveSelectedOp(opOptions, selectedOrderId);
   refreshOpSelect('inv-op-select', opOptions, selectedOrderId);
 
