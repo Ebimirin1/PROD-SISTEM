@@ -2,6 +2,7 @@ import { supabase } from '../supabaseClient.js';
 import { opButtonClass, buildOpOptions, resolveSelectedOp, opSelectHtml, refreshOpSelect } from './opFilter.js';
 import { showNotification, renderEmptyState, formatWeight, formatDate } from '../utils.js';
 import { buildBaseBatches, MIXER_MAX_KG } from './seasoningBatches.js';
+import { openIngredientTotals } from './ingredientTotals.js';
 
 let currentView = 'kits'; // 'kits' (Kits por Porção) ou 'temperos' (Bateladas de Massa-Base)
 let currentSeparationTab = 'all'; // 'all', 'in_separation', 'completed'
@@ -296,8 +297,25 @@ async function loadSeparationPortions() {
     filteredPortions = filteredPortions.filter(p => p.isAllSeparated);
   }
 
+  // Barra com o botão do total de insumos somado (usa o filtro de data/OP, todos os status)
+  const totalsBar = () => {
+    if (dateFilteredPortions.length === 0) return null;
+    const bar = document.createElement('div');
+    bar.className = 'flex flex-wrap items-center justify-between gap-2 mb-space-md';
+    bar.innerHTML = `
+      <span class="text-xs text-text-muted">Some os insumos de sabor de todas as porções do filtro numa lista só, para separar ou conferir de uma vez.</span>
+      <button id="sep-ingredient-totals-btn" class="min-h-[40px] px-4 rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-label-md text-label-md font-bold flex items-center gap-2 transition-colors shadow-sm">
+        <span class="material-symbols-outlined text-[20px]">print</span> Total de Insumos (somado)
+      </button>
+    `;
+    bar.querySelector('button').addEventListener('click', () => openIngredientTotals(dateFilteredPortions, filterSubtitle()));
+    return bar;
+  };
+
   if (filteredPortions.length === 0) {
     container.innerHTML = '';
+    const bar = totalsBar();
+    if (bar) container.appendChild(bar);
     const filterText = currentFilterMode === 'op' ? ' para a ordem de produção selecionada' :
                        currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
                        currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
@@ -367,6 +385,8 @@ async function loadSeparationPortions() {
       }).join('')}
     </div>
   `;
+  const bar = totalsBar();
+  if (bar) container.prepend(bar);
 
   container.querySelectorAll('.confirm-separate-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
@@ -402,6 +422,17 @@ async function loadSeparationPortions() {
       }
     });
   });
+}
+
+// Descrição do filtro ativo, usada no cabeçalho do total de insumos (tela e impressão)
+function filterSubtitle() {
+  if (currentFilterMode === 'op') {
+    const op = opOptions.find(o => o.id === selectedOrderId);
+    return op ? `OP ${op.order_code} — ${formatDate(op.production_date)}` : 'Ordem de produção selecionada';
+  }
+  if (currentFilterMode === 'day') return `Produção do dia ${formatDate(selectedFilterDate)}`;
+  if (currentFilterMode === 'range') return `Produção de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}`;
+  return 'Todas as ordens de produção';
 }
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
