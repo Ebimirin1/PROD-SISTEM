@@ -19,7 +19,7 @@ async function suggestOrderCode(dateStr) {
 let opCodeEdited = false;
 let lastLoadedOps = []; // OPs exibidas no filtro atual (usadas no mapa Sabor × Destino)
 
-let currentFilterMode = 'all'; // 'all', 'day', 'range' ou 'op' (Por Ordem de Produção)
+let currentFilterMode = 'op'; // 'op' (Por Ordem de Produção, padrão: OP mais recente), 'all', 'day' ou 'range'
 let selectedOrderId = null;
 let opOptions = [];
 let selectedFilterDate = new Date().toISOString().split('T')[0];
@@ -348,12 +348,14 @@ async function renderOPsTab() {
         if (!updated || updated.length === 0) throw new Error(LOCKED_MSG);
         showNotification('Ordem de Produção atualizada!', 'success');
       } else {
-        const { error } = await supabase.from('production_orders').insert({
+        const { data: created, error } = await supabase.from('production_orders').insert({
           order_code,
           production_date,
           mass_ready_date
-        });
+        }).select('id').single();
         if (error) throw error;
+        // No filtro por OP, já mostra a OP recém-criada
+        if (created?.id) selectedOrderId = created.id;
         showNotification('Ordem de Produção criada com sucesso!', 'success');
       }
       document.getElementById('op-form-container')?.classList.add('hidden');
@@ -520,6 +522,11 @@ async function loadOPs() {
 
   // Filtro por OP: opções vindas da lista carregada; no modo "op" não há filtro de data na consulta
   opOptions = buildOpOptions(allOps);
+  // Sem nenhuma OP, o filtro padrão por OP não tem o que mostrar: volta para Visão Geral
+  if (currentFilterMode === 'op' && !opOptions.length) {
+    document.getElementById('plan-filter-all')?.click();
+    return;
+  }
   selectedOrderId = resolveSelectedOp(opOptions, selectedOrderId);
   refreshOpSelect('plan-op-select', opOptions, selectedOrderId);
   const ops = currentFilterMode === 'op' ? (allOps || []).filter(o => o.id === selectedOrderId) : allOps;

@@ -6,7 +6,7 @@ import { openIngredientTotals } from './ingredientTotals.js';
 
 let currentView = 'kits'; // 'kits' (Kits por Porção) ou 'temperos' (Bateladas de Massa-Base)
 let currentSeparationTab = 'all'; // 'all', 'in_separation', 'completed'
-let currentFilterMode = 'all'; // 'all', 'day', 'range' ou 'op' (Por Ordem de Produção)
+let currentFilterMode = 'op'; // 'op' (Por Ordem de Produção, padrão: OP mais recente), 'all', 'day' ou 'range'
 let selectedOrderId = null;
 let opOptions = [];
 let selectedFilterDate = new Date().toISOString().split('T')[0];
@@ -259,6 +259,11 @@ async function loadSeparationPortions() {
 
   // Opções do filtro por OP: todas as OPs que têm porções (antes de qualquer filtro)
   opOptions = buildOpOptions((portions || []).map(p => p.production_orders));
+  // Sem nenhuma OP, o filtro padrão por OP não tem o que mostrar: volta para Visão Geral
+  if (currentFilterMode === 'op' && !opOptions.length) {
+    document.getElementById('sep-filter-all')?.click();
+    return;
+  }
   selectedOrderId = resolveSelectedOp(opOptions, selectedOrderId);
   refreshOpSelect('sep-op-select', opOptions, selectedOrderId);
 

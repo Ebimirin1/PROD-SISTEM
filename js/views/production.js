@@ -3,7 +3,7 @@ import { opButtonClass, buildOpOptions, resolveSelectedOp, opSelectHtml, refresh
 import { showNotification, renderEmptyState, formatWeight, formatDateTime, formatDate, weekdayName } from '../utils.js';
 import { renderPdvList } from './pdvList.js';
 
-let currentFilterMode = 'all'; // 'all', 'day', 'range' ou 'op' (Por Ordem de Produção)
+let currentFilterMode = 'op'; // 'op' (Por Ordem de Produção, padrão: OP mais recente), 'all', 'day' ou 'range'
 let selectedOrderId = null;
 let opOptions = [];
 // Categorias de produto final (ordem de exibição no embutimento)
@@ -278,6 +278,11 @@ async function loadProductionProcessRuns() {
 
   // Opções do filtro por OP: todas as OPs que têm porções (antes de qualquer filtro)
   opOptions = buildOpOptions((portions || []).map(p => p.production_orders));
+  // Sem nenhuma OP, o filtro padrão por OP não tem o que mostrar: volta para Visão Geral
+  if (currentFilterMode === 'op' && !opOptions.length) {
+    document.getElementById('prod-filter-all')?.click();
+    return;
+  }
   selectedOrderId = resolveSelectedOp(opOptions, selectedOrderId);
   refreshOpSelect('prod-op-select', opOptions, selectedOrderId);
 
