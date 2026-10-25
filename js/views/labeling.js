@@ -361,13 +361,13 @@ async function loadLabelingRuns() {
                     <span class="text-status-success font-bold">${calculatedLabels} Rótulos</span>
                   </div>
 
-                  <div class="flex items-center gap-2 mt-1">
-                    <select id="collab-rot-${rotulagemRun?.id || p.id}" class="flex-1 px-2.5 py-1.5 rounded border border-border-subtle bg-surface-card text-xs font-bold">
+                  <div class="flex flex-wrap items-center gap-2 mt-1">
+                    <select id="collab-rot-${rotulagemRun?.id || p.id}" class="flex-1 min-w-[180px] px-2.5 py-1.5 rounded border border-border-subtle bg-surface-card text-xs font-bold">
                       <option value="">Selecione o Operador de Embalagem</option>
                       ${(collaborators || []).map(c => `<option value="${c.id}">${c.full_name}</option>`).join('')}
                     </select>
 
-                    <button class="confirm-rotulagem-btn px-4 py-1.5 rounded bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-bold transition-colors" data-runid="${rotulagemRun?.id}" data-basekg="${baseKg}">
+                    <button class="confirm-rotulagem-btn shrink-0 px-4 py-1.5 rounded bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-bold transition-colors" data-runid="${rotulagemRun?.id}" data-basekg="${baseKg}">
                       Confirmar Rótulos
                     </button>
                   </div>

@@ -26,7 +26,7 @@ export function showNotification(message, type = 'info') {
   if (!toast) {
     toast = document.createElement('div');
     toast.id = 'system-toast';
-    toast.className = 'fixed bottom-4 right-4 z-50 max-w-md px-4 py-3 rounded-lg shadow-lg text-white font-body-md transition-all duration-300 transform translate-y-full opacity-0';
+    toast.className = 'fixed bottom-4 right-4 left-4 sm:left-auto z-50 max-w-md px-4 py-3 rounded-lg shadow-lg text-white font-body-md transition-all duration-300 transform translate-y-full opacity-0';
     document.body.appendChild(toast);
   }
 
@@ -37,7 +37,7 @@ export function showNotification(message, type = 'info') {
     info: 'bg-status-info'
   };
 
-  toast.className = `fixed bottom-4 right-4 z-50 max-w-md px-4 py-3 rounded-lg shadow-lg text-white font-body-md transition-all duration-300 ${bgClasses[type] || bgClasses.info}`;
+  toast.className = `fixed bottom-4 right-4 left-4 sm:left-auto z-50 max-w-md px-4 py-3 rounded-lg shadow-lg text-white font-body-md transition-all duration-300 ${bgClasses[type] || bgClasses.info}`;
   toast.innerText = message;
 
   requestAnimationFrame(() => {

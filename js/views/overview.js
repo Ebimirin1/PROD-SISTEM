@@ -59,7 +59,7 @@ export async function render(container) {
           <div class="h-6 w-px bg-border-subtle hidden md:block"></div>
 
           <!-- Filtro Modo: Visão Geral, Por Dia vs Por Período / Semana -->
-          <div class="flex items-center gap-1 bg-surface-canvas p-1 rounded-lg border border-border-subtle">
+          <div class="flex flex-wrap items-center gap-1 bg-surface-canvas p-1 rounded-lg border border-border-subtle">
             <button id="filter-btn-all" class="px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}">
               Visão Geral
             </button>
@@ -75,9 +75,9 @@ export async function render(container) {
           </div>
 
           <!-- Seletor de Ordem de Produção (Exibido quando no modo Por Ordem de Produção) -->
-          <div id="op-picker-wrapper" class="${currentFilterMode === 'op' ? 'flex' : 'hidden'} items-center gap-2 bg-surface-canvas px-3 py-1.5 rounded-lg border border-border-subtle">
+          <div id="op-picker-wrapper" class="${currentFilterMode === 'op' ? 'flex' : 'hidden'} max-w-full min-w-0 items-center gap-2 bg-surface-canvas px-3 py-1.5 rounded-lg border border-border-subtle">
             <label for="overview-op-select" class="font-label-sm text-label-sm text-text-muted uppercase">OP:</label>
-            <select id="overview-op-select" class="bg-transparent font-title-md text-title-md text-bordeaux-primary font-bold focus:outline-none cursor-pointer"></select>
+            <select id="overview-op-select" class="min-w-0 max-w-full bg-transparent font-title-md text-title-md text-bordeaux-primary font-bold focus:outline-none cursor-pointer"></select>
           </div>
 
           <!-- Seletor de Data Única (Exibido quando no modo Por Dia) -->
@@ -118,8 +118,8 @@ export async function render(container) {
       <section id="daily-orders-section" class="flex flex-col gap-space-md"></section>
 
       <!-- Modal: Detalhamento da Produção Total por Sabor (Solicitada x Real & Status) -->
-      <div id="production-details-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-space-md">
-        <div class="bg-surface-card rounded-2xl shadow-xl border border-border-subtle max-w-4xl w-full max-h-[90vh] flex flex-col p-space-lg gap-space-md overflow-hidden">
+      <div id="production-details-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-space-md">
+        <div class="bg-surface-card rounded-2xl shadow-xl border border-border-subtle max-w-4xl w-full max-h-[90vh] flex flex-col p-4 sm:p-space-lg gap-space-md overflow-hidden">
           <!-- Header do Modal -->
           <div class="flex items-center justify-between border-b border-border-subtle pb-3">
             <div class="flex items-center gap-2">
@@ -155,8 +155,8 @@ export async function render(container) {
       </div>
 
       <!-- Modal: Detalhamento do Saldo de Estoque por Sabor (Produzidos vs Não Produzidos) -->
-      <div id="stock-details-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-space-md">
-        <div class="bg-surface-card rounded-2xl shadow-xl border border-border-subtle max-w-4xl w-full max-h-[90vh] flex flex-col p-space-lg gap-space-md overflow-hidden">
+      <div id="stock-details-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-space-md">
+        <div class="bg-surface-card rounded-2xl shadow-xl border border-border-subtle max-w-4xl w-full max-h-[90vh] flex flex-col p-4 sm:p-space-lg gap-space-md overflow-hidden">
           <!-- Header do Modal -->
           <div class="flex items-center justify-between border-b border-border-subtle pb-3">
             <div class="flex items-center gap-2">
