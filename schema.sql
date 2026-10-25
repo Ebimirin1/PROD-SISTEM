@@ -11,6 +11,7 @@ begin;
 create table public.app_users (
   user_id uuid primary key references auth.users(id) on delete cascade,
   display_name text not null,
+  login text unique, -- usuário de acesso; funções de cadastro em migration_internal_users.sql
   active boolean not null default true,
   is_admin boolean not null default false,
   created_at timestamptz not null default now(),

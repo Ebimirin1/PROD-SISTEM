@@ -1,7 +1,14 @@
 import { supabase } from '../supabaseClient.js';
-import { SUPABASE_URL } from '../config.js';
 import { showNotification, renderEmptyState } from '../utils.js';
 import { SCREENS, SCREEN_KEYS } from '../screens.js';
+
+// Função ainda não criada no banco → orienta a rodar o SQL
+function rpcErrorMessage(error) {
+  if (error.code === 'PGRST202' || /could not find the function/i.test(error.message || '')) {
+    return 'O banco ainda não tem o cadastro interno. Rode o arquivo migration_internal_users.sql no Supabase (SQL Editor) e tente de novo.';
+  }
+  return error.message;
+}
 
 // Caixas de seleção de telas, com atalho para marcar/desmarcar todas
 function renderScreenChecks(checkClass) {
@@ -55,7 +62,7 @@ export async function render(container) {
       <div class="flex flex-wrap items-center justify-between gap-space-md">
         <div>
           <h1 class="font-display-lg text-display-lg text-ink-text">Usuários & Permissões por Tela</h1>
-          <p class="font-body-md text-body-md text-text-muted">Gerencie permissões individuais dos operários, cadastre novos usuários diretamente com senha ou envie convites por e-mail.</p>
+          <p class="font-body-md text-body-md text-text-muted">Cadastre usuários com login e senha (sem e-mail) e escolha quais telas cada operário pode acessar.</p>
         </div>
         <button id="invite-user-btn" class="min-h-[44px] px-5 rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md flex items-center gap-2 transition-colors shadow-sm">
           <span class="material-symbols-outlined text-[20px]">person_add</span>
@@ -73,13 +80,13 @@ export async function render(container) {
               <input type="text" id="invite-display-name" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold" placeholder="Ex: João da Silva">
             </div>
             <div class="flex flex-col gap-1">
-              <label class="font-label-md text-ink-text font-bold">E-mail do Usuário <span class="text-alert-critical">*</span></label>
-              <input type="email" id="invite-email" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold" placeholder="joao@exemplo.com">
+              <label class="font-label-md text-ink-text font-bold">Usuário (login) <span class="text-alert-critical">*</span></label>
+              <input type="text" id="invite-login" required minlength="3" maxlength="30" pattern="[a-zA-Z0-9._\-]{3,30}" autocomplete="off" autocapitalize="none" class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold" placeholder="Ex: joao.silva">
+              <span class="text-[11px] text-text-muted">Sem espaços nem acentos. É o que a pessoa digita para entrar.</span>
             </div>
             <div class="flex flex-col gap-1">
-              <label class="font-label-md text-ink-text font-bold">Senha Inicial (Opcional)</label>
-              <input type="password" id="invite-password" minlength="6" class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold" placeholder="Definir senha direta">
-              <span class="text-[11px] text-text-muted">Preencha para liberar o acesso imediatamente sem depender de e-mail de confirmação.</span>
+              <label class="font-label-md text-ink-text font-bold">Senha <span class="text-alert-critical">*</span></label>
+              <input type="password" id="invite-password" required minlength="6" autocomplete="new-password" class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold" placeholder="Mínimo 6 caracteres">
             </div>
           </div>
 
@@ -113,7 +120,11 @@ export async function render(container) {
               <label class="font-label-md text-ink-text font-bold">Nome de Exibição</label>
               <input type="text" id="edit-display-name" required class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold">
             </div>
-            <div class="flex items-center gap-2 self-end mb-2">
+            <div class="flex flex-col gap-1">
+              <label class="font-label-md text-ink-text font-bold">Nova Senha</label>
+              <input type="password" id="edit-password" minlength="6" autocomplete="new-password" class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text font-bold" placeholder="Deixe em branco para manter a atual">
+            </div>
+            <div class="flex items-center gap-2">
               <input type="checkbox" id="edit-is-admin" class="w-5 h-5 accent-bordeaux-primary">
               <label for="edit-is-admin" class="font-body-md text-ink-text font-bold">Administrador Geral</label>
             </div>
@@ -144,7 +155,7 @@ export async function render(container) {
 function setupInviteForm() {
   document.getElementById('invite-user-btn')?.addEventListener('click', () => {
     document.getElementById('invite-display-name').value = '';
-    document.getElementById('invite-email').value = '';
+    document.getElementById('invite-login').value = '';
     document.getElementById('invite-password').value = '';
     document.getElementById('invite-is-admin').checked = false;
     document.querySelectorAll('.screen-perm-check').forEach(cb => cb.checked = false);
@@ -163,49 +174,23 @@ function setupInviteForm() {
     submitBtn.disabled = true;
 
     const displayName = document.getElementById('invite-display-name').value.trim();
-    const email = document.getElementById('invite-email').value.trim();
+    const login = document.getElementById('invite-login').value.trim().toLowerCase();
     const password = document.getElementById('invite-password').value;
     const isAdmin = document.getElementById('invite-is-admin').checked;
-
-    const screenPermissions = [];
-    document.querySelectorAll('.screen-perm-check:checked').forEach(cb => {
-      screenPermissions.push(cb.value);
-    });
+    const screenPermissions = isAdmin ? [] : [...document.querySelectorAll('.screen-perm-check:checked')].map(cb => cb.value);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error('Sessão expirada. Entre novamente no sistema.');
-      const functionUrl = `${SUPABASE_URL}/functions/v1/invite-user`;
-
-      // Cadastro somente pela Edge Function: ela confere no servidor se quem chama é administrador.
-      // Não há mais cadastro direto pelo navegador (signUp), que trocava a sessão do administrador.
-      let res;
-      try {
-        res = await fetch(functionUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`
-          },
-          body: JSON.stringify({
-            email,
-            displayName,
-            password: password ? password.trim() : null,
-            isAdmin,
-            screenPermissions,
-            // O link do convite volta para este mesmo endereço, onde a pessoa define a senha
-            redirectTo: window.location.origin + window.location.pathname
-          })
-        });
-      } catch (netErr) {
-        throw new Error('Não foi possível contatar o serviço de cadastro (Edge Function "invite-user"). Verifique se ela está publicada.');
-      }
-
-      const resData = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(resData.error || `Erro ao cadastrar usuário (HTTP ${res.status}).`);
-      }
-      const successMessage = resData.message || 'Usuário cadastrado com sucesso!';
+      // Função no banco (migration_internal_users.sql): confere se quem chama é administrador
+      // e cria o login direto no Supabase Auth, sem e-mail.
+      const { error } = await supabase.rpc('admin_create_user', {
+        p_login: login,
+        p_password: password,
+        p_display_name: displayName,
+        p_is_admin: isAdmin,
+        p_screens: screenPermissions
+      });
+      if (error) throw new Error(rpcErrorMessage(error));
+      const successMessage = `Usuário "${login}" cadastrado. Ele já pode entrar com esse usuário e a senha definida.`;
 
       showNotification(successMessage, 'success');
       document.getElementById('invite-form-container')?.classList.add('hidden');
@@ -228,8 +213,14 @@ function setupEditForm() {
     const userId = document.getElementById('edit-user-id').value;
     const displayName = document.getElementById('edit-display-name').value.trim();
     const isAdmin = document.getElementById('edit-is-admin').checked;
+    const newPassword = document.getElementById('edit-password').value;
 
     try {
+      if (newPassword) {
+        const { error: pwErr } = await supabase.rpc('admin_set_user_password', { p_user_id: userId, p_password: newPassword });
+        if (pwErr) throw new Error(rpcErrorMessage(pwErr));
+      }
+
       const { error: uErr } = await supabase
         .from('app_users')
         .update({ display_name: displayName, is_admin: isAdmin, updated_at: new Date().toISOString() })
@@ -261,7 +252,7 @@ function setupEditForm() {
         .in('screen_key', removedKeys);
       if (dErr) throw dErr;
 
-      showNotification('Permissões do usuário atualizadas com sucesso!', 'success');
+      showNotification(newPassword ? 'Usuário e senha atualizados com sucesso!' : 'Permissões do usuário atualizadas com sucesso!', 'success');
       document.getElementById('edit-user-container')?.classList.add('hidden');
       loadUsers();
     } catch (err) {
@@ -305,6 +296,7 @@ async function loadUsers() {
         <thead class="bg-surface-canvas text-ink-text font-title-md border-b border-border-subtle">
           <tr>
             <th class="py-3 px-4 font-semibold">Nome de Exibição</th>
+            <th class="py-3 px-4 font-semibold">Usuário</th>
             <th class="py-3 px-4 font-semibold">Papel</th>
             <th class="py-3 px-4 font-semibold">Telas Permitidas (Operário)</th>
             <th class="py-3 px-4 font-semibold">Status</th>
@@ -321,6 +313,7 @@ async function loadUsers() {
             return `
               <tr class="hover:bg-surface-canvas/60 transition-colors">
                 <td class="py-3 px-4 font-bold text-ink-text">${u.display_name}</td>
+                <td class="py-3 px-4 font-mono text-xs">${u.login || '<span class="text-text-muted">e-mail</span>'}</td>
                 <td class="py-3 px-4">
                   ${u.is_admin
                     ? `<span class="px-2.5 py-0.5 rounded text-xs font-bold bg-bordeaux-primary text-on-primary">Administrador Geral</span>`
@@ -337,7 +330,7 @@ async function loadUsers() {
                 <td class="py-3 px-4 text-right flex items-center justify-end gap-2">
                   <button class="edit-user-perms-btn px-3 py-1 rounded bg-surface-canvas hover:bg-wine-deep hover:text-on-primary text-bordeaux-primary text-xs font-bold transition-colors"
                           data-userid="${u.user_id}" data-name="${u.display_name}" data-admin="${u.is_admin}" data-perms="${(u.user_screen_permissions || []).map(p => p.screen_key).join(',')}">
-                    Editar Telas
+                    Editar / Senha
                   </button>
                   <button class="toggle-user-active-btn px-3 py-1 rounded border border-border-subtle text-xs font-bold hover:bg-surface-canvas" data-userid="${u.user_id}" data-active="${u.active}">
                     ${u.active ? 'Desativar' : 'Reativar'}
@@ -361,6 +354,7 @@ async function loadUsers() {
 
       document.getElementById('edit-user-id').value = userId;
       document.getElementById('edit-display-name').value = name;
+      document.getElementById('edit-password').value = '';
       document.getElementById('edit-is-admin').checked = isAdmin;
 
       document.querySelectorAll('.edit-perm-check').forEach(cb => {
