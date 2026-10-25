@@ -22,7 +22,7 @@ create table public.user_screen_permissions (
   user_id uuid not null references public.app_users(user_id) on delete cascade,
   screen_key text not null check (screen_key in (
     'overview', 'planning', 'catalogs', 'separation', 'production',
-    'inventory', 'shipping', 'billing', 'users'
+    'labeling', 'inventory', 'shipping', 'billing', 'users'
   )),
   granted_at timestamptz not null default now(),
   granted_by uuid references auth.users(id) on delete set null,
@@ -53,7 +53,10 @@ as $$
       and u.active
       and (u.is_admin or exists (
         select 1 from public.user_screen_permissions p
-        where p.user_id = u.user_id and p.screen_key = p_screen_key
+        where p.user_id = u.user_id
+          -- Contagem de Rótulos usa as tabelas da Produção
+          and (p.screen_key = p_screen_key
+               or (p_screen_key = 'production' and p.screen_key = 'labeling'))
       ))
   );
 $$;

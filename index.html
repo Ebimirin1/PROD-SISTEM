@@ -171,6 +171,40 @@
           <span>Entrar no Sistema</span>
           <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
         </button>
+
+        <button type="button" id="forgot-password-btn" class="self-center text-xs font-bold text-bordeaux-primary hover:underline">Esqueci minha senha / primeiro acesso</button>
+        <div id="login-info" class="hidden p-3 rounded-lg bg-surface-container-low text-ink-text text-xs font-medium"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Definir senha (link de convite ou de redefinição de senha) -->
+  <div id="set-password-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-surface-card rounded-2xl shadow-xl border border-border-subtle max-w-md w-full p-space-lg flex flex-col gap-space-md">
+      <div class="flex flex-col items-center text-center gap-2">
+        <div class="w-12 h-12 rounded-full bg-wine-deep flex items-center justify-center text-on-primary mb-1">
+          <span class="material-symbols-outlined text-[28px]">lock_reset</span>
+        </div>
+        <h2 class="font-headline-sm text-headline-sm text-ink-text">Definir Senha de Acesso</h2>
+        <p class="font-body-md text-body-md text-text-muted">E-mail confirmado. Escolha a senha que você vai usar para entrar no sistema.</p>
+      </div>
+
+      <form id="set-password-form" class="flex flex-col gap-space-md">
+        <div class="flex flex-col gap-1">
+          <label class="font-label-md text-label-md text-ink-text" for="new-password">Nova senha</label>
+          <input type="password" id="new-password" required minlength="6" class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text focus:outline-none focus:border-bordeaux-primary transition-colors" placeholder="Mínimo 6 caracteres">
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="font-label-md text-label-md text-ink-text" for="new-password-confirm">Repita a senha</label>
+          <input type="password" id="new-password-confirm" required minlength="6" class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text focus:outline-none focus:border-bordeaux-primary transition-colors">
+        </div>
+
+        <div id="set-password-error" class="hidden p-3 rounded-lg bg-badge-error-bg text-badge-error-text text-xs font-medium"></div>
+
+        <button type="submit" id="set-password-submit-btn" class="min-h-[44px] w-full rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md transition-all shadow-sm flex items-center justify-center gap-2">
+          <span>Salvar Senha e Entrar</span>
+          <span class="material-symbols-outlined text-[20px]">check_circle</span>
+        </button>
       </form>
     </div>
   </div>

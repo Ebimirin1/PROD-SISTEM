@@ -19,7 +19,7 @@ set is_admin = true, active = true, updated_at = now();
 insert into public.user_screen_permissions (user_id, screen_key)
 select 'e904e5d8-ef54-408a-92a7-8c54994dbcef', unnest(array[
   'overview', 'planning', 'catalogs', 'separation', 'production',
-  'inventory', 'shipping', 'billing', 'users'
+  'labeling', 'inventory', 'shipping', 'billing', 'users'
 ])
 on conflict (user_id, screen_key) do nothing;
 

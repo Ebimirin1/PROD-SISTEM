@@ -10,7 +10,7 @@ const corsHeaders = {
 // Telas aceitas pelo CHECK de public.user_screen_permissions (schema.sql)
 const VALID_SCREENS = [
   'overview', 'planning', 'catalogs', 'separation', 'production',
-  'inventory', 'shipping', 'billing', 'users',
+  'labeling', 'inventory', 'shipping', 'billing', 'users',
 ];
 
 function json(body: unknown, status = 200) {
@@ -67,7 +67,7 @@ serve(async (req) => {
     }
 
     // 2. Validação da entrada
-    const { email, displayName, screenPermissions, isAdmin, password } = await req.json();
+    const { email, displayName, screenPermissions, isAdmin, password, redirectTo } = await req.json();
 
     const cleanEmail = typeof email === 'string' ? email.trim() : '';
     const cleanName = typeof displayName === 'string' ? displayName.trim() : '';
@@ -96,8 +96,25 @@ serve(async (req) => {
       if (authError) return json({ error: authError.message }, 400);
       userId = authData.user.id;
     } else {
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(cleanEmail);
-      if (authError) return json({ error: authError.message }, 400);
+      // redirectTo = endereço do sistema (GitHub Pages). Precisa estar em
+      // Authentication > URL Configuration > Redirect URLs; senão o Supabase usa o Site URL.
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(cleanEmail, {
+        data: { name: cleanName },
+        redirectTo: typeof redirectTo === 'string' && redirectTo.startsWith('http') ? redirectTo : undefined,
+      });
+      if (authError) {
+        const lower = authError.message.toLowerCase();
+        if (lower.includes('rate limit')) {
+          return json({ error: 'Limite de envio de e-mails do Supabase atingido. Configure um SMTP próprio (Authentication > Emails > SMTP Settings) ou cadastre com senha inicial.' }, 429);
+        }
+        if (lower.includes('already been registered') || lower.includes('already registered')) {
+          return json({ error: 'Este e-mail já está cadastrado no sistema.' }, 400);
+        }
+        if (lower.includes('sending') || lower.includes('smtp')) {
+          return json({ error: `O Supabase não conseguiu enviar o e-mail (${authError.message}). Verifique o SMTP em Authentication > Emails.` }, 502);
+        }
+        return json({ error: authError.message }, 400);
+      }
       userId = authData.user.id;
     }
 
@@ -136,7 +153,7 @@ serve(async (req) => {
 
     const message = (cleanPassword
       ? 'Usuário cadastrado com sucesso com senha direta.'
-      : 'Convite enviado e permissões atribuídas com sucesso.') + permWarning;
+      : `Convite enviado para ${cleanEmail}. A pessoa deve abrir o link do e-mail para definir a senha.`) + permWarning;
 
     return json({ message, userId });
   } catch (error) {
