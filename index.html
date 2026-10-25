@@ -130,6 +130,15 @@
       body { overscroll-behavior: none; }
     }
     ::-webkit-scrollbar { display: none; }
+
+    /* Mobile web: evita que tabelas, gráficos e textos longos alarguem a página */
+    @media (max-width: 1023px) {
+      body.sidebar-open { overflow: hidden; }
+    }
+    @media (max-width: 639px) {
+      #main-content table { font-size: 0.8125rem; }
+      #main-content th, #main-content td { white-space: nowrap; }
+    }
   </style>
 </head>
 <body class="bg-surface-canvas font-body-md text-ink-text min-h-screen">
@@ -169,17 +178,23 @@
   <!-- Estrutura Principal da Aplicação -->
   <div id="app-container" class="hidden min-h-screen">
     <!-- Sidebar Navigation -->
-    <aside class="fixed left-0 top-0 h-full w-64 bg-wine-deep z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
-      <div class="flex flex-col">
+    <!-- Fundo escuro do menu lateral no mobile -->
+    <div id="sidebar-overlay" class="hidden fixed inset-0 z-40 bg-black/50 lg:hidden"></div>
+
+    <aside id="app-sidebar" class="fixed left-0 top-0 h-full w-64 max-w-[85vw] bg-wine-deep z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)] -translate-x-full lg:translate-x-0 transition-transform duration-200">
+      <div class="flex flex-col min-h-0">
         <div class="h-16 px-space-md flex items-center gap-space-sm border-b border-white/10">
           <span class="material-symbols-outlined text-on-primary text-[28px]">factory</span>
-          <div class="flex flex-col">
-            <span class="font-title-md text-title-md text-on-primary leading-tight">SGP Industrial</span>
-            <span class="font-label-sm text-label-sm text-white/70 uppercase tracking-wider">Chão de Fábrica</span>
+          <div class="flex flex-col flex-1 min-w-0">
+            <span class="font-title-md text-title-md text-on-primary leading-tight truncate">SGP Industrial</span>
+            <span class="font-label-sm text-label-sm text-white/70 uppercase tracking-wider truncate">Chão de Fábrica</span>
           </div>
+          <button type="button" id="sidebar-close-btn" class="lg:hidden w-10 h-10 -mr-2 rounded-lg text-on-primary hover:bg-white/10 flex items-center justify-center" aria-label="Fechar menu">
+            <span class="material-symbols-outlined text-[22px]">close</span>
+          </button>
         </div>
 
-        <nav id="sidebar-nav" class="flex flex-col gap-1 p-space-sm overflow-y-auto">
+        <nav id="sidebar-nav" class="flex flex-col gap-1 p-space-sm overflow-y-auto min-h-0">
           <!-- Links de Navegação serão preenchidos dinamicamente pelo JS -->
         </nav>
       </div>
@@ -197,32 +212,35 @@
     </aside>
 
     <!-- Main Workspace Area -->
-    <div class="pl-64">
-      <header class="fixed top-0 left-64 right-0 h-16 bg-surface-card shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-space-lg">
-        <div class="flex items-center gap-space-md">
-          <span class="material-symbols-outlined text-[20px] text-bordeaux-primary">precision_manufacturing</span>
-          <span id="current-screen-title" class="font-title-lg text-title-lg text-ink-text">Visão Geral</span>
+    <div class="lg:pl-64">
+      <header class="fixed top-0 left-0 lg:left-64 right-0 h-16 bg-surface-card shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-30 flex items-center justify-between gap-2 px-3 sm:px-space-lg">
+        <div class="flex items-center gap-2 sm:gap-space-md min-w-0">
+          <button type="button" id="sidebar-open-btn" class="lg:hidden w-10 h-10 -ml-1 shrink-0 rounded-lg text-ink-text hover:bg-surface-canvas flex items-center justify-center" aria-label="Abrir menu">
+            <span class="material-symbols-outlined text-[24px]">menu</span>
+          </button>
+          <span class="hidden sm:inline material-symbols-outlined text-[20px] text-bordeaux-primary">precision_manufacturing</span>
+          <span id="current-screen-title" class="font-title-lg text-title-lg text-ink-text truncate">Visão Geral</span>
         </div>
 
-        <div class="flex items-center gap-space-md">
-          <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-canvas">
+        <div class="flex items-center gap-space-md shrink-0">
+          <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-canvas">
             <span class="w-2.5 h-2.5 rounded-full bg-status-success animate-pulse"></span>
             <span class="font-label-md text-label-md text-status-success">SISTEMA ONLINE</span>
           </div>
-          <div class="h-6 w-px bg-border-subtle"></div>
+          <div class="hidden md:block h-6 w-px bg-border-subtle"></div>
           <div class="flex items-center gap-space-sm">
-            <div class="flex flex-col text-right">
+            <div class="hidden sm:flex flex-col text-right">
               <span id="user-display-name" class="font-title-md text-title-md text-ink-text leading-none">Usuário</span>
               <span id="user-role-label" class="font-label-sm text-label-sm text-text-muted leading-tight">Operador</span>
             </div>
-            <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary font-bold">
+            <div class="w-8 h-8 shrink-0 rounded-full bg-primary flex items-center justify-center text-on-primary font-bold">
               <span class="material-symbols-outlined text-[18px]">person</span>
             </div>
           </div>
         </div>
       </header>
 
-      <main id="main-content" class="w-full pt-16 bg-surface-canvas min-h-screen p-space-lg max-w-[1720px] mx-auto">
+      <main id="main-content" class="w-full pt-16 bg-surface-canvas min-h-screen px-3 pb-6 sm:px-space-lg sm:pb-space-lg max-w-[1720px] mx-auto overflow-x-hidden">
         <!-- Renderização dinâmica das visões -->
       </main>
     </div>

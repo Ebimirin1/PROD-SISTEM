@@ -35,9 +35,9 @@ function optionsHtml(options, selectedId) {
 
 export function opSelectHtml(selectId, options, selectedId) {
   return `
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2 max-w-full min-w-0">
       <label for="${selectId}" class="text-xs font-bold text-ink-text">Ordem de Produção:</label>
-      <select id="${selectId}" class="min-h-[36px] px-3 rounded-lg border border-border-subtle bg-surface-card text-xs font-bold text-ink-text focus:outline-none focus:border-bordeaux-primary">${optionsHtml(options, selectedId)}</select>
+      <select id="${selectId}" class="min-w-0 max-w-full min-h-[36px] px-3 rounded-lg border border-border-subtle bg-surface-card text-xs font-bold text-ink-text focus:outline-none focus:border-bordeaux-primary">${optionsHtml(options, selectedId)}</select>
     </div>`;
 }
 

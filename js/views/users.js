@@ -264,7 +264,7 @@ async function loadUsers() {
   }
 
   container.innerHTML = `
-    <div class="bg-surface-card rounded-xl shadow-sm border border-border-subtle overflow-hidden">
+    <div class="bg-surface-card rounded-xl shadow-sm border border-border-subtle overflow-x-auto">
       <table class="w-full text-left font-body-md">
         <thead class="bg-surface-canvas text-ink-text font-title-md border-b border-border-subtle">
           <tr>

@@ -20,6 +20,7 @@ let currentScreenKey = null;
 async function init() {
   setupLoginForm();
   setupLogoutButton();
+  setupMobileSidebar();
 
   const user = await getCurrentUser();
   if (!user) {
@@ -86,6 +87,19 @@ function setupLogoutButton() {
   });
 }
 
+// Menu lateral recolhível em telas pequenas (no desktop ele fica sempre visível)
+function setupMobileSidebar() {
+  document.getElementById('sidebar-open-btn')?.addEventListener('click', () => toggleMobileSidebar(true));
+  document.getElementById('sidebar-close-btn')?.addEventListener('click', () => toggleMobileSidebar(false));
+  document.getElementById('sidebar-overlay')?.addEventListener('click', () => toggleMobileSidebar(false));
+}
+
+function toggleMobileSidebar(open) {
+  document.getElementById('app-sidebar')?.classList.toggle('-translate-x-full', !open);
+  document.getElementById('sidebar-overlay')?.classList.toggle('hidden', !open);
+  document.body.classList.toggle('sidebar-open', open);
+}
+
 function renderAppShell() {
   const user = state.appUser;
   if (user) {
@@ -129,6 +143,7 @@ export async function navigateTo(screenKey) {
 
   currentScreenKey = screenKey;
   window.location.hash = screenKey;
+  toggleMobileSidebar(false);
 
   const screenConfig = SCREENS.find(s => s.key === screenKey);
   if (!screenConfig) return;
