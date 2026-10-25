@@ -404,7 +404,8 @@ async function renderFormulasTab() {
 
       <!-- Form para criar nova formulação -->
       <div id="formula-form-container" class="hidden bg-surface-card p-space-lg rounded-xl border border-border-subtle shadow-sm flex flex-col gap-space-md">
-        <h3 class="font-title-lg text-title-lg text-ink-text">Cadastrar Nova Versão de Receita</h3>
+        <h3 id="formula-form-title" class="font-title-lg text-title-lg text-ink-text">Cadastrar Nova Versão de Receita</h3>
+        <p id="formula-form-hint" class="hidden font-body-sm text-text-muted"></p>
         <form id="formula-form" class="flex flex-col gap-space-md">
           <div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
             <div class="flex flex-col gap-1">
@@ -445,7 +446,7 @@ async function renderFormulasTab() {
 
           <div class="flex items-center gap-2 justify-end">
             <button type="button" id="formula-cancel-btn" class="min-h-[44px] px-4 rounded-lg bg-surface-canvas hover:bg-surface-variant text-ink-text font-title-md">Cancelar</button>
-            <button type="submit" class="min-h-[44px] px-5 rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md">Salvar Rascunho</button>
+            <button type="submit" id="formula-submit-btn" class="min-h-[44px] px-5 rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md">Salvar Rascunho</button>
           </div>
         </form>
       </div>
@@ -460,15 +461,11 @@ async function renderFormulasTab() {
   const form = document.getElementById('formula-form');
   const addLineBtn = document.getElementById('add-formula-line-btn');
 
-  addBtn?.addEventListener('click', async () => {
-    await populateFormulaDropdowns();
-    document.getElementById('formula-lines-container').innerHTML = '';
-    formContainer?.classList.remove('hidden');
-    updateFormulaSum();
-  });
+  addBtn?.addEventListener('click', () => openFormulaForm('new'));
 
   cancelBtn?.addEventListener('click', () => {
     formContainer?.classList.add('hidden');
+    formulaFormState = { mode: 'new', version: null };
   });
 
   addLineBtn?.addEventListener('click', async () => {
@@ -484,11 +481,6 @@ async function renderFormulasTab() {
     const base_mass_pct = parseFloat(document.getElementById('formula-base-mass-pct').value) || 0;
     const source_note = document.getElementById('formula-source-note').value.trim();
 
-    // Calcular versão de número
-    const { data: existingVersions } = await supabase.from('formula_versions').select('version_no').eq('flavor_id', flavor_id);
-    const maxVer = (existingVersions || []).reduce((max, v) => Math.max(max, v.version_no), 0);
-    const version_no = maxVer + 1;
-
     // Coletar linhas
     const lineRows = document.querySelectorAll('.formula-line-row');
     const ingredients = [];
@@ -503,6 +495,47 @@ async function renderFormulasTab() {
         linesSum += ratio_pct;
       }
     });
+
+    const ingredientIds = ingredients.map(i => i.ingredient_id);
+    if (new Set(ingredientIds).size !== ingredientIds.length) {
+      showNotification('O mesmo insumo aparece mais de uma vez. Junte as proporções em uma linha só.', 'error');
+      return;
+    }
+
+    // Editar rascunho existente: atualiza a versão e regrava as linhas
+    if (formulaFormState.mode === 'edit' && formulaFormState.version) {
+      const versionId = formulaFormState.version.id;
+      try {
+        const { error: vErr } = await supabase.from('formula_versions').update({
+          meat_profile_id,
+          base_mass_pct,
+          source_note
+        }).eq('id', versionId).eq('status', 'draft');
+        if (vErr) throw vErr;
+
+        const { error: dErr } = await supabase.from('formula_ingredients').delete().eq('formula_version_id', versionId);
+        if (dErr) throw dErr;
+
+        if (ingredients.length > 0) {
+          const rows = ingredients.map(i => ({ ...i, formula_version_id: versionId }));
+          const { error: iErr } = await supabase.from('formula_ingredients').insert(rows);
+          if (iErr) throw iErr;
+        }
+
+        showNotification(`Rascunho v${formulaFormState.version.version_no} atualizado!`, 'success');
+        formContainer?.classList.add('hidden');
+        formulaFormState = { mode: 'new', version: null };
+        loadFormulas();
+      } catch (err) {
+        showNotification(`Erro ao atualizar rascunho: ${err.message}`, 'error');
+      }
+      return;
+    }
+
+    // Calcular versão de número
+    const { data: existingVersions } = await supabase.from('formula_versions').select('version_no').eq('flavor_id', flavor_id);
+    const maxVer = (existingVersions || []).reduce((max, v) => Math.max(max, v.version_no), 0);
+    const version_no = maxVer + 1;
 
     try {
       // 1. Criar versão como draft
@@ -526,6 +559,7 @@ async function renderFormulasTab() {
 
       showNotification(`Formulação Rascunho (v${version_no}) salva com sucesso!`, 'success');
       formContainer?.classList.add('hidden');
+      formulaFormState = { mode: 'new', version: null };
       loadFormulas();
     } catch (err) {
       showNotification(`Erro ao salvar formulação: ${err.message}`, 'error');
@@ -533,6 +567,56 @@ async function renderFormulasTab() {
   });
 
   loadFormulas();
+}
+
+// mode: 'new' (receita em branco), 'edit' (altera um rascunho) ou
+// 'clone' (nova versão em rascunho a partir de uma receita ativa/arquivada)
+let formulaFormState = { mode: 'new', version: null };
+
+async function openFormulaForm(mode, version = null) {
+  formulaFormState = { mode, version };
+  const formContainer = document.getElementById('formula-form-container');
+  const title = document.getElementById('formula-form-title');
+  const hint = document.getElementById('formula-form-hint');
+  const submitBtn = document.getElementById('formula-submit-btn');
+  const flavorSelect = document.getElementById('formula-flavor-id');
+  const linesContainer = document.getElementById('formula-lines-container');
+
+  await populateFormulaDropdowns();
+  linesContainer.innerHTML = '';
+
+  if (mode === 'new' || !version) {
+    title.innerText = 'Cadastrar Nova Versão de Receita';
+    hint.classList.add('hidden');
+    submitBtn.innerText = 'Salvar Rascunho';
+    flavorSelect.disabled = false;
+    document.getElementById('formula-base-mass-pct').value = '90.00';
+    document.getElementById('formula-source-note').value = '';
+  } else {
+    const flavorName = version.flavors?.name || 'Sabor';
+    if (mode === 'edit') {
+      title.innerText = `Editar Rascunho — ${flavorName} v${version.version_no}`;
+      hint.innerText = 'O sabor não muda no rascunho. Para outro sabor, crie uma nova formulação.';
+      submitBtn.innerText = 'Salvar Alterações';
+    } else {
+      title.innerText = `Nova Versão — ${flavorName} (a partir da v${version.version_no})`;
+      hint.innerText = 'A receita ativa não é alterada. Isto cria uma nova versão em rascunho; ao ativá-la, a versão atual é arquivada e continua no histórico das ordens que já a usaram.';
+      submitBtn.innerText = 'Salvar Nova Versão (Rascunho)';
+    }
+    hint.classList.remove('hidden');
+    flavorSelect.value = version.flavor_id;
+    flavorSelect.disabled = true;
+    document.getElementById('formula-profile-id').value = version.meat_profile_id;
+    document.getElementById('formula-base-mass-pct').value = Number(version.base_mass_pct).toFixed(2);
+    document.getElementById('formula-source-note').value = version.source_note || '';
+    for (const fi of version.formula_ingredients || []) {
+      await addFormulaIngredientRow(fi);
+    }
+  }
+
+  formContainer?.classList.remove('hidden');
+  formContainer?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  updateFormulaSum();
 }
 
 async function populateFormulaDropdowns() {
@@ -550,7 +634,7 @@ async function populateFormulaDropdowns() {
   }
 }
 
-async function addFormulaIngredientRow() {
+async function addFormulaIngredientRow(prefill = null) {
   const container = document.getElementById('formula-lines-container');
   if (!container) return;
 
@@ -581,6 +665,12 @@ async function addFormulaIngredientRow() {
       <button type="button" class="remove-line-btn p-2 rounded hover:bg-badge-error-bg text-alert-critical"><span class="material-symbols-outlined text-[20px]">delete</span></button>
     </div>
   `;
+
+  if (prefill) {
+    row.querySelector('.line-ingredient-select').value = prefill.ingredient_id;
+    row.querySelector('.line-ratio-input').value = prefill.ratio_pct;
+    row.querySelector('.line-unit-select').value = prefill.unit;
+  }
 
   row.querySelector('.line-ratio-input')?.addEventListener('input', updateFormulaSum);
   row.querySelector('.remove-line-btn')?.addEventListener('click', () => {
@@ -628,7 +718,7 @@ async function loadFormulas() {
       flavors (name),
       meat_profiles (name),
       formula_ingredients (
-        ratio_pct, unit,
+        ingredient_id, ratio_pct, unit,
         ingredients (name)
       )
     `)
@@ -693,9 +783,12 @@ async function loadFormulas() {
 
             <div class="flex items-center justify-between border-t border-border-subtle pt-2">
               <span class="text-[11px] text-text-muted">${v.source_note || 'Sem observações'}</span>
-              ${v.status === 'draft'
-                ? `<button class="activate-formula-btn px-3 py-1.5 rounded bg-bordeaux-primary text-on-primary font-label-md hover:bg-wine-deep transition-colors" data-id="${v.id}">Ativar Receita</button>`
-                : ''}
+              <div class="flex items-center gap-2 shrink-0">
+                ${v.status === 'draft'
+                  ? `<button class="edit-formula-btn px-3 py-1.5 rounded bg-surface-canvas hover:bg-surface-variant text-bordeaux-primary font-label-md flex items-center gap-1" data-id="${v.id}"><span class="material-symbols-outlined text-[18px]">edit</span>Editar</button>
+                     <button class="activate-formula-btn px-3 py-1.5 rounded bg-bordeaux-primary text-on-primary font-label-md hover:bg-wine-deep transition-colors" data-id="${v.id}">Ativar Receita</button>`
+                  : `<button class="clone-formula-btn px-3 py-1.5 rounded bg-surface-canvas hover:bg-surface-variant text-bordeaux-primary font-label-md flex items-center gap-1" data-id="${v.id}"><span class="material-symbols-outlined text-[18px]">edit_note</span>Editar (nova versão)</button>`}
+              </div>
             </div>
           </div>
         `;
@@ -703,13 +796,47 @@ async function loadFormulas() {
     </div>
   `;
 
+  const versionsById = Object.fromEntries(versions.map(v => [v.id, v]));
+
+  container.querySelectorAll('.edit-formula-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => openFormulaForm('edit', versionsById[e.currentTarget.dataset.id]));
+  });
+
+  container.querySelectorAll('.clone-formula-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => openFormulaForm('clone', versionsById[e.currentTarget.dataset.id]));
+  });
+
   container.querySelectorAll('.activate-formula-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
-      const id = e.currentTarget.dataset.id;
+      const draft = versionsById[e.currentTarget.dataset.id];
+      const ingredientsSum = (draft.formula_ingredients || []).reduce((sum, fi) => sum + Number(fi.ratio_pct), 0);
+      const total = Number(draft.base_mass_pct) + ingredientsSum;
+      if (Math.abs(total - 100) > 0.01) {
+        showNotification(`A receita precisa somar 100.00% para ser ativada. Soma atual: ${total.toFixed(2)}%`, 'error');
+        return;
+      }
+
+      // Só pode haver uma versão ativa por sabor: a atual é arquivada antes
+      const previous = versions.find(v => v.flavor_id === draft.flavor_id && v.status === 'active' && v.id !== draft.id);
+      if (previous && !confirm(`A versão v${previous.version_no} de ${draft.flavors?.name} está ativa e será arquivada. Ativar a v${draft.version_no}?`)) {
+        return;
+      }
+
       try {
-        const { error } = await supabase.from('formula_versions').update({ status: 'active' }).eq('id', id);
-        if (error) throw error;
-        showNotification('Formulação ativada com sucesso!', 'success');
+        if (previous) {
+          const { error: aErr } = await supabase.from('formula_versions').update({ status: 'archived' }).eq('id', previous.id);
+          if (aErr) throw aErr;
+        }
+        const { error } = await supabase.from('formula_versions').update({ status: 'active' }).eq('id', draft.id);
+        if (error) {
+          if (previous) {
+            await supabase.from('formula_versions').update({ status: 'active' }).eq('id', previous.id);
+          }
+          throw error;
+        }
+        showNotification(previous
+          ? `v${draft.version_no} ativada. A v${previous.version_no} foi arquivada.`
+          : 'Formulação ativada com sucesso!', 'success');
         loadFormulas();
       } catch (err) {
         showNotification(`Erro ao ativar formulação: ${err.message}`, 'error');
