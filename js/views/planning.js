@@ -2,6 +2,7 @@ import { supabase } from '../supabaseClient.js';
 import { opButtonClass, buildOpOptions, resolveSelectedOp, opSelectHtml, refreshOpSelect } from './opFilter.js';
 import { showSeasoningForOrder } from './separation.js';
 import { openFlavorDestinationMap } from './flavorDestinationMap.js';
+import { openDemandGrid, closeDemandGrid } from './demandGrid.js';
 import { navigateTo } from '../app.js';
 import { showNotification, renderEmptyState, formatWeight, formatDate, todayLocal, weekdayName, buildOrderCode } from '../utils.js';
 
@@ -297,6 +298,9 @@ async function renderOPsTab() {
         </form>
       </div>
 
+      <!-- Lançamento de pedido em grade (destino uma vez + kg por sabor × tipo/conservação) -->
+      <div id="demand-grid-container" class="hidden bg-surface-card p-space-lg rounded-xl border border-border-subtle shadow-sm"></div>
+
       <div id="ops-list-container"></div>
     </div>
   `;
@@ -319,6 +323,7 @@ async function renderOPsTab() {
     document.getElementById('op-mass-ready-date').value = today;
     document.getElementById('op-form-container')?.classList.remove('hidden');
     document.getElementById('demand-form-container')?.classList.add('hidden');
+    closeDemandGrid();
     await refreshOpCode();
   });
 
@@ -613,6 +618,9 @@ async function loadOPs() {
                   <span class="material-symbols-outlined text-[16px]">print</span> Mapa Sabor × Destino
                 </button>
                 ${!generated ? `
+                <button class="demand-grid-btn text-xs font-bold text-bordeaux-primary flex items-center gap-1 hover:underline" data-opid="${op.id}">
+                  <span class="material-symbols-outlined text-[16px]">grid_on</span> Lançar Pedido (Grade)
+                </button>
                 <button class="add-demand-btn text-xs font-bold text-bordeaux-primary flex items-center gap-1 hover:underline" data-opid="${op.id}">
                   <span class="material-symbols-outlined text-[16px]">add</span> Adicionar Linha de Demanda
                 </button>
@@ -717,6 +725,32 @@ async function loadOPs() {
     btn.addEventListener('click', async (e) => {
       const opId = e.currentTarget.dataset.opid;
       await openAddDemandModal(opId);
+    });
+  });
+
+  // Lançamento em grade: destino uma vez e kg por sabor × tipo/conservação
+  container.querySelectorAll('.demand-grid-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const op = ops.find(o => o.id === e.currentTarget.dataset.opid);
+      if (!op) return;
+      await openDemandGrid({
+        production_order_id: op.id,
+        order_code: op.order_code,
+        demands: op.production_demands || [],
+        assertOpEditable,
+        onSaved: async () => {
+          loadOPs();
+          const { data, error } = await supabase
+            .from('production_demands')
+            .select('id, flavor_id, planned_kg, destination_key, destination_partner_id, requested_product_type, requested_conservation, notes')
+            .eq('production_order_id', op.id);
+          if (error) {
+            showNotification(`Erro ao recarregar demandas: ${error.message}`, 'error');
+            return null;
+          }
+          return data;
+        }
+      });
     });
   });
 
@@ -842,6 +876,7 @@ async function openAddDemandModal(production_order_id, demand = null) {
   }
 
   document.getElementById('op-form-container')?.classList.add('hidden');
+  closeDemandGrid();
   formContainer?.classList.remove('hidden');
   formContainer?.scrollIntoView({ behavior: 'smooth' });
 }
