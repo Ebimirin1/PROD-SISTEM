@@ -1,6 +1,8 @@
 import { supabase } from './supabaseClient.js';
 import { showNotification } from './utils.js';
 import { SCREEN_KEYS } from './screens.js';
+import { IS_LOCAL_SERVER } from './config.js';
+import { getLocalSession, saveLocalSession, clearLocalSession } from './localSession.js';
 
 export const state = {
   user: null,
@@ -9,7 +11,9 @@ export const state = {
 };
 
 export async function getCurrentUser() {
-  const { data: { session } } = await supabase.auth.getSession();
+  const session = IS_LOCAL_SERVER
+    ? getLocalSession()
+    : (await supabase.auth.getSession()).data.session;
   if (!session) {
     state.user = null;
     state.appUser = null;
@@ -70,6 +74,17 @@ export function loginToEmail(loginOrEmail) {
 }
 
 export async function login(loginOrEmail, password) {
+  if (IS_LOCAL_SERVER) {
+    // Servidor local: public.login (servidor-local/02_depois_da_importacao.sql) devolve o token
+    const { data, error } = await supabase.rpc('login', { p_email: loginToEmail(loginOrEmail), p_password: password });
+    if (error) {
+      throw new Error(error.message || 'Não foi possível entrar.');
+    }
+    saveLocalSession(data);
+    await getCurrentUser();
+    return data;
+  }
+
   const { data, error } = await supabase.auth.signInWithPassword({ email: loginToEmail(loginOrEmail), password });
   if (error && /invalid login credentials/i.test(error.message)) {
     throw new Error('Usuário ou senha incorretos.');
@@ -82,7 +97,11 @@ export async function login(loginOrEmail, password) {
 }
 
 export async function logout() {
-  await supabase.auth.signOut();
+  if (IS_LOCAL_SERVER) {
+    clearLocalSession();
+  } else {
+    await supabase.auth.signOut();
+  }
   state.user = null;
   state.appUser = null;
   state.permissions = [];
