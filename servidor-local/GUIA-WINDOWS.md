@@ -15,7 +15,7 @@ Computadores da fábrica ──► http://SERVIDOR:8080 ──► Caddy ─┬�
 | **PostgREST** | a mesma API de tabelas que o Supabase usava | tarefa agendada, liga com o Windows |
 | **Caddy** | mostra o app e repassa a API, tudo na porta 8080 | tarefa agendada, liga com o Windows |
 
-O login deixa de ser do Supabase: ele passa a ser a função `public.login` do próprio banco. **Usuários e senhas continuam os mesmos.** Para rodar SQL à mão, use o **pgAdmin** (vem junto com o PostgreSQL), no lugar do SQL Editor do Supabase.
+O login deixa de ser do Supabase: ele passa a ser a função `public.login` do próprio banco. **Usuários e senhas continuam os mesmos.** Para rodar SQL à mão, use o **HeidiSQL** (tipo de rede "PostgreSQL (TCP/IP)", servidor 127.0.0.1, usuário postgres, banco sgp) ou o pgAdmin, que vem junto com o PostgreSQL, no lugar do SQL Editor do Supabase.
 
 Todos os arquivos citados aqui estão na pasta `servidor-local/` do repositório.
 
@@ -92,7 +92,7 @@ Troque o `host=` pelo que você anotou. Ao final, `C:\SGP\migracao` deve ter `sg
 $env:PGPASSWORD = "SENHA_DO_POSTGRES_LOCAL"   # a do Passo 1
 $LOCAL = "host=127.0.0.1 port=5432 user=postgres dbname=sgp"
 
-psql -h 127.0.0.1 -U postgres -d postgres -c "create database sgp"
+psql -h 127.0.0.1 -U postgres -d postgres -c "create database sgp encoding 'UTF8' template template0"
 psql -d $LOCAL -v ON_ERROR_STOP=1 -f C:\SGP\migracao\01_preparar_banco.sql
 psql -d $LOCAL -v ON_ERROR_STOP=1 -c "\copy auth.users (id, email, encrypted_password, email_confirmed_at, raw_user_meta_data, created_at, updated_at) from 'C:/SGP/migracao/usuarios.csv' csv header"
 pg_restore -d $LOCAL --no-owner --no-privileges --clean --if-exists --single-transaction --exit-on-error C:\SGP\migracao\sgp_public.dump
@@ -143,7 +143,7 @@ Para restaurar um backup num banco vazio: `pg_restore -h 127.0.0.1 -U postgres -
 ## Depois da virada
 
 - **Atualizar o app** (quando sair mudança no GitHub): baixe o ZIP de novo e substitua o conteúdo de `C:\SGP\app`. Não precisa reiniciar nada.
-- **SQL novo** (migrations que eu mandar): rode no pgAdmin, banco `sgp`, como fazia no SQL Editor do Supabase.
+- **SQL novo** (migrations que eu mandar): rode no HeidiSQL ou pgAdmin, banco `sgp`, como fazia no SQL Editor do Supabase.
 - **Projeto na nuvem**: deixe parado algumas semanas como cópia de segurança antes de apagar.
 - **Internet**: o banco e a API funcionam sem internet, mas o app ainda carrega duas bibliotecas da internet (o visual Tailwind e o cliente Supabase). Se a fábrica ficar sem internet, a tela não abre. Dá para baixar essas bibliotecas para o servidor depois, se quiserem 100% offline.
 
@@ -155,4 +155,7 @@ Para restaurar um backup num banco vazio: `pg_restore -h 127.0.0.1 -U postgres -
 | Login dá erro de "JWT" ou "invalid signature" | a frase secreta está diferente no `01_preparar_banco.sql` e no `postgrest.conf`. Corrija no `.conf` e reinicie a tarefa "SGP PostgREST" |
 | Telas vazias, erro 503 ou "Failed to fetch" | PostgREST parado: senha da API errada no `postgrest.conf`. Teste rodando `C:\SGP\postgrest\postgrest.exe C:\SGP\postgrest\postgrest.conf` num PowerShell e leia a mensagem |
 | Outros computadores não abrem | firewall: confira a regra "SGP App 8080"; teste no próprio servidor com `localhost:8080` |
+| Porta 5432 ou 8080 já ocupada por outro sistema | instale o PostgreSQL em outra porta (ex.: 5433) e troque a porta em `postgrest.conf` (`db-uri`), `backup.ps1` (`-p 5433`) e nos comandos `psql`; troque `:8080` no `Caddyfile` e a regra de firewall em `instalar-servicos.ps1` (ex.: 8081) |
+| PostgREST fecha na hora, sem mensagem clara | outro programa colocou uma `libpq.dll` antiga no PATH. Copie de `C:\Program Files\PostgreSQL\17\bin` para `C:\SGP\postgrest`: `libpq.dll`, `libssl-3-x64.dll`, `libcrypto-3-x64.dll`, `libintl-9.dll`, `libiconv-2.dll`, `libwinpthread-1.dll`, `zlib1.dll` |
+| Senha do Supabase recusada logo depois do "Reset database password" | a senha nova leva alguns minutos para valer; espere antes de tentar de novo (muitas tentativas bloqueiam o IP por um tempo) |
 | `pg_restore` reclama de algo do Supabase (papel, extensão) | me mande a mensagem exata; nada foi gravado |
