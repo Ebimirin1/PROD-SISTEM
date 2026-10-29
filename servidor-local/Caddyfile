@@ -1,0 +1,11 @@
+# Caddy do SGP (servidor local). Copiar para C:\SGP\caddy\Caddyfile
+# Serve o app na porta 8080 e repassa /rest/v1 para o PostgREST.
+:8080 {
+	handle_path /rest/v1/* {
+		reverse_proxy 127.0.0.1:3000
+	}
+	handle {
+		root * C:/SGP/app
+		file_server
+	}
+}

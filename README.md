@@ -28,3 +28,7 @@ técnico `<login>@sgp-industrial.local` no Supabase Auth, e nenhum e-mail é env
 O frontend é composto inteiramente por arquivos estáticos (`index.html`, CSS, JS) e pode ser servido localmente via qualquer servidor estático ou publicado via GitHub Pages:
 - Vá para **Settings > Pages** no repositório GitHub.
 - Selecione a branch `main` e a pasta `/ (root)`.
+
+### 4. Servidor próprio (Windows, sem Supabase)
+Para rodar o banco num servidor da empresa (PostgreSQL + PostgREST + Caddy, sem Docker), siga [`servidor-local/GUIA-WINDOWS.md`](servidor-local/GUIA-WINDOWS.md).
+O app escolhe o banco pelo endereço: aberto pelo GitHub Pages (`*.github.io`) usa o Supabase; aberto por qualquer outro endereço usa a API do próprio servidor (`/rest/v1`) e o login pela função `public.login`. Veja `js/config.js`.
