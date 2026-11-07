@@ -8,7 +8,6 @@ export const SCREENS = [
   { key: 'separation', title: 'Separação Insumos', icon: 'scale', includes: 'Kits por Porção, Bateladas de Massa-Base, Total de Insumos' },
   { key: 'production', title: 'Produção', icon: 'precision_manufacturing', includes: 'Embutimento, Vácuo' },
   { key: 'labeling', title: 'Contagem de Rótulos', icon: 'label', includes: '' },
-  { key: 'inventory', title: 'Estoque & Cura', icon: 'inventory_2', includes: '' },
   { key: 'shipping', title: 'Pedidos & Expedição', icon: 'local_shipping', includes: '' },
   { key: 'billing', title: 'Faturamento', icon: 'receipt_long', includes: '' },
   { key: 'users', title: 'Usuários & Acessos', icon: 'manage_accounts', includes: '' }

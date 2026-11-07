@@ -93,7 +93,7 @@ const TOTALS_STYLES = `
     @page { size: A4 portrait; margin: 12mm; }
     body.itt-printing > *:not(#itt-print-root) { display: none !important; }
     body.itt-printing { background: #fff !important; min-height: 0 !important; }
-    body.itt-printing #itt-print-root { display: block; font-family: 'Work Sans', Arial, sans-serif; }
+    body.itt-printing #itt-print-root { display: block; font-family: 'Ubuntu', Arial, sans-serif; }
     #itt-print-root h1 { font-size: 16px; margin: 0 0 2px; }
     #itt-print-root .itt-sub { font-size: 11px; margin: 0 0 10px; color: #444; }
     #itt-print-root .itt-table { font-size: 12px; }

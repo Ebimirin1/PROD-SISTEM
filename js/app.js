@@ -108,7 +108,7 @@ function renderAppShell() {
     const navLink = document.createElement('a');
     navLink.href = `#${screen.key}`;
     navLink.dataset.screen = screen.key;
-    navLink.className = `flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors ${currentScreenKey === screen.key ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : ''}`;
+    navLink.className = `flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg transition-colors ${currentScreenKey === screen.key ? 'bg-brand-gold text-brand-black font-bold shadow-sm' : 'text-white/80 hover:bg-white/10 hover:text-on-primary'}`;
     navLink.innerHTML = `
       <div class="flex items-center gap-space-sm">
         <span class="material-symbols-outlined text-[20px]">${screen.icon}</span>
@@ -144,7 +144,7 @@ export async function navigateTo(screenKey) {
 
   document.querySelectorAll('#sidebar-nav a').forEach(a => {
     if (a.dataset.screen === screenKey) {
-      a.className = 'flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg bg-bordeaux-primary text-on-primary font-bold shadow-sm transition-colors';
+      a.className = 'flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg bg-brand-gold text-brand-black font-bold shadow-sm transition-colors';
     } else {
       a.className = 'flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 hover:text-on-primary transition-colors';
     }

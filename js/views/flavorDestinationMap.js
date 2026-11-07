@@ -113,7 +113,7 @@ const MATRIX_STYLES = `
   .fdm-table tfoot td { font-weight: 700; background: #f3ecea; }
   .fdm-flavor { text-align: left; font-weight: 600; text-transform: uppercase; }
   .fdm-num { text-align: right; font-variant-numeric: tabular-nums; }
-  .fdm-total { font-weight: 700; background: #fff0ee; }
+  .fdm-total { font-weight: 700; background: #fbf1dc; }
   .fdm-frozen { display: block; font-size: 9px; color: #1d4e89; letter-spacing: 0.04em; }
 
   #fdm-print-root { display: none; }
@@ -121,7 +121,7 @@ const MATRIX_STYLES = `
     @page { size: A4 landscape; margin: 10mm; }
     body.fdm-printing > *:not(#fdm-print-root) { display: none !important; }
     body.fdm-printing { background: #fff !important; min-height: 0 !important; }
-    body.fdm-printing #fdm-print-root { display: block; font-family: 'Work Sans', Arial, sans-serif; }
+    body.fdm-printing #fdm-print-root { display: block; font-family: 'Ubuntu', Arial, sans-serif; }
     #fdm-print-root h1 { font-size: 16px; margin: 0 0 2px; }
     #fdm-print-root .fdm-sub { font-size: 11px; margin: 0 0 8px; color: #444; }
     #fdm-print-root .fdm-table { font-size: 10px; }
