@@ -1,8 +1,10 @@
 import { supabase } from '../supabaseClient.js';
 import { renderEmptyState, formatWeight, formatDate, weekdayName } from '../utils.js';
-import { renderOverviewCharts } from './overviewCharts.js';
+import { renderOverviewCharts, fmtKg, monthRange } from './overviewCharts.js';
 
-// Módulo de Visão Geral (Monitor Operacional Diário / Bento Grid)
+// Visão Geral — painel da produção: filtros no topo, indicadores, produção mensal e gráficos.
+// Os dados são carregados uma vez; trocar o filtro só recalcula na tela (o botão Atualizar busca de novo).
+
 function getLocalDateString(dateObj = new Date()) {
   const year = dateObj.getFullYear();
   const month = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -10,131 +12,134 @@ function getLocalDateString(dateObj = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-function getDefaultWeekRange() {
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// Atalhos de período (o filtro usa a data em que o vácuo/etapa foi concluído)
+const PRESETS = [
+  { key: 'today', label: 'Hoje' },
+  { key: 'week', label: 'Esta semana' },
+  { key: 'month', label: 'Este mês' },
+  { key: '30d', label: 'Últimos 30 dias' },
+  { key: 'year', label: 'Este ano' },
+  { key: 'all', label: 'Tudo' }
+];
+
+function presetRange(key) {
   const now = new Date();
-  const dayOfWeek = now.getDay(); // 0 is Sunday, 1 is Monday...
-  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + diffToMonday);
-
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-
-  return {
-    start: getLocalDateString(monday),
-    end: getLocalDateString(sunday)
-  };
+  const today = getLocalDateString(now);
+  if (key === 'today') return { start: today, end: today };
+  if (key === 'week') {
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    return { start: getLocalDateString(monday), end: getLocalDateString(sunday) };
+  }
+  if (key === 'month') return monthRange(today.slice(0, 7));
+  if (key === '30d') {
+    const from = new Date(now);
+    from.setDate(now.getDate() - 29);
+    return { start: getLocalDateString(from), end: today };
+  }
+  if (key === 'year') return { start: `${now.getFullYear()}-01-01`, end: `${now.getFullYear()}-12-31` };
+  return { start: null, end: null }; // 'all'
 }
 
-let currentFilterMode = 'op'; // padrão 'op' na OP mais recente; 'all' (Visão Geral), 'day' (Por Dia), 'range' (Por Período / Semana) ou 'op' (Por Ordem de Produção)
-let currentSelectedOrderId = null; // modo 'op' (Por Ordem de Produção)
-let currentSelectedDate = getLocalDateString();  // YYYY-MM-DD (Padrão: Data Local Hoje)
-const defaultWeekRange = getDefaultWeekRange();
-let currentStartDate = defaultWeekRange.start;
-let currentEndDate = defaultWeekRange.end;
+// Estado do filtro (fica guardado ao trocar de tela)
+const filter = {
+  mode: 'op',          // 'op' (Por Ordem de Produção, abre na OP mais recente) ou 'period'
+  opId: null,
+  preset: 'month',     // atalho ativo no modo período; 'custom' quando as datas são digitadas
+  start: presetRange('month').start,
+  end: presetRange('month').end,
+  flavorId: ''         // '' = todos os sabores
+};
 
-// Estado do Modal de Estoque por Sabor
-let modalAllFlavors = [];
-let modalInventoryLots = [];
-let modalActiveTab = 'all'; // 'all', 'produced', 'unproduced'
-let modalSearchQuery = '';
+// Dados carregados do banco (reaproveitados a cada troca de filtro)
+let cache = null;
 
 // Estado do Modal de Produção por Sabor (Quantidade Solicitada x Real & Status)
+let modalAllFlavors = [];
 let modalProductionDemands = [];
 let modalProductionPortions = [];
 let modalProdActiveTab = 'all'; // 'all', 'completed', 'in_progress', 'pending'
 let modalProdSearchQuery = '';
 
+const segBtn = active => `px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${active ? 'bg-bordeaux-primary text-on-primary shadow-sm' : 'text-text-muted hover:text-ink-text'}`;
+const chipBtn = active => `px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${active ? 'bg-brand-gold border-brand-gold text-brand-black' : 'bg-surface-card border-border-subtle text-ink-text hover:border-brand-gold'}`;
+const fieldBox = 'flex items-center gap-2 bg-surface-canvas px-3 min-h-[36px] rounded-lg border border-border-subtle';
+
 export async function render(container) {
   container.innerHTML = `
-    <div class="flex flex-col gap-space-lg max-w-[1720px] mx-auto w-full">
-      <!-- Top Action Filter & Context Bar -->
-      <section class="bg-surface-card rounded-xl p-space-md shadow-sm flex flex-wrap items-center justify-between gap-space-md border border-border-subtle">
-        <div class="flex items-center flex-wrap gap-space-md">
-          <div class="flex items-center gap-space-xs">
-            <span class="material-symbols-outlined text-bordeaux-primary text-[24px]">factory</span>
-            <span class="font-title-lg text-title-lg text-ink-text tracking-tight">Monitor Operacional</span>
+    <div class="flex flex-col gap-space-lg max-w-[1720px] mx-auto w-full pt-space-md">
+      <!-- Barra de filtros: vale para tudo o que está abaixo -->
+      <section class="bg-surface-card rounded-xl p-space-md shadow-sm border border-border-subtle flex flex-col gap-space-sm">
+        <div class="flex flex-wrap items-center gap-space-sm">
+          <div class="flex items-center gap-1 bg-surface-canvas p-1 rounded-lg border border-border-subtle">
+            <button id="filter-mode-op" class="${segBtn(filter.mode === 'op')}">Por Ordem de Produção</button>
+            <button id="filter-mode-period" class="${segBtn(filter.mode === 'period')}">Por Período</button>
           </div>
 
-          <div class="h-6 w-px bg-border-subtle hidden md:block"></div>
-
-          <!-- Filtro Modo: Visão Geral, Por Dia vs Por Período / Semana -->
-          <div class="flex flex-wrap items-center gap-1 bg-surface-canvas p-1 rounded-lg border border-border-subtle">
-            <button id="filter-btn-all" class="px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}">
-              Visão Geral
-            </button>
-            <button id="filter-btn-day" class="px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}">
-              Por Dia
-            </button>
-            <button id="filter-btn-range" class="px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}">
-              Por Período / Semana
-            </button>
-            <button id="filter-btn-op" class="px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'op' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}">
-              Por Ordem de Produção
-            </button>
+          <div id="op-picker-wrapper" class="${filter.mode === 'op' ? 'flex' : 'hidden'} ${fieldBox} max-w-full min-w-0">
+            <label for="overview-op-select" class="text-[11px] font-bold text-text-muted uppercase">OP</label>
+            <select id="overview-op-select" class="min-w-0 max-w-full bg-transparent text-sm text-bordeaux-primary font-bold focus:outline-none cursor-pointer"></select>
           </div>
 
-          <!-- Seletor de Ordem de Produção (Exibido quando no modo Por Ordem de Produção) -->
-          <div id="op-picker-wrapper" class="${currentFilterMode === 'op' ? 'flex' : 'hidden'} max-w-full min-w-0 items-center gap-2 bg-surface-canvas px-3 py-1.5 rounded-lg border border-border-subtle">
-            <label for="overview-op-select" class="font-label-sm text-label-sm text-text-muted uppercase">OP:</label>
-            <select id="overview-op-select" class="min-w-0 max-w-full bg-transparent font-title-md text-title-md text-bordeaux-primary font-bold focus:outline-none cursor-pointer"></select>
+          <div id="period-wrapper" class="${filter.mode === 'period' ? 'flex' : 'hidden'} flex-wrap items-center gap-space-sm">
+            <div id="preset-chips" class="flex flex-wrap items-center gap-1.5">
+              ${PRESETS.map(p => `<button data-preset="${p.key}" class="preset-chip ${chipBtn(filter.preset === p.key)}">${p.label}</button>`).join('')}
+            </div>
+            <div class="${fieldBox} flex-wrap">
+              <label for="overview-start-date" class="text-[11px] font-bold text-text-muted uppercase">De</label>
+              <input type="date" id="overview-start-date" value="${filter.start || ''}" class="bg-transparent text-sm text-bordeaux-primary font-bold focus:outline-none cursor-pointer">
+              <label for="overview-end-date" class="text-[11px] font-bold text-text-muted uppercase">Até</label>
+              <input type="date" id="overview-end-date" value="${filter.end || ''}" class="bg-transparent text-sm text-bordeaux-primary font-bold focus:outline-none cursor-pointer">
+            </div>
           </div>
 
-          <!-- Seletor de Data Única (Exibido quando no modo Por Dia) -->
-          <div id="date-picker-wrapper" class="${currentFilterMode === 'day' ? 'flex' : 'hidden'} items-center gap-2 bg-surface-canvas px-3 py-1.5 rounded-lg border border-border-subtle">
-            <label for="overview-date-select" class="font-label-sm text-label-sm text-text-muted uppercase">Data:</label>
-            <input type="date" id="overview-date-select" value="${currentSelectedDate}" class="bg-transparent font-title-md text-title-md text-bordeaux-primary font-bold focus:outline-none cursor-pointer">
+          <div class="${fieldBox} min-w-0">
+            <span class="material-symbols-outlined text-[18px] text-text-muted">restaurant_menu</span>
+            <label for="overview-flavor-select" class="sr-only">Sabor</label>
+            <select id="overview-flavor-select" class="min-w-0 max-w-[220px] bg-transparent text-sm text-ink-text font-bold focus:outline-none cursor-pointer">
+              <option value="">Todos os sabores</option>
+            </select>
           </div>
 
-          <!-- Seletor de Período / Semana (Exibido quando no modo Por Período) -->
-          <div id="range-picker-wrapper" class="${currentFilterMode === 'range' ? 'flex' : 'hidden'} items-center gap-2 bg-surface-canvas px-3 py-1.5 rounded-lg border border-border-subtle flex-wrap">
-            <label for="overview-start-date" class="font-label-sm text-label-sm text-text-muted uppercase">De:</label>
-            <input type="date" id="overview-start-date" value="${currentStartDate}" class="bg-transparent font-title-md text-title-md text-bordeaux-primary font-bold focus:outline-none cursor-pointer">
-            <label for="overview-end-date" class="font-label-sm text-label-sm text-text-muted uppercase">Até:</label>
-            <input type="date" id="overview-end-date" value="${currentEndDate}" class="bg-transparent font-title-md text-title-md text-bordeaux-primary font-bold focus:outline-none cursor-pointer">
-          </div>
-
-          <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container-low text-status-success font-label-md text-label-md">
-            <span class="w-2.5 h-2.5 rounded-full bg-status-success animate-pulse"></span>
-            <span>Regime Nominal • Linhas Ativas</span>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-space-sm ml-auto">
-          <button id="refresh-overview-btn" aria-label="Sincronizar dados" class="min-h-[40px] px-3.5 rounded-lg bg-surface-canvas hover:bg-surface-variant text-ink-text font-title-md text-title-md flex items-center gap-2 transition-all active:scale-95 shadow-sm border border-border-subtle">
+          <button id="refresh-overview-btn" aria-label="Buscar dados novamente" class="ml-auto min-h-[36px] px-3 rounded-lg bg-surface-canvas hover:bg-surface-variant text-ink-text text-sm font-bold flex items-center gap-2 transition-all active:scale-95 border border-border-subtle">
             <span class="material-symbols-outlined text-[18px] text-text-muted" id="refresh-overview-icon">sync</span>
             <span>Atualizar</span>
           </button>
         </div>
+
+        <!-- Resumo do que está sendo mostrado + filtros ativos removíveis -->
+        <div id="filter-summary" class="flex flex-wrap items-center gap-2 text-xs text-text-muted"></div>
       </section>
 
-      <!-- Grid Bento com Indicadores -->
+      <!-- Indicadores -->
       <div id="overview-metrics-container"></div>
 
-      <!-- Gráficos do fluxo da produção -->
-      <section id="overview-charts-section"></section>
+      <!-- Produção mensal e gráficos do filtro -->
+      <section id="overview-charts-section" class="transition-opacity"></section>
 
-      <!-- Seção de Ordens e Produtos Produzidos Por Dia -->
+      <!-- Detalhe por dia de finalização (recolhido) -->
       <section id="daily-orders-section" class="flex flex-col gap-space-md"></section>
 
       <!-- Modal: Detalhamento da Produção Total por Sabor (Solicitada x Real & Status) -->
       <div id="production-details-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-space-md">
         <div class="bg-surface-card rounded-2xl shadow-xl border border-border-subtle max-w-4xl w-full max-h-[90vh] flex flex-col p-4 sm:p-space-lg gap-space-md overflow-hidden">
-          <!-- Header do Modal -->
           <div class="flex items-center justify-between border-b border-border-subtle pb-3">
             <div class="flex items-center gap-2">
               <span class="material-symbols-outlined text-status-success text-[26px]">precision_manufacturing</span>
               <div class="flex flex-col">
-                <h2 class="font-headline-sm text-headline-sm text-ink-text font-bold">Produção Total por Sabor</h2>
-                <p class="text-xs text-text-muted">Acompanhamento detalhado por sabor: quantidade solicitada vs quantidade real produzida e status da produção.</p>
+                <h2 class="font-headline-sm text-headline-sm text-ink-text font-bold">Produção por Sabor</h2>
+                <p class="text-xs text-text-muted">Quantidade planejada x produzida (vácuo) e status de cada sabor no filtro atual.</p>
               </div>
             </div>
-            <button id="close-production-modal-btn" class="p-1 rounded-lg hover:bg-surface-canvas text-text-muted hover:text-ink-text transition-colors">
+            <button id="close-production-modal-btn" class="p-1 rounded-lg hover:bg-surface-canvas text-text-muted hover:text-ink-text transition-colors" aria-label="Fechar">
               <span class="material-symbols-outlined text-[24px]">close</span>
             </button>
           </div>
 
-          <!-- Controles do Modal: Busca e Filtros de Status -->
           <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-space-sm bg-surface-canvas p-space-sm rounded-xl border border-border-subtle">
             <div class="relative flex-1">
               <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-[18px]">search</span>
@@ -149,147 +154,334 @@ export async function render(container) {
             </div>
           </div>
 
-          <!-- Conteúdo da Lista de Produção por Sabor -->
           <div id="production-modal-list-container" class="overflow-y-auto flex-1 flex flex-col gap-space-sm pr-1"></div>
-        </div>
-      </div>
-
-      <!-- Modal: Detalhamento do Saldo de Estoque por Sabor (Produzidos vs Não Produzidos) -->
-      <div id="stock-details-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-space-md">
-        <div class="bg-surface-card rounded-2xl shadow-xl border border-border-subtle max-w-4xl w-full max-h-[90vh] flex flex-col p-4 sm:p-space-lg gap-space-md overflow-hidden">
-          <!-- Header do Modal -->
-          <div class="flex items-center justify-between border-b border-border-subtle pb-3">
-            <div class="flex items-center gap-2">
-              <span class="material-symbols-outlined text-bordeaux-primary text-[26px]">inventory_2</span>
-              <div class="flex flex-col">
-                <h2 class="font-headline-sm text-headline-sm text-ink-text font-bold">Relação de Estoque por Sabor</h2>
-                <p class="text-xs text-text-muted">Visualização de todos os sabores cadastrados, identificando os produzidos (com saldo em câmara) e não produzidos.</p>
-              </div>
-            </div>
-            <button id="close-stock-modal-btn" class="p-1 rounded-lg hover:bg-surface-canvas text-text-muted hover:text-ink-text transition-colors">
-              <span class="material-symbols-outlined text-[24px]">close</span>
-            </button>
-          </div>
-
-          <!-- Controles do Modal: Busca e Filtros -->
-          <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-space-sm bg-surface-canvas p-space-sm rounded-xl border border-border-subtle">
-            <div class="relative flex-1">
-              <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-[18px]">search</span>
-              <input type="text" id="stock-modal-search" class="w-full pl-9 pr-3 py-2 rounded-lg border border-border-subtle bg-surface-card text-xs font-bold text-ink-text focus:outline-none focus:border-bordeaux-primary" placeholder="Buscar sabor por nome...">
-            </div>
-
-            <div class="flex items-center gap-1 bg-surface-card p-1 rounded-lg border border-border-subtle">
-              <button id="stock-tab-all" class="stock-tab-btn px-3 py-1.5 rounded-md text-xs font-bold bg-bordeaux-primary text-on-primary shadow-sm transition-colors">Todos</button>
-              <button id="stock-tab-produced" class="stock-tab-btn px-3 py-1.5 rounded-md text-xs font-bold text-text-muted hover:text-ink-text transition-colors">Produzidos</button>
-              <button id="stock-tab-unproduced" class="stock-tab-btn px-3 py-1.5 rounded-md text-xs font-bold text-text-muted hover:text-ink-text transition-colors">Não Produzidos</button>
-            </div>
-          </div>
-
-          <!-- Conteúdo da Lista de Sabores -->
-          <div id="stock-modal-list-container" class="overflow-y-auto flex-1 flex flex-col gap-space-sm pr-1"></div>
         </div>
       </div>
     </div>
   `;
 
   setupFilterEventListeners(container);
-  setupStockModalEventListeners(container);
   setupProductionModalEventListeners(container);
   await loadOverviewData();
 }
 
+function syncFilterControls() {
+  const q = id => document.getElementById(id);
+  if (q('filter-mode-op')) q('filter-mode-op').className = segBtn(filter.mode === 'op');
+  if (q('filter-mode-period')) q('filter-mode-period').className = segBtn(filter.mode === 'period');
+  q('op-picker-wrapper')?.classList.toggle('hidden', filter.mode !== 'op');
+  q('op-picker-wrapper')?.classList.toggle('flex', filter.mode === 'op');
+  q('period-wrapper')?.classList.toggle('hidden', filter.mode !== 'period');
+  q('period-wrapper')?.classList.toggle('flex', filter.mode === 'period');
+  document.querySelectorAll('.preset-chip').forEach(btn => {
+    btn.className = `preset-chip ${chipBtn(filter.preset === btn.dataset.preset)}`;
+  });
+  if (q('overview-start-date')) q('overview-start-date').value = filter.start || '';
+  if (q('overview-end-date')) q('overview-end-date').value = filter.end || '';
+  if (q('overview-op-select') && filter.opId) q('overview-op-select').value = filter.opId;
+  if (q('overview-flavor-select')) q('overview-flavor-select').value = filter.flavorId;
+}
+
+// Muda o filtro e redesenha (sem buscar de novo no banco)
+function applyFilter(changes) {
+  Object.assign(filter, changes);
+  syncFilterControls();
+  renderFromCache();
+}
+
 function setupFilterEventListeners(container) {
-  const btnAll = container.querySelector('#filter-btn-all');
-  const btnDay = container.querySelector('#filter-btn-day');
-  const btnRange = container.querySelector('#filter-btn-range');
-  const dateWrapper = container.querySelector('#date-picker-wrapper');
-  const rangeWrapper = container.querySelector('#range-picker-wrapper');
-  const btnOp = container.querySelector('#filter-btn-op');
-  const opWrapper = container.querySelector('#op-picker-wrapper');
-  const opSelect = container.querySelector('#overview-op-select');
-  const dateSelect = container.querySelector('#overview-date-select');
-  const startDateInput = container.querySelector('#overview-start-date');
-  const endDateInput = container.querySelector('#overview-end-date');
-  const refreshBtn = container.querySelector('#refresh-overview-btn');
-  const refreshIcon = container.querySelector('#refresh-overview-icon');
+  container.querySelector('#filter-mode-op')?.addEventListener('click', () => applyFilter({ mode: 'op' }));
+  container.querySelector('#filter-mode-period')?.addEventListener('click', () => applyFilter({ mode: 'period' }));
 
-  const updateButtonsStyle = () => {
-    if (btnAll) btnAll.className = `px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'all' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}`;
-    if (btnDay) btnDay.className = `px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'day' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}`;
-    if (btnRange) btnRange.className = `px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'range' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}`;
+  container.querySelector('#overview-op-select')?.addEventListener('change', e => applyFilter({ opId: e.target.value }));
+  container.querySelector('#overview-flavor-select')?.addEventListener('change', e => applyFilter({ flavorId: e.target.value }));
 
-    if (btnOp) btnOp.className = `px-3 py-1.5 rounded-md font-label-md text-label-md transition-colors ${currentFilterMode === 'op' ? 'bg-bordeaux-primary text-on-primary font-bold shadow-sm' : 'text-text-muted hover:text-ink-text'}`;
-    if (opWrapper) opWrapper.classList.toggle('hidden', currentFilterMode !== 'op');
-    if (dateWrapper) dateWrapper.classList.toggle('hidden', currentFilterMode !== 'day');
-    if (rangeWrapper) rangeWrapper.classList.toggle('hidden', currentFilterMode !== 'range');
-  };
-
-  btnAll?.addEventListener('click', () => {
-    if (currentFilterMode !== 'all') {
-      currentFilterMode = 'all';
-      updateButtonsStyle();
-      loadOverviewData();
-    }
-  });
-
-  btnDay?.addEventListener('click', () => {
-    if (currentFilterMode !== 'day') {
-      currentFilterMode = 'day';
-      updateButtonsStyle();
-      loadOverviewData();
-    }
-  });
-
-  btnRange?.addEventListener('click', () => {
-    if (currentFilterMode !== 'range') {
-      currentFilterMode = 'range';
-      updateButtonsStyle();
-      loadOverviewData();
-    }
-  });
-
-  btnOp?.addEventListener('click', () => {
-    if (currentFilterMode !== 'op') {
-      currentFilterMode = 'op';
-      updateButtonsStyle();
-      loadOverviewData();
-    }
-  });
-
-  opSelect?.addEventListener('change', (e) => {
-    currentSelectedOrderId = e.target.value;
-    loadOverviewData();
-  });
-
-  dateSelect?.addEventListener('change', (e) => {
-    currentSelectedDate = e.target.value;
-    loadOverviewData();
-  });
-
-  startDateInput?.addEventListener('change', (e) => {
-    currentStartDate = e.target.value;
-    if (currentEndDate && currentStartDate > currentEndDate) {
-      currentEndDate = currentStartDate;
-      if (endDateInput) endDateInput.value = currentEndDate;
-    }
-    loadOverviewData();
-  });
-
-  endDateInput?.addEventListener('change', (e) => {
-    currentEndDate = e.target.value;
-    if (currentStartDate && currentEndDate < currentStartDate) {
-      currentStartDate = currentEndDate;
-      if (startDateInput) startDateInput.value = currentStartDate;
-    }
-    loadOverviewData();
-  });
-
-  refreshBtn?.addEventListener('click', () => {
-    if (refreshIcon) refreshIcon.classList.add('animate-spin');
-    loadOverviewData().finally(() => {
-      if (refreshIcon) refreshIcon.classList.remove('animate-spin');
+  container.querySelectorAll('.preset-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const r = presetRange(btn.dataset.preset);
+      applyFilter({ mode: 'period', preset: btn.dataset.preset, start: r.start, end: r.end });
     });
   });
+
+  const startInput = container.querySelector('#overview-start-date');
+  const endInput = container.querySelector('#overview-end-date');
+  startInput?.addEventListener('change', e => {
+    const start = e.target.value || null;
+    let end = filter.end;
+    if (start && (!end || end < start)) end = start;
+    applyFilter({ mode: 'period', preset: 'custom', start, end });
+  });
+  endInput?.addEventListener('change', e => {
+    const end = e.target.value || null;
+    let start = filter.start;
+    if (end && (!start || start > end)) start = end;
+    applyFilter({ mode: 'period', preset: 'custom', start, end });
+  });
+
+  // Remover um filtro direto no resumo
+  container.querySelector('#filter-summary')?.addEventListener('click', e => {
+    const btn = e.target.closest('[data-clear]');
+    if (!btn) return;
+    if (btn.dataset.clear === 'flavor') applyFilter({ flavorId: '' });
+  });
+
+  const refreshIcon = container.querySelector('#refresh-overview-icon');
+  container.querySelector('#refresh-overview-btn')?.addEventListener('click', () => {
+    refreshIcon?.classList.add('animate-spin');
+    loadOverviewData().finally(() => refreshIcon?.classList.remove('animate-spin'));
+  });
+}
+
+async function loadOverviewData() {
+  const metricsContainer = document.getElementById('overview-metrics-container');
+  const chartsSection = document.getElementById('overview-charts-section');
+  const dailyOrdersSection = document.getElementById('daily-orders-section');
+  if (!metricsContainer || !dailyOrdersSection) return;
+
+  // Mantém a tela anterior esmaecida enquanto busca, sem piscar
+  if (cache && chartsSection) chartsSection.style.opacity = '0.5';
+
+  const [
+    { data: ops, error: opsErr },
+    { data: portions, error: portionsErr },
+    { data: allFlavors },
+    { data: demands, error: demandsErr }
+  ] = await Promise.all([
+    supabase.from('production_orders').select('*').order('production_date', { ascending: false }),
+    supabase.from('production_portions').select(`
+      id,
+      production_order_id,
+      flavor_id,
+      portion_no,
+      planned_kg,
+      flavors (id, name),
+      process_runs (
+        id, stage, status, started_at, completed_at, actual_kg
+      )
+    `),
+    supabase.from('flavors').select('id, name, active').eq('active', true).order('name'),
+    supabase.from('production_demands').select(`
+      id,
+      production_order_id,
+      flavor_id,
+      planned_kg,
+      destination_key,
+      requested_product_type,
+      requested_conservation,
+      flavors (id, name)
+    `)
+  ]);
+
+  if (chartsSection) chartsSection.style.opacity = '';
+
+  if (opsErr || portionsErr || demandsErr) {
+    metricsContainer.innerHTML = `<div class="p-4 bg-badge-error-bg text-badge-error-text rounded-lg">Erro ao carregar dados operacionais: ${esc((opsErr || portionsErr || demandsErr)?.message)}</div>`;
+    dailyOrdersSection.innerHTML = '';
+    if (chartsSection) chartsSection.innerHTML = '';
+    return;
+  }
+
+  if (!ops || ops.length === 0) {
+    cache = null;
+    metricsContainer.innerHTML = '';
+    dailyOrdersSection.innerHTML = '';
+    if (chartsSection) chartsSection.innerHTML = '';
+    metricsContainer.appendChild(renderEmptyState({
+      icon: 'grid_view',
+      title: 'Nenhum Dado Operacional Registrado',
+      description: 'Crie ordens de produção no módulo Planejamento para visualizar os indicadores do chão de fábrica.',
+      actionText: null
+    }));
+    return;
+  }
+
+  const opMap = Object.fromEntries(ops.map(o => [o.id, o]));
+  // OPs canceladas não entram em nenhum número do painel
+  const activeOps = ops.filter(o => !o.canceled_at);
+  const activeIds = new Set(activeOps.map(o => o.id));
+
+  cache = {
+    ops: activeOps,
+    opMap,
+    flavors: allFlavors || [],
+    demands: (demands || []).filter(d => activeIds.has(d.production_order_id)),
+    portions: (portions || [])
+      .filter(p => activeIds.has(p.production_order_id))
+      .map(p => ({ ...p, completionDate: getPortionCompletionDate(p, opMap) }))
+  };
+
+  // Seletores de OP (mais recente primeiro) e de sabor
+  if (!activeOps.some(o => o.id === filter.opId)) filter.opId = activeOps[0]?.id || null;
+  const opSelectEl = document.getElementById('overview-op-select');
+  if (opSelectEl) {
+    opSelectEl.innerHTML = activeOps.map(o =>
+      `<option value="${esc(o.id)}" ${o.id === filter.opId ? 'selected' : ''}>${esc(o.order_code)} — ${esc(weekdayName(o.production_date))}, ${esc(formatDate(o.production_date))}</option>`
+    ).join('');
+  }
+  const flavorSelectEl = document.getElementById('overview-flavor-select');
+  if (flavorSelectEl) {
+    flavorSelectEl.innerHTML = `<option value="">Todos os sabores</option>` +
+      cache.flavors.map(f => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('');
+    if (filter.flavorId && !cache.flavors.some(f => f.id === filter.flavorId)) filter.flavorId = '';
+    flavorSelectEl.value = filter.flavorId;
+  }
+
+  renderFromCache();
+}
+
+// Aplica o filtro atual sobre os dados em memória e redesenha tudo
+function renderFromCache() {
+  const metricsContainer = document.getElementById('overview-metrics-container');
+  const chartsSection = document.getElementById('overview-charts-section');
+  const dailyOrdersSection = document.getElementById('daily-orders-section');
+  if (!cache || !metricsContainer || !dailyOrdersSection) return;
+
+  const byFlavor = x => !filter.flavorId || x.flavor_id === filter.flavorId;
+  const flavorPortions = cache.portions.filter(byFlavor);
+  const flavorDemands = cache.demands.filter(byFlavor);
+
+  let ops, portions;
+  if (filter.mode === 'op') {
+    ops = cache.ops.filter(o => o.id === filter.opId);
+    portions = flavorPortions.filter(p => p.production_order_id === filter.opId);
+  } else if (filter.start && filter.end) {
+    // Por Período: porções finalizadas no período + OPs com data de produção no período
+    portions = flavorPortions.filter(p => p.completionDate >= filter.start && p.completionDate <= filter.end);
+    const touched = new Set(portions.map(p => p.production_order_id));
+    ops = cache.ops.filter(o => touched.has(o.id) || (o.production_date >= filter.start && o.production_date <= filter.end));
+  } else {
+    ops = cache.ops;
+    portions = flavorPortions;
+  }
+  const opIds = new Set(ops.map(o => o.id));
+  const demands = flavorDemands.filter(d => opIds.has(d.production_order_id));
+
+  // Modal "Ver por sabor" segue o mesmo filtro
+  modalAllFlavors = filter.flavorId ? cache.flavors.filter(f => f.id === filter.flavorId) : cache.flavors;
+  modalProductionDemands = demands;
+  modalProductionPortions = portions;
+
+  const flavorName = filter.flavorId ? (cache.flavors.find(f => f.id === filter.flavorId)?.name || 'Sabor') : '';
+  const scopeLabel = describeScope(ops);
+  renderFilterSummary(scopeLabel, flavorName);
+
+  renderMetricsCards(metricsContainer, { ops, portions, demands });
+
+  if (chartsSection) {
+    // Meses destacados no gráfico mensal = meses cobertos pelo filtro
+    const highlightMonths = new Set();
+    if (filter.mode === 'op') {
+      ops.forEach(o => highlightMonths.add(String(o.production_date).slice(0, 7)));
+    } else if (filter.start && filter.end) {
+      let [y, m] = filter.start.slice(0, 7).split('-').map(Number);
+      const endKey = filter.end.slice(0, 7);
+      for (let i = 0; i < 400; i++) {
+        const key = `${y}-${String(m).padStart(2, '0')}`;
+        highlightMonths.add(key);
+        if (key >= endKey) break;
+        m += 1; if (m > 12) { m = 1; y += 1; }
+      }
+    }
+
+    renderOverviewCharts(chartsSection, {
+      ops,
+      portions,
+      demands,
+      allPortions: flavorPortions,
+      allDemands: flavorDemands,
+      opMap: cache.opMap,
+      scopeLabel,
+      flavorLabel: flavorName,
+      highlightMonths,
+      onPickFlavor: id => applyFilter({ flavorId: filter.flavorId === id ? '' : id }),
+      onPickRange: (start, end) => applyFilter({ mode: 'period', preset: 'custom', start, end })
+    }).catch(err => console.error('Erro ao renderizar gráficos:', err));
+  }
+
+  renderDailyProductionOrders(dailyOrdersSection, portions, cache.opMap);
+}
+
+function describeScope(ops) {
+  if (filter.mode === 'op') {
+    const op = ops[0];
+    return op ? `OP ${op.order_code} • ${weekdayName(op.production_date)}, ${formatDate(op.production_date)}` : 'Nenhuma OP selecionada';
+  }
+  if (!filter.start || !filter.end) return 'Todo o histórico';
+  if (filter.start === filter.end) return `${weekdayName(filter.start)}, ${formatDate(filter.start)}`;
+  const preset = PRESETS.find(p => p.key === filter.preset);
+  const range = `${formatDate(filter.start)} a ${formatDate(filter.end)}`;
+  return preset ? `${preset.label} (${range})` : range;
+}
+
+function renderFilterSummary(scopeLabel, flavorName) {
+  const el = document.getElementById('filter-summary');
+  if (!el) return;
+  el.innerHTML = `
+    <span class="material-symbols-outlined text-[16px]">filter_alt</span>
+    <span>Mostrando: <strong class="text-ink-text">${esc(scopeLabel)}</strong></span>
+    ${flavorName ? `
+      <button data-clear="flavor" class="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-0.5 rounded-full bg-bordeaux-primary text-on-primary font-bold" title="Remover filtro de sabor">
+        ${esc(flavorName)}
+        <span class="material-symbols-outlined text-[14px]">close</span>
+      </button>` : '<span>• Todos os sabores</span>'}
+    <span class="hidden md:inline text-text-muted/80">• Dica: clique nas barras dos gráficos para filtrar por mês, dia ou sabor.</span>
+  `;
+}
+
+function renderMetricsCards(container, { ops, portions, demands }) {
+  if (ops.length === 0 && portions.length === 0) {
+    container.innerHTML = `
+      <div class="p-6 bg-surface-card rounded-xl border border-border-subtle text-center text-text-muted font-body-md">
+        Nenhuma ordem de produção ou produção encontrada para o filtro selecionado.
+      </div>
+    `;
+    return;
+  }
+
+  const stageRun = (p, stage) => (p.process_runs || []).find(r => r.stage === stage && r.status === 'completed');
+  const plannedKg = demands.reduce((acc, d) => acc + Number(d.planned_kg || 0), 0);
+  const producedKg = portions.reduce((acc, p) => acc + Number(stageRun(p, 'vacuo')?.actual_kg || 0), 0);
+  const remainingKg = Math.max(0, plannedKg - producedKg);
+  const progressPct = plannedKg > 0 ? Math.round((producedKg / plannedKg) * 100) : 0;
+
+  const totalPortions = portions.length;
+  const finishedPortions = portions.filter(p => stageRun(p, 'embutimento') && stageRun(p, 'vacuo')).length;
+  const labeledPortions = portions.filter(p => stageRun(p, 'rotulagem')).length;
+  const finishedPct = totalPortions ? Math.round((finishedPortions / totalPortions) * 100) : 0;
+
+  const productiveDays = new Set(portions
+    .map(p => stageRun(p, 'vacuo')?.completed_at)
+    .filter(Boolean)
+    .map(d => getLocalDateString(new Date(d)))).size;
+  const perDay = productiveDays ? producedKg / productiveDays : 0;
+  const flavorCount = new Set(demands.map(d => d.flavor_id)).size;
+
+  const tile = (accent, label, value, hint, extra = '') => `
+    <article class="bg-surface-card rounded-xl p-space-md shadow-sm border border-border-subtle flex flex-col gap-1 relative overflow-hidden min-w-0">
+      <div class="absolute top-0 left-0 right-0 h-1 ${accent}"></div>
+      <span class="text-[11px] font-bold uppercase tracking-wide text-text-muted">${label}</span>
+      <span class="text-2xl font-bold text-ink-text leading-tight">${value}</span>
+      <span class="text-xs text-text-muted">${hint}</span>
+      ${extra}
+    </article>`;
+  const bar = (pct, color) => `
+    <div class="w-full bg-surface-canvas rounded-full h-1.5 overflow-hidden mt-1">
+      <div class="${color} h-full rounded-full" style="width: ${Math.min(100, pct)}%"></div>
+    </div>`;
+
+  container.innerHTML = `
+    <section class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-space-md">
+      ${tile('bg-text-muted', 'Planejado', fmtKg(plannedKg), `${ops.length} ${ops.length === 1 ? 'OP' : 'OPs'} • ${flavorCount} ${flavorCount === 1 ? 'sabor' : 'sabores'}`)}
+      ${tile('bg-bordeaux-primary', 'Produzido (vácuo)', fmtKg(producedKg), `${progressPct}% do planejado`,
+        `${bar(progressPct, 'bg-bordeaux-primary')}
+         <button id="view-more-production-btn" class="self-start mt-1 text-xs font-bold text-bordeaux-primary hover:underline flex items-center gap-0.5">Ver por sabor <span class="material-symbols-outlined text-[14px]">arrow_forward</span></button>`)}
+      ${tile('bg-brand-gold', 'Falta produzir', fmtKg(remainingKg), plannedKg > 0 ? `${Math.max(0, 100 - progressPct)}% do planejado` : 'Sem pedidos no filtro')}
+      ${tile('bg-status-success', 'Porções finalizadas', `${finishedPortions} de ${totalPortions}`, `Embutimento e vácuo • rotuladas: ${labeledPortions}`, bar(finishedPct, 'bg-status-success'))}
+      ${tile('bg-status-info', 'Média por dia de produção', fmtKg(perDay), productiveDays ? `${productiveDays} ${productiveDays === 1 ? 'dia' : 'dias'} com vácuo concluído` : 'Nenhum vácuo concluído')}
+    </section>
+  `;
+
+  container.querySelector('#view-more-production-btn')?.addEventListener('click', () => openProductionModal());
 }
 
 function setupProductionModalEventListeners(container) {
@@ -520,417 +712,7 @@ function getPortionCompletionDate(p, opMap) {
   return op ? op.production_date : getLocalDateString();
 }
 
-function setupStockModalEventListeners(container) {
-  const modal = container.querySelector('#stock-details-modal');
-  const closeBtn = container.querySelector('#close-stock-modal-btn');
-  const searchInput = container.querySelector('#stock-modal-search');
-  const tabAll = container.querySelector('#stock-tab-all');
-  const tabProduced = container.querySelector('#stock-tab-produced');
-  const tabUnproduced = container.querySelector('#stock-tab-unproduced');
-
-  closeBtn?.addEventListener('click', () => {
-    modal?.classList.add('hidden');
-  });
-
-  searchInput?.addEventListener('input', (e) => {
-    modalSearchQuery = e.target.value.toLowerCase().trim();
-    renderStockModalContent();
-  });
-
-  const updateTabStyles = (activeTabBtn) => {
-    [tabAll, tabProduced, tabUnproduced].forEach(btn => {
-      if (btn === activeTabBtn) {
-        btn.className = 'stock-tab-btn px-3 py-1.5 rounded-md text-xs font-bold bg-bordeaux-primary text-on-primary shadow-sm transition-colors';
-      } else {
-        btn.className = 'stock-tab-btn px-3 py-1.5 rounded-md text-xs font-bold text-text-muted hover:text-ink-text transition-colors';
-      }
-    });
-  };
-
-  tabAll?.addEventListener('click', () => {
-    modalActiveTab = 'all';
-    updateTabStyles(tabAll);
-    renderStockModalContent();
-  });
-
-  tabProduced?.addEventListener('click', () => {
-    modalActiveTab = 'produced';
-    updateTabStyles(tabProduced);
-    renderStockModalContent();
-  });
-
-  tabUnproduced?.addEventListener('click', () => {
-    modalActiveTab = 'unproduced';
-    updateTabStyles(tabUnproduced);
-    renderStockModalContent();
-  });
-}
-
-async function loadOverviewData() {
-  const metricsContainer = document.getElementById('overview-metrics-container');
-  const dailyOrdersSection = document.getElementById('daily-orders-section');
-  if (!metricsContainer || !dailyOrdersSection) return;
-  const chartsSection = document.getElementById('overview-charts-section');
-
-  const [
-    { data: ops, error: opsErr },
-    { data: totalsData },
-    { data: statusData },
-    { data: lots },
-    { data: invoiceQueue },
-    { data: portions, error: portionsErr },
-    { data: allFlavors, error: flavorsErr },
-    { data: demands, error: demandsErr }
-  ] = await Promise.all([
-    supabase.from('production_orders').select('*').order('production_date', { ascending: false }),
-    supabase.from('vw_production_order_totals').select('*'),
-    supabase.from('vw_production_order_status').select('*'),
-    supabase.from('vw_inventory_by_flavor').select('*'),
-    supabase.from('vw_invoice_queue').select('*'),
-    supabase.from('production_portions').select(`
-      id,
-      production_order_id,
-      flavor_id,
-      portion_no,
-      planned_kg,
-      flavors (id, name),
-      process_runs (
-        id, stage, status, started_at, completed_at, actual_kg
-      )
-    `),
-    supabase.from('flavors').select('id, name, active').eq('active', true).order('name'),
-    supabase.from('production_demands').select(`
-      id,
-      production_order_id,
-      flavor_id,
-      planned_kg,
-      flavors (id, name)
-    `)
-  ]);
-
-  if (opsErr || portionsErr || demandsErr) {
-    metricsContainer.innerHTML = `<div class="p-4 bg-badge-error-bg text-badge-error-text rounded-lg">Erro ao carregar dados operacionais: ${(opsErr || portionsErr || demandsErr)?.message}</div>`;
-    dailyOrdersSection.innerHTML = '';
-    if (chartsSection) chartsSection.innerHTML = '';
-    return;
-  }
-
-  // Guardar estado global dos modais
-  modalAllFlavors = allFlavors || [];
-  modalInventoryLots = lots || [];
-  modalProductionDemands = demands || [];
-  modalProductionPortions = portions || [];
-
-  if (!ops || ops.length === 0) {
-    metricsContainer.innerHTML = '';
-    dailyOrdersSection.innerHTML = '';
-    if (chartsSection) chartsSection.innerHTML = '';
-    metricsContainer.appendChild(renderEmptyState({
-      icon: 'grid_view',
-      title: 'Nenhum Dado Operacional Registrado',
-      description: 'Crie ordens de produção no módulo Planejamento para visualizar os indicadores do chão de fábrica.',
-      actionText: null
-    }));
-    return;
-  }
-
-  // Popular o seletor de Ordem de Produção (mais recente primeiro; ignora OPs canceladas)
-  const selectableOps = ops.filter(o => !o.canceled_at);
-  if (!selectableOps.some(o => o.id === currentSelectedOrderId)) {
-    currentSelectedOrderId = selectableOps[0]?.id || null;
-  }
-  const opSelectEl = document.getElementById('overview-op-select');
-  if (opSelectEl) {
-    opSelectEl.innerHTML = selectableOps.map(o =>
-      `<option value="${o.id}" ${o.id === currentSelectedOrderId ? 'selected' : ''}>${o.order_code} — ${weekdayName(o.production_date)}, ${formatDate(o.production_date)}</option>`
-    ).join('');
-  }
-
-  // Atualizar campo de data de produção
-  const dateSelect = document.getElementById('overview-date-select');
-  if (dateSelect && !dateSelect.value) {
-    dateSelect.value = currentSelectedDate;
-  }
-
-  // Mapeamentos
-  const opMap = (ops || []).reduce((acc, o) => {
-    acc[o.id] = o;
-    return acc;
-  }, {});
-
-  const statusMap = (statusData || []).reduce((acc, s) => {
-    acc[s.production_order_id] = s;
-    return acc;
-  }, {});
-
-  const totalsMap = (totalsData || []).reduce((acc, t) => {
-    acc[t.production_order_id] = t;
-    return acc;
-  }, {});
-
-  // Associar data de finalização a cada porção com base na data do último processo concluído (completed_at)
-  const augmentedPortions = (portions || []).map(p => {
-    const completionDate = getPortionCompletionDate(p, opMap);
-    return {
-      ...p,
-      completionDate
-    };
-  });
-
-  // Filtrar porções e OPs de acordo com a data de finalização do sabor
-  let filteredPortions = augmentedPortions;
-  let filteredOps = ops;
-
-  if (currentFilterMode === 'op') {
-    // Por Ordem de Produção: todas as porções da OP escolhida, sem filtro de data
-    filteredPortions = augmentedPortions.filter(p => p.production_order_id === currentSelectedOrderId);
-    filteredOps = ops.filter(o => o.id === currentSelectedOrderId);
-  } else if (currentFilterMode === 'day' && currentSelectedDate) {
-    filteredPortions = augmentedPortions.filter(p => p.completionDate === currentSelectedDate);
-    const activeOpIds = new Set(filteredPortions.map(p => p.production_order_id));
-    filteredOps = ops.filter(o => activeOpIds.has(o.id) || o.production_date === currentSelectedDate);
-  } else if (currentFilterMode === 'range' && currentStartDate && currentEndDate) {
-    filteredPortions = augmentedPortions.filter(p => p.completionDate >= currentStartDate && p.completionDate <= currentEndDate);
-    const activeOpIds = new Set(filteredPortions.map(p => p.production_order_id));
-    filteredOps = ops.filter(o => activeOpIds.has(o.id) || (o.production_date >= currentStartDate && o.production_date <= currentEndDate));
-  }
-
-  // Renderizar Indicadores KPI
-  renderMetricsCards(metricsContainer, filteredOps, totalsMap, statusMap, filteredPortions);
-
-  // Gráficos do fluxo (não bloqueiam o restante da tela se falharem)
-  if (chartsSection) {
-    if (filteredOps.length === 0) {
-      chartsSection.innerHTML = '';
-    } else {
-      renderOverviewCharts(chartsSection, {
-        filteredOps,
-        filteredPortions,
-        demands,
-        totalsMap
-      }).catch(err => console.error('Erro ao renderizar gráficos:', err));
-    }
-  }
-
-  // Renderizar Produções Realizadas Por Dia (Agrupadas por Data de Finalização do Sabor)
-  renderDailyProductionOrders(dailyOrdersSection, filteredPortions, opMap, statusMap);
-}
-
-function renderMetricsCards(container, filteredOps, totalsMap, statusMap, portions) {
-  if (filteredOps.length === 0) {
-    container.innerHTML = `
-      <div class="p-6 bg-surface-card rounded-xl border border-border-subtle text-center text-text-muted font-body-md">
-        Nenhuma ordem de produção encontrada para os filtros selecionados.
-      </div>
-    `;
-    return;
-  }
-
-  const totalPlannedKg = filteredOps.reduce((acc, o) => acc + Number(totalsMap[o.id]?.planned_total_kg || 0), 0);
-  const totalProducedKg = filteredOps.reduce((acc, o) => acc + Number(totalsMap[o.id]?.produced_total_kg || 0), 0);
-  const overallProgressPct = totalPlannedKg > 0 ? Math.min(100, Math.round((totalProducedKg / totalPlannedKg) * 100)) : 0;
-
-  // Andamento por porção: o fluxo termina no vácuo; a rotulagem corre em paralelo
-  const stageDone = (p, stage) => (p.process_runs || []).some(r => r.stage === stage && r.status === 'completed');
-  const totalPortions = (portions || []).length;
-  const finishedPortions = (portions || []).filter(p => stageDone(p, 'embutimento') && stageDone(p, 'vacuo')).length;
-  const labeledPortions = (portions || []).filter(p => stageDone(p, 'rotulagem')).length;
-
-  container.innerHTML = `
-    <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-space-md">
-      <!-- Card 1: Contexto de Produção / OP -->
-      <article class="bg-surface-card rounded-xl p-space-md shadow-sm border border-border-subtle flex flex-col justify-between relative overflow-hidden">
-        <div class="absolute top-0 left-0 right-0 h-1.5 bg-bordeaux-primary"></div>
-        <div class="flex flex-col gap-1">
-          <span class="font-label-sm text-text-muted uppercase">${
-            currentFilterMode === 'op' ? 'Ordem de Produção' :
-            currentFilterMode === 'day' ? 'Monitoramento Diário' :
-            currentFilterMode === 'range' ? 'Monitoramento por Período / Semana' :
-            'Visão Geral Global'
-          }</span>
-          <h2 class="font-headline-sm text-ink-text">${
-            currentFilterMode === 'op' ? `${filteredOps[0]?.order_code || ''} • ${weekdayName(filteredOps[0]?.production_date)}` :
-            currentFilterMode === 'day' ? `Dia ${formatDate(currentSelectedDate)}` :
-            currentFilterMode === 'range' ? `${formatDate(currentStartDate)} a ${formatDate(currentEndDate)}` :
-            `${filteredOps.length} OPs Mapeadas`
-          }</h2>
-          <div class="flex justify-between items-baseline mt-2">
-            <span class="text-xs text-text-muted">Carga Planejada:</span>
-            <span class="font-bold text-bordeaux-primary text-lg">${formatWeight(totalPlannedKg)}</span>
-          </div>
-          <div class="w-full bg-surface-canvas rounded-full h-2 overflow-hidden mt-2">
-            <div class="bg-bordeaux-primary h-full rounded-full" style="width: ${overallProgressPct}%"></div>
-          </div>
-        </div>
-      </article>
-
-      <!-- Card 2: Produção Realizada com Link Ver + -->
-      <article class="bg-surface-card rounded-xl p-space-md shadow-sm border border-border-subtle flex flex-col justify-between relative overflow-hidden">
-        <div class="absolute top-0 left-0 right-0 h-1.5 bg-status-success"></div>
-        <div class="flex flex-col gap-1">
-          <div class="flex items-center justify-between">
-            <span class="font-label-sm text-text-muted uppercase">Volume Produzido Real</span>
-            <button id="view-more-production-btn" class="text-xs font-bold text-status-success hover:underline flex items-center gap-0.5 cursor-pointer bg-surface-canvas px-2 py-0.5 rounded border border-border-subtle">
-              <span>Ver +</span>
-              <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
-            </button>
-          </div>
-          <h2 class="font-headline-sm text-status-success">${formatWeight(totalProducedKg)}</h2>
-          <span class="text-xs text-text-muted mt-2">Conclusão do ciclo: <strong>${overallProgressPct}%</strong></span>
-        </div>
-      </article>
-
-      <!-- Card 3: Porções finalizadas (embutimento + vácuo) -->
-      <article class="bg-surface-card rounded-xl p-space-md shadow-sm border border-border-subtle flex flex-col justify-between relative overflow-hidden">
-        <div class="absolute top-0 left-0 right-0 h-1.5 bg-amber-warning"></div>
-        <div class="flex flex-col gap-1">
-          <span class="font-label-sm text-text-muted uppercase">Porções Finalizadas</span>
-          <h2 class="font-headline-sm text-ink-text">${finishedPortions} de ${totalPortions}</h2>
-          <span class="text-xs text-text-muted mt-2">Embutimento e vácuo concluídos</span>
-        </div>
-      </article>
-
-      <!-- Card 4: Rotulagem (paralela ao fluxo) -->
-      <article class="bg-surface-card rounded-xl p-space-md shadow-sm border border-border-subtle flex flex-col justify-between relative overflow-hidden">
-        <div class="absolute top-0 left-0 right-0 h-1.5 bg-status-info"></div>
-        <div class="flex flex-col gap-1">
-          <span class="font-label-sm text-text-muted uppercase">Rotulagem</span>
-          <h2 class="font-headline-sm text-status-info">${labeledPortions} de ${totalPortions}</h2>
-          <span class="text-xs text-text-muted mt-2">Porções com rótulos prontos (acontece em paralelo)</span>
-        </div>
-      </article>
-    </section>
-  `;
-
-  // Listeners dos botões Ver +
-  container.querySelector('#view-more-production-btn')?.addEventListener('click', () => {
-    openProductionModal();
-  });
-
-}
-
-function openStockModal() {
-  const modal = document.getElementById('stock-details-modal');
-  if (!modal) return;
-
-  modalSearchQuery = '';
-  modalActiveTab = 'all';
-
-  const searchInput = document.getElementById('stock-modal-search');
-  if (searchInput) searchInput.value = '';
-
-  modal.classList.remove('hidden');
-  renderStockModalContent();
-}
-
-function renderStockModalContent() {
-  const container = document.getElementById('stock-modal-list-container');
-  if (!container) return;
-
-  // Mapear cada sabor para o seu saldo de estoque acumulado e detalhes dos lotes
-  const stockByFlavorMap = (modalInventoryLots || []).reduce((acc, item) => {
-    const fId = item.flavor_id;
-    if (!acc[fId]) {
-      acc[fId] = {
-        flavor_id: fId,
-        flavor_name: item.flavor,
-        totalBalanceKg: 0,
-        lots: []
-      };
-    }
-    acc[fId].totalBalanceKg += Number(item.balance_kg || 0);
-    acc[fId].lots.push(item);
-    return acc;
-  }, {});
-
-  // Cruzar com todos os sabores ativos cadastrados
-  const flavorRows = modalAllFlavors.map(f => {
-    const stockData = stockByFlavorMap[f.id];
-    const totalBalanceKg = stockData ? stockData.totalBalanceKg : 0;
-    const isProduced = totalBalanceKg > 0;
-    const lots = stockData ? stockData.lots : [];
-
-    return {
-      id: f.id,
-      name: f.name,
-      totalBalanceKg,
-      isProduced,
-      lots
-    };
-  });
-
-  // Aplicar filtro de busca
-  let filteredRows = flavorRows;
-  if (modalSearchQuery) {
-    filteredRows = filteredRows.filter(r => r.name.toLowerCase().includes(modalSearchQuery));
-  }
-
-  // Aplicar filtro de abas (Todos, Produzidos, Não Produzidos)
-  if (modalActiveTab === 'produced') {
-    filteredRows = filteredRows.filter(r => r.isProduced);
-  } else if (modalActiveTab === 'unproduced') {
-    filteredRows = filteredRows.filter(r => !r.isProduced);
-  }
-
-  if (filteredRows.length === 0) {
-    container.innerHTML = `
-      <div class="p-8 text-center text-text-muted text-xs italic bg-surface-canvas rounded-xl border border-border-subtle">
-        Nenhum sabor encontrado para os critérios de busca e filtro.
-      </div>
-    `;
-    return;
-  }
-
-  container.innerHTML = `
-    <div class="grid grid-cols-1 gap-space-sm">
-      ${filteredRows.map(row => `
-        <div class="bg-surface-canvas rounded-xl p-space-md border border-border-subtle flex flex-col gap-2">
-          <div class="flex items-center justify-between flex-wrap gap-2">
-            <div class="flex items-center gap-2">
-              <span class="material-symbols-outlined text-[20px] ${row.isProduced ? 'text-status-success' : 'text-text-muted'}">restaurant_menu</span>
-              <h3 class="font-title-md text-title-md text-ink-text font-bold">${row.name}</h3>
-            </div>
-
-            <div class="flex items-center gap-3">
-              <span class="px-2.5 py-0.5 rounded text-xs font-bold ${
-                row.isProduced ? 'bg-surface-container-low text-status-success' : 'bg-surface-card text-text-muted border border-border-subtle'
-              }">
-                ${row.isProduced ? 'Produzido (Em Estoque)' : 'Não Produzido (Sem Estoque)'}
-              </span>
-
-              <span class="font-tabular-data-lg text-tabular-data-lg font-bold ${row.isProduced ? 'text-status-success' : 'text-text-muted'}">
-                ${formatWeight(row.totalBalanceKg)}
-              </span>
-            </div>
-          </div>
-
-          <!-- Detalhes dos Lotes se Produzido -->
-          ${row.isProduced && row.lots.length > 0 ? `
-            <div class="mt-1 pt-2 border-t border-border-subtle flex flex-col gap-1">
-              <span class="text-[11px] font-bold text-text-muted uppercase">Lotes em Câmara:</span>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                ${row.lots.map(lot => `
-                  <div class="p-2 rounded bg-surface-card border border-border-subtle flex items-center justify-between">
-                    <div class="flex flex-col">
-                      <span class="font-bold text-ink-text">Lote ${lot.lot_code || '—'}</span>
-                      <span class="text-text-muted capitalize">${lot.product_type} • ${lot.conservation}</span>
-                    </div>
-                    <div class="flex flex-col text-right">
-                      <span class="font-bold text-status-success">${formatWeight(lot.balance_kg)}</span>
-                      <span class="text-[10px] text-text-muted">Validade: ${formatDate(lot.expiry_date)}</span>
-                    </div>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-          ` : ''}
-        </div>
-      `).join('')}
-    </div>
-  `;
-}
-
-function renderDailyProductionOrders(container, portions, opMap, statusMap) {
+function renderDailyProductionOrders(container, portions, opMap) {
   if (!portions || portions.length === 0) {
     container.innerHTML = `
       <div class="bg-surface-card rounded-xl p-space-lg shadow-sm border border-border-subtle text-center text-text-muted font-body-md">
@@ -952,21 +734,21 @@ function renderDailyProductionOrders(container, portions, opMap, statusMap) {
   const sortedDates = Object.keys(portionsByDateMap).sort((a, b) => b.localeCompare(a));
 
   container.innerHTML = `
-    <div class="bg-surface-card rounded-xl p-space-lg shadow-sm border border-border-subtle flex flex-col gap-space-md">
-      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-space-sm pb-space-xs border-b border-border-subtle">
+    <details class="group bg-surface-card rounded-xl p-space-md sm:p-space-lg shadow-sm border border-border-subtle flex flex-col gap-space-md">
+      <summary class="list-none cursor-pointer select-none flex flex-col sm:flex-row items-start sm:items-center justify-between gap-space-sm">
         <div>
           <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-bordeaux-primary text-[22px]">format_list_bulleted</span>
-            <h2 class="font-headline-sm text-headline-sm text-ink-text">Produções Realizadas por Dia de Finalização & Acompanhamento de Processos</h2>
+            <span class="material-symbols-outlined text-bordeaux-primary text-[22px] transition-transform group-open:rotate-90">chevron_right</span>
+            <h2 class="font-headline-sm text-headline-sm text-ink-text">Detalhe por dia de finalização</h2>
           </div>
-          <p class="font-body-md text-body-md text-text-muted mt-0.5">Listagem das produções organizadas pelo dia em que cada sabor teve suas etapas concluídas, com acompanhamento de peso embutido, envacado e tempo gasto.</p>
+          <p class="text-xs text-text-muted mt-0.5 ml-8">Cada sabor no dia em que terminou as etapas, com peso embutido, envacado, rótulos e tempo gasto. Clique para abrir.</p>
         </div>
         <span class="font-label-sm text-label-sm px-2.5 py-1 rounded bg-surface-canvas text-ink-text font-bold border border-border-subtle">
           ${sortedDates.length} ${sortedDates.length === 1 ? 'Dia com Registro' : 'Dias com Registros'}
         </span>
-      </div>
+      </summary>
 
-      <div class="flex flex-col gap-space-lg">
+      <div class="flex flex-col gap-space-lg mt-space-md">
         ${sortedDates.map(dateKey => {
           const datePortions = portionsByDateMap[dateKey];
 
@@ -1110,7 +892,7 @@ function renderDailyProductionOrders(container, portions, opMap, statusMap) {
           `;
         }).join('')}
       </div>
-    </div>
+    </details>
   `;
 }
 
