@@ -5,13 +5,13 @@ const CHART_JS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/char
 
 // Cores alinhadas ao tema do sistema (tailwind-config do index.html)
 const COLORS = {
-  bordeaux: '#8C0303',
+  bordeaux: '#380000',
   success: '#176B45',
-  amber: '#D99311',
+  amber: '#E69F0F',
   info: '#205A85',
-  muted: '#5C5150',
-  border: '#E8E1DF',
-  ink: '#260101'
+  muted: '#5E5650',
+  border: '#E7E0D5',
+  ink: '#1F1712'
 };
 
 const STAGES = [
@@ -221,9 +221,9 @@ function drawChart(id, config) {
 const baseOptions = {
   responsive: true,
   maintainAspectRatio: false,
-  plugins: { legend: { labels: { font: { family: 'Work Sans', size: 11 }, color: COLORS.ink } } }
+  plugins: { legend: { labels: { font: { family: 'Ubuntu', size: 11 }, color: COLORS.ink } } }
 };
-const axisTicks = { color: COLORS.muted, font: { family: 'Work Sans', size: 11 } };
+const axisTicks = { color: COLORS.muted, font: { family: 'Ubuntu', size: 11 } };
 
 export async function renderOverviewCharts(container, input) {
   if (!container) return;
@@ -255,7 +255,7 @@ export async function renderOverviewCharts(container, input) {
     grid.innerHTML = `<div class="lg:col-span-2 p-4 bg-badge-error-bg text-badge-error-text rounded-lg text-sm">${err.message} Verifique a conexão e use "Atualizar".</div>`;
     return;
   }
-  Chart.defaults.font.family = 'Work Sans';
+  Chart.defaults.font.family = 'Ubuntu';
 
   const data = buildChartData(input);
 
