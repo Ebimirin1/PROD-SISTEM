@@ -29,7 +29,8 @@ const AUTO_HIDE = /GRANEL|MASSA|PERNIL|SOBREPALETA|BACON PE[CÇ]A|SACOLA|BOLSA/i
 function isHidden(r) {
   if (r.product_code.startsWith('sabor:')) return false;
   const m = productMap.get(r.product_code);
-  return m ? !!m.ignore : AUTO_HIDE.test(r.product_name);
+  // O relatório traz tudo o que o empório vende (bebidas, carvão...): sem vínculo, só linguiça/manta/hambúrguer entram
+  return m ? !!m.ignore : (AUTO_HIDE.test(r.product_name) || !/^(LING|MANTA|HAMB)/i.test(r.product_name.trim()));
 }
 const PRODUCT_TYPES = [['linguica', 'Linguiça'], ['manta', 'Manta'], ['granel', 'Granel'], ['massa', 'Massa'], ['hamburguer', 'Hambúrguer']];
 const DESTINATIONS = [['emporio', 'Empório'], ['lanchonete', 'Lanchonete'], ['outro', 'Outro']];
@@ -389,7 +390,7 @@ function mapCells(r) {
     return `<td class="l text-text-muted" colspan="2">Sabor sem produto vinculado → Linguiça</td>`;
   }
   const m = productMap.get(r.product_code) || {};
-  const flavorVal = (m.product_code ? m.ignore : AUTO_HIDE.test(r.product_name)) ? '__ignore' : (m.flavor_id || '');
+  const flavorVal = isHidden(r) ? '__ignore' : (m.flavor_id || '');
   const type = m.product_type || guessType(r.product_name);
   return `<td class="l"><select class="oa-map oa-flavor" data-code="${esc(r.product_code)}" style="max-width:190px;${flavorVal ? '' : 'border-color:#ba1a1a'}">
       <option value="">— vincular —</option>
