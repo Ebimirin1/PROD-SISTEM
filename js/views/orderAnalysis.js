@@ -380,10 +380,10 @@ async function openLinkDialog(flavorId) {
   dlg.innerHTML = `
     <div class="bg-surface-card rounded-xl shadow-lg p-5 w-full max-w-2xl text-sm flex flex-col gap-3 max-h-[90vh]">
       <h2 class="font-headline-sm text-ink-text">IDs ligados ao sabor ${esc(row?.product_name || '')}</h2>
-      <p class="text-xs text-text-muted">Marque os produtos de LINGUIÇA desse sabor (ex.: LING GORG E MEL e LING GORG E MEL 1KG). As vendas e o estoque deles são somados no sabor. Manta, granel e massa não entram aqui.</p>
+      <p class="text-xs text-text-muted">Marque os produtos de LINGUIÇA desse sabor (ex.: LING GORG E MEL e LING GORG E MEL 1KG). A lista é a lista oficial de produtos (ID do Inflow). As vendas e o estoque dos marcados são somados no sabor.</p>
       <div class="flex gap-2 items-center text-xs">
         <input id="oa-lk-q" type="search" class="oa-in flex-1" placeholder="Buscar produto ou ID…">
-        <label class="flex items-center gap-1 font-bold"><input id="oa-lk-all" type="checkbox"> Mostrar todos (não só LING)</label>
+        <label class="flex items-center gap-1 font-bold"><input id="oa-lk-all" type="checkbox"> Mostrar também granel e massa</label>
       </div>
       <div id="oa-lk-list" class="overflow-auto border border-border-subtle rounded" style="max-height:50vh"></div>
       <div class="flex justify-end gap-2">
@@ -398,7 +398,7 @@ async function openLinkDialog(flavorId) {
     const q = dlg.querySelector('#oa-lk-q').value.trim().toUpperCase();
     const all = dlg.querySelector('#oa-lk-all').checked;
     const list = prods.filter(p => checked.has(p.product_code) || (
-      (all || /^LING/i.test(p.product_name.trim())) && !/GRANEL|MASSA/i.test(p.product_name) &&
+      (all || !/GRANEL|MASSA/i.test(p.product_name)) &&
       (!q || p.product_name.toUpperCase().includes(q) || p.product_code === q)));
     list.sort((a, b) => (checked.has(b.product_code) - checked.has(a.product_code)) || a.product_name.localeCompare(b.product_name, 'pt-BR'));
     dlg.querySelector('#oa-lk-list').innerHTML = `<table class="w-full text-xs oa-table"><tbody>${list.map(p => {

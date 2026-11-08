@@ -60,7 +60,7 @@ export async function renderHistory(container, { lastDate, saleType, types }) {
           <tfoot id="sh-foot" class="sticky bottom-0 bg-surface-canvas font-bold"></tfoot>
         </table>
       </div>
-      <p class="text-[11px] text-text-muted">As vendas ficam guardadas no sistema. Para atualizar, importe só o relatório do período novo (ex.: a última semana) em "Importar planilha de vendas"; vendas já importadas não duplicam. Semana = segunda a domingo.</p>
+      <p class="text-[11px] text-text-muted">As vendas ficam guardadas no sistema. Para atualizar, importe só o relatório do período novo (ex.: a última semana) em "Importar planilha de vendas"; vendas já importadas não duplicam. Só aparecem os produtos da lista oficial (mapa de produtos do Inflow). Semana = segunda a domingo.</p>
     </div>`;
 
   const $ = id => el.querySelector('#' + id);
