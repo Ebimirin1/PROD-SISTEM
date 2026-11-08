@@ -188,6 +188,7 @@ select s.code,
 from (values
   ('1',   'linguica', 'trad', 'picad|nobre|mo[ií]d|defum'),
   ('876', 'linguica', 'trad', 'picad|nobre|mo[ií]d|defum'),
+  ('1338','linguica', 'gorg', null),
   ('951', 'manta',    'trad', 'picad|nobre|mo[ií]d|defum'),
   ('13',  'linguica', 'nobre|mo[ií]da', null),
   ('5',   'linguica', 'picad', null),
@@ -371,6 +372,102 @@ $$;
 
 revoke execute on function public.order_analysis(date, int, text), public.sales_history(date, date, text, text) from public, anon;
 grant execute on function public.order_analysis(date, int, text), public.sales_history(date, date, text, text) to authenticated;
+
+-- 9. Pedido por SABOR (só linguiça): uma linha por sabor ativo. Vendas e estoque somam os
+-- produtos (IDs do relatório/Inflow) ligados ao sabor como 'linguica' em sales_product_map.
+-- Estoque: o do Inflow (soma dos IDs), a não ser que tenha sido digitado à mão no sabor
+-- ('sabor:<id>' em order_stock) depois da última importação.
+create or replace function public.order_analysis_flavors(
+  p_ref date default current_date,
+  p_weeks int default 4,
+  p_sale_type text default null
+)
+returns table (
+  flavor_id uuid,
+  flavor_name text,
+  codes text[],
+  product_names text[],
+  weekly_qty numeric[],
+  total_qty numeric,
+  weekly_avg numeric,
+  last_sale date,
+  stock_qty numeric,
+  stock_source text,
+  stock_updated_at timestamptz,
+  has_recipe boolean
+)
+language sql stable
+set search_path = public
+as $$
+  with links as (
+    select m.flavor_id, m.product_code
+    from public.sales_product_map m
+    where m.product_type = 'linguica' and not m.ignore and m.flavor_id is not null
+  ),
+  win as (
+    select l.flavor_id, ((p_ref - s.sale_date) / 7) + 1 as wk, s.qty
+    from public.sales_records s
+    join links l on l.product_code = s.product_code
+    where s.sale_date > p_ref - 7 * p_weeks and s.sale_date <= p_ref
+      and (p_sale_type is null or s.sale_type = p_sale_type)
+  ),
+  stk as (
+    select l.flavor_id, sum(o.stock_qty) as qty, max(o.updated_at) as upd
+    from links l join public.order_stock o on o.product_code = l.product_code
+    group by l.flavor_id
+  )
+  select f.id,
+         f.name,
+         coalesce((select array_agg(l.product_code order by l.product_code) from links l where l.flavor_id = f.id), '{}'),
+         coalesce((select array_agg(coalesce(
+                     (select s.product_name from public.sales_records s where s.product_code = l.product_code order by s.sale_date desc limit 1),
+                     (select o.product_name from public.order_stock o where o.product_code = l.product_code),
+                     l.product_code) order by l.product_code)
+                   from links l where l.flavor_id = f.id), '{}'),
+         array(select coalesce(sum(w.qty), 0) from generate_series(1, p_weeks) g(n)
+               left join win w on w.flavor_id = f.id and w.wk = g.n
+               group by g.n order by g.n),
+         coalesce((select sum(w.qty) from win w where w.flavor_id = f.id), 0),
+         round(coalesce((select sum(w.qty) from win w where w.flavor_id = f.id), 0) / p_weeks, 3),
+         (select max(s.sale_date) from public.sales_records s join links l on l.product_code = s.product_code
+           where l.flavor_id = f.id and s.sale_date <= p_ref),
+         case when man.updated_at is not null and (st.upd is null or man.updated_at > st.upd) then man.stock_qty
+              else coalesce(st.qty, 0) end,
+         case when man.updated_at is not null and (st.upd is null or man.updated_at > st.upd) then 'manual'
+              when st.upd is not null then 'inflow' end,
+         greatest(man.updated_at, st.upd),
+         exists (select 1 from public.formula_versions v where v.flavor_id = f.id and v.status = 'active')
+  from public.flavors f
+  left join stk st on st.flavor_id = f.id
+  left join public.order_stock man on man.product_code = 'sabor:' || f.id
+  where f.active
+  order by 7 desc, f.name;
+$$;
+
+-- 10. Produtos que aparecem nas vendas ou no estoque (para ligar ao sabor na tela)
+create or replace function public.sales_products()
+returns table (product_code text, product_name text, qty_52w numeric, flavor_id uuid, product_type text, ignore boolean)
+language sql stable
+set search_path = public
+as $$
+  with codes as (
+    select s.product_code from public.sales_records s
+    union select o.product_code from public.order_stock o where o.product_code not like 'sabor:%'
+  )
+  select c.product_code,
+         coalesce((select s.product_name from public.sales_records s where s.product_code = c.product_code order by s.sale_date desc limit 1),
+                  (select o.product_name from public.order_stock o where o.product_code = c.product_code),
+                  c.product_code),
+         coalesce((select sum(s.qty) from public.sales_records s where s.product_code = c.product_code
+                    and s.sale_date > (select max(sale_date) from public.sales_records) - 364), 0),
+         m.flavor_id, m.product_type, coalesce(m.ignore, false)
+  from codes c
+  left join public.sales_product_map m on m.product_code = c.product_code
+  order by 2;
+$$;
+
+revoke execute on function public.order_analysis_flavors(date, int, text), public.sales_products() from public, anon;
+grant execute on function public.order_analysis_flavors(date, int, text), public.sales_products() to authenticated;
 
 commit;
 
