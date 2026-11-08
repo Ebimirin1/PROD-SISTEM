@@ -27,6 +27,7 @@ let showHidden = false;
 // Sem vínculo salvo, granel/massa/matéria-prima ficam fora do pedido (empório não estoca)
 const AUTO_HIDE = /GRANEL|MASSA|PERNIL|SOBREPALETA|BACON PE[CÇ]A|SACOLA|BOLSA/i;
 function isHidden(r) {
+  if (r.product_code.startsWith('sabor:')) return false;
   const m = productMap.get(r.product_code);
   return m ? !!m.ignore : AUTO_HIDE.test(r.product_name);
 }
@@ -97,6 +98,13 @@ export async function render(container) {
         </div>
       </div>
 
+      <div class="flex gap-2">
+        <button data-tab="order" class="oa-tab px-4 py-2 rounded-lg text-xs font-bold">Pedido</button>
+        <button data-tab="history" class="oa-tab px-4 py-2 rounded-lg text-xs font-bold">Histórico de vendas</button>
+      </div>
+
+      <div id="oa-tab-history" class="hidden"></div>
+      <div id="oa-tab-order" class="flex flex-col gap-space-md">
       <div class="bg-surface-card p-3 rounded-xl border border-border-subtle shadow-sm flex flex-wrap items-end gap-3 text-xs">
         ${field('Data de referência', `<input id="oa-ref" type="date" class="oa-in w-[140px]">`)}
         ${field('Semanas na média', `<input id="oa-weeks" type="number" min="1" max="26" class="oa-in w-[70px]">`)}
@@ -117,7 +125,8 @@ export async function render(container) {
           <tfoot id="oa-foot" class="sticky bottom-0 bg-surface-canvas font-bold"></tfoot>
         </table>
       </div>
-      <p class="text-[11px] text-text-muted">Semana 1 = os 7 dias que terminam na data de referência. Média = total das semanas ÷ nº de semanas. 1 giro = 1 semana; necessidade = média × giros. Sugestão = necessidade − estoque, arredondada para cima e nunca abaixo do pedido mínimo. O estoque é salvo ao sair do campo; o pedido pode ser ajustado à mão. Para ir para a OP, o produto precisa estar vinculado a um sabor (marque "Vincular sabores"). Granel, massa e matéria-prima ficam fora do pedido até você vincular.</p>
+      <p class="text-[11px] text-text-muted">Semana 1 = os 7 dias que terminam na data de referência. Média = total das semanas ÷ nº de semanas. 1 giro = 1 semana; necessidade = média × giros. Sugestão = necessidade − estoque, arredondada para cima e nunca abaixo do pedido mínimo. O estoque é salvo ao sair do campo; o pedido pode ser ajustado à mão. Para ir para a OP, o produto precisa estar vinculado a um sabor (marque "Vincular sabores"). Granel, massa e matéria-prima ficam fora do pedido até você vincular. Sabores cadastrados sem produto vinculado aparecem com o nome do sabor e vão para a OP como linguiça.</p>
+      </div>
       <div id="oa-dialog" class="hidden fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"></div>
     </div>
     <style>
@@ -132,6 +141,8 @@ export async function render(container) {
       .oa-table .oa-wk { color: #6b625c; }
       .oa-table .oa-sug { font-weight: 700; color: #380000; }
       .oa-low { background: rgba(186,26,26,.10); }
+      .oa-tab { background: #fff; color: #1f1a17; border: 1px solid #d6d0cc; }
+      .oa-tab.on { background: #380000; color: #fff; border-color: #380000; }
       #oa-print-root { display: none; }
       @media print {
         @page { size: A4 portrait; margin: 10mm; }
@@ -185,8 +196,24 @@ export async function render(container) {
   $('oa-print').addEventListener('click', printOrder);
   $('oa-csv').addEventListener('click', exportCsv);
 
+  container.querySelectorAll('.oa-tab').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+  showTab(currentTab);
+
   await Promise.all([loadSummary(), loadMapAndFlavors()]);
   await loadAnalysis();
+}
+
+let currentTab = 'order';
+async function showTab(tab) {
+  currentTab = tab;
+  rootEl.querySelectorAll('.oa-tab').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  rootEl.querySelector('#oa-tab-order').classList.toggle('hidden', tab !== 'order');
+  const hist = rootEl.querySelector('#oa-tab-history');
+  hist.classList.toggle('hidden', tab !== 'history');
+  if (tab === 'history') {
+    const { renderHistory } = await import('./salesHistory.js');
+    renderHistory(hist, { lastDate: summary?.last_date, saleType: prefs.saleType, types: summary?.types || [] });
+  }
 }
 
 async function loadMapAndFlavors() {
@@ -358,6 +385,9 @@ function renderTable() {
 }
 
 function mapCells(r) {
+  if (r.product_code.startsWith('sabor:')) {
+    return `<td class="l text-text-muted" colspan="2">Sabor sem produto vinculado → Linguiça</td>`;
+  }
   const m = productMap.get(r.product_code) || {};
   const flavorVal = (m.product_code ? m.ignore : AUTO_HIDE.test(r.product_name)) ? '__ignore' : (m.flavor_id || '');
   const type = m.product_type || guessType(r.product_name);
@@ -461,9 +491,15 @@ async function openSaveDialog() {
     .order('production_date', { ascending: false }).limit(20);
   if (error) { showNotification('Erro ao ler as OPs: ' + error.message, 'error'); return; }
 
-  const unmapped = lines.filter(({ r }) => !productMap.get(r.product_code)?.flavor_id);
+  const unmapped = lines.filter(({ r }) => !r.product_code.startsWith('sabor:') && !productMap.get(r.product_code)?.flavor_id);
   const total = lines.reduce((a, { c }) => a + c.order, 0);
   const tomorrow = addDays(todayLocal(), 1);
+  // OP aberta desta semana ou da próxima (segunda a domingo) já vem escolhida
+  const t = todayLocal();
+  const [ty, tm, td] = t.split('-').map(Number);
+  const monday = addDays(t, -((new Date(ty, tm - 1, td).getDay() + 6) % 7));
+  const weekOp = (ops || []).filter(o => o.production_date >= monday && o.production_date <= addDays(monday, 13))
+    .sort((a, b) => a.production_date.localeCompare(b.production_date))[0];
 
   const dlg = rootEl.querySelector('#oa-dialog');
   dlg.innerHTML = `
@@ -477,7 +513,7 @@ async function openSaveDialog() {
       <label class="flex flex-col gap-1 font-bold text-text-muted text-xs">Ordem de Produção
         <select id="oa-dlg-op" class="oa-in">
           <option value="">Criar OP nova</option>
-          ${(ops || []).map(o => `<option value="${o.id}">${esc(o.order_code)} · produção ${formatDate(o.production_date)}</option>`).join('')}
+          ${(ops || []).map(o => `<option value="${o.id}" ${weekOp?.id === o.id ? 'selected' : ''}>${esc(o.order_code)} · produção ${formatDate(o.production_date)}</option>`).join('')}
         </select>
       </label>
       <label id="oa-dlg-date-wrap" class="flex flex-col gap-1 font-bold text-text-muted text-xs">Data de produção da OP nova
@@ -563,6 +599,7 @@ async function importFile(file, input) {
     prefs.refDate = '';
     await loadSummary();
     await loadAnalysis();
+    if (currentTab === 'history') showTab('history');
   } catch (err) {
     console.error(err);
     showNotification(err.message || String(err), 'error');

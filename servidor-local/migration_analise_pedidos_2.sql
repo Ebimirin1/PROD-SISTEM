@@ -104,7 +104,10 @@ begin
   select v_req, l->>'product_code', coalesce(l->>'product_name', l->>'product_code'),
          coalesce((l->>'weekly_avg')::numeric, 0), coalesce((l->>'stock_qty')::numeric, 0),
          coalesce((l->>'suggestion')::numeric, 0), (l->>'order_qty')::numeric,
-         case when m.ignore then null else m.flavor_id end, m.product_type
+         -- "sabor:<id>" = linha de um sabor sem produto vinculado (vai como linguiça)
+         case when l->>'product_code' like 'sabor:%' then substr(l->>'product_code', 7)::uuid
+              when m.ignore then null else m.flavor_id end,
+         case when l->>'product_code' like 'sabor:%' then 'linguica' else m.product_type end
   from jsonb_array_elements(p_lines) l
   left join public.sales_product_map m on m.product_code = l->>'product_code'
   where (l->>'order_qty')::numeric > 0;
@@ -135,10 +138,10 @@ begin
     returning id into v_demand;
 
     update public.order_request_lines x set demand_id = v_demand
-    from public.sales_product_map m
     where x.request_id = v_req and x.flavor_id = r.flavor_id
       and coalesce(x.product_type, 'linguica') = r.product_type
-      and m.product_code = x.product_code and m.conservation is not distinct from r.conservation;
+      and (select m.conservation from public.sales_product_map m where m.product_code = x.product_code)
+          is not distinct from r.conservation;
     v_demands := v_demands + 1;
   end loop;
 
@@ -258,6 +261,116 @@ from (values
 where (select count(*) from public.flavors f
         where f.active and lower(f.name) ~ s.re and (s.nre is null or lower(f.name) !~ s.nre)) = 1
 on conflict (product_code) do nothing;
+
+-- 6. Nome do produto no estoque (vem do mapa do Inflow)
+alter table public.order_stock add column if not exists product_name text;
+
+-- 7. Lista do pedido: produtos com venda nas semanas + TODOS os produtos vinculados a sabor
+-- + sabores ativos que ainda não têm produto vinculado (linha "sabor:<id>").
+create or replace function public.order_analysis(
+  p_ref date default current_date,
+  p_weeks int default 4,
+  p_sale_type text default null
+)
+returns table (
+  product_code text,
+  product_name text,
+  weekly_qty numeric[],
+  total_qty numeric,
+  weekly_avg numeric,
+  last_sale date,
+  stock_qty numeric,
+  stock_updated_at timestamptz
+)
+language sql stable
+set search_path = public
+as $$
+  with win as (
+    select s.product_code, ((p_ref - s.sale_date) / 7) + 1 as wk, s.qty
+    from public.sales_records s
+    where s.sale_date > p_ref - 7 * p_weeks
+      and s.sale_date <= p_ref
+      and (p_sale_type is null or s.sale_type = p_sale_type)
+  ),
+  agg as (
+    select w.product_code,
+           array(select coalesce(sum(w2.qty), 0)
+                 from generate_series(1, p_weeks) g(n)
+                 left join win w2 on w2.product_code = w.product_code and w2.wk = g.n
+                 group by g.n order by g.n) as weekly_qty,
+           sum(w.qty) as total_qty
+    from win w
+    group by w.product_code
+  ),
+  mapped as (
+    select m.product_code from public.sales_product_map m
+    join public.flavors f on f.id = m.flavor_id and f.active
+    where not m.ignore
+  ),
+  lonely as (
+    select 'sabor:' || f.id as product_code, f.name
+    from public.flavors f
+    where f.active
+      and not exists (select 1 from public.sales_product_map m where m.flavor_id = f.id and not m.ignore)
+  ),
+  prods as (
+    select product_code from agg
+    union select product_code from mapped
+    union select product_code from lonely
+  ),
+  names as (
+    select distinct on (s.product_code) s.product_code, s.product_name, s.sale_date
+    from public.sales_records s
+    join prods p using (product_code)
+    where s.sale_date <= p_ref
+    order by s.product_code, s.sale_date desc
+  )
+  select p.product_code,
+         coalesce(n.product_name, o.product_name, l.name,
+                  (select upper(f.name) || ' (' || coalesce(m.product_type, 'linguica') || ')'
+                   from public.sales_product_map m join public.flavors f on f.id = m.flavor_id
+                   where m.product_code = p.product_code),
+                  p.product_code),
+         coalesce(a.weekly_qty, array_fill(0::numeric, array[p_weeks])),
+         coalesce(a.total_qty, 0),
+         round(coalesce(a.total_qty, 0) / p_weeks, 3),
+         n.sale_date,
+         coalesce(o.stock_qty, 0),
+         o.updated_at
+  from prods p
+  left join agg a using (product_code)
+  left join names n using (product_code)
+  left join lonely l using (product_code)
+  left join public.order_stock o using (product_code)
+  order by coalesce(a.total_qty, 0) desc, 2;
+$$;
+
+-- 8. Histórico de vendas agrupado por dia, semana (começa na segunda) ou mês
+create or replace function public.sales_history(
+  p_from date,
+  p_to date,
+  p_grain text default 'week',
+  p_sale_type text default null
+)
+returns table (product_code text, product_name text, period date, qty numeric, total numeric, sales bigint)
+language sql stable
+set search_path = public
+as $$
+  select s.product_code,
+         max(s.product_name),
+         case p_grain when 'day' then s.sale_date
+                      when 'month' then date_trunc('month', s.sale_date)::date
+                      else date_trunc('week', s.sale_date)::date end as period,
+         sum(s.qty), sum(s.total), count(distinct s.sale_number)
+  from public.sales_records s
+  where s.sale_date between p_from and p_to
+    and (p_sale_type is null or s.sale_type = p_sale_type)
+  group by 1, 3
+  order by 1, 3;
+$$;
+
+revoke execute on function public.order_analysis(date, int, text), public.sales_history(date, date, text, text) from public, anon;
+grant execute on function public.order_analysis(date, int, text), public.sales_history(date, date, text, text) to authenticated;
 
 commit;
 
