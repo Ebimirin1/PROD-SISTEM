@@ -23,6 +23,13 @@ let rootEl = null;
 let productMap = new Map(); // código -> { flavor_id, product_type, conservation, ignore }
 let flavors = [];
 let showMap = false;
+let showHidden = false;
+// Sem vínculo salvo, granel/massa/matéria-prima ficam fora do pedido (empório não estoca)
+const AUTO_HIDE = /GRANEL|MASSA|PERNIL|SOBREPALETA|BACON PE[CÇ]A|SACOLA|BOLSA/i;
+function isHidden(r) {
+  const m = productMap.get(r.product_code);
+  return m ? !!m.ignore : AUTO_HIDE.test(r.product_name);
+}
 const PRODUCT_TYPES = [['linguica', 'Linguiça'], ['manta', 'Manta'], ['granel', 'Granel'], ['massa', 'Massa'], ['hamburguer', 'Hambúrguer']];
 const DESTINATIONS = [['emporio', 'Empório'], ['lanchonete', 'Lanchonete'], ['outro', 'Outro']];
 
@@ -99,6 +106,7 @@ export async function render(container) {
         ${field('Produto', `<input id="oa-search" type="search" placeholder="Buscar…" class="oa-in w-[180px]">`)}
         <label class="flex items-center gap-1 font-bold text-ink-text pb-2"><input id="oa-only" type="checkbox"> Só com pedido</label>
         <label class="flex items-center gap-1 font-bold text-ink-text pb-2"><input id="oa-showmap" type="checkbox"> Vincular sabores</label>
+        <label class="flex items-center gap-1 font-bold text-ink-text pb-2"><input id="oa-hidden" type="checkbox"> Mostrar fora do pedido</label>
         <div id="oa-totals" class="ml-auto flex gap-4 pb-1 text-ink-text"></div>
       </div>
 
@@ -109,7 +117,7 @@ export async function render(container) {
           <tfoot id="oa-foot" class="sticky bottom-0 bg-surface-canvas font-bold"></tfoot>
         </table>
       </div>
-      <p class="text-[11px] text-text-muted">Semana 1 = os 7 dias que terminam na data de referência. Média = total das semanas ÷ nº de semanas. 1 giro = 1 semana; necessidade = média × giros. Sugestão = necessidade − estoque, arredondada para cima e nunca abaixo do pedido mínimo. O estoque é salvo ao sair do campo; o pedido pode ser ajustado à mão. Para ir para a OP, o produto precisa estar vinculado a um sabor (marque "Vincular sabores").</p>
+      <p class="text-[11px] text-text-muted">Semana 1 = os 7 dias que terminam na data de referência. Média = total das semanas ÷ nº de semanas. 1 giro = 1 semana; necessidade = média × giros. Sugestão = necessidade − estoque, arredondada para cima e nunca abaixo do pedido mínimo. O estoque é salvo ao sair do campo; o pedido pode ser ajustado à mão. Para ir para a OP, o produto precisa estar vinculado a um sabor (marque "Vincular sabores"). Granel, massa e matéria-prima ficam fora do pedido até você vincular.</p>
       <div id="oa-dialog" class="hidden fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"></div>
     </div>
     <style>
@@ -146,6 +154,7 @@ export async function render(container) {
   $('oa-giros').value = prefs.giros;
   $('oa-min').value = prefs.minOrder;
   $('oa-showmap').checked = showMap;
+  $('oa-hidden').checked = showHidden;
   $('oa-only').checked = prefs.onlyNeeded;
 
   const onParam = async () => {
@@ -162,12 +171,13 @@ export async function render(container) {
     prefs.giros = Math.max(0, num($('oa-giros').value) || 0);
     prefs.minOrder = Math.max(0, num($('oa-min').value));
     showMap = $('oa-showmap').checked;
+    showHidden = $('oa-hidden').checked;
     prefs.onlyNeeded = $('oa-only').checked;
     prefs.search = $('oa-search').value;
     savePrefs();
     renderTable();
   };
-  ['oa-giros', 'oa-min', 'oa-only', 'oa-showmap'].forEach(id => $(id).addEventListener('change', onCalc));
+  ['oa-giros', 'oa-min', 'oa-only', 'oa-showmap', 'oa-hidden'].forEach(id => $(id).addEventListener('change', onCalc));
   $('oa-search').addEventListener('input', onCalc);
   $('oa-import').addEventListener('change', e => importFile(e.target.files?.[0], e.target));
   $('oa-stock-file').addEventListener('change', e => importStock(e.target.files?.[0], e.target));
@@ -248,14 +258,16 @@ function calc(r) {
   const deficit = need - r.stock_qty;
   const suggestion = deficit > 0.0005 ? Math.max(prefs.minOrder || 0, Math.ceil(deficit)) : 0;
   const coverage = r.weekly_avg > 0 ? r.stock_qty / r.weekly_avg : null;
-  const order = orderOverrides.has(r.product_code) ? orderOverrides.get(r.product_code) : suggestion;
-  return { need, suggestion, coverage, order };
+  const hidden = isHidden(r);
+  const order = hidden ? 0 : (orderOverrides.has(r.product_code) ? orderOverrides.get(r.product_code) : suggestion);
+  return { need, suggestion: hidden ? 0 : suggestion, coverage, order, hidden };
 }
 
 function visibleRows() {
   const q = (prefs.search || '').trim().toUpperCase();
   let list = rows.map(r => ({ r, c: calc(r) }));
   if (q) list = list.filter(({ r }) => r.product_name.toUpperCase().includes(q) || r.product_code.includes(q));
+  if (!showHidden) list = list.filter(({ c }) => !c.hidden);
   if (prefs.onlyNeeded) list = list.filter(({ c }) => c.order > 0);
   const sorters = {
     code: (a, b) => a.r.product_code.localeCompare(b.r.product_code, 'pt-BR', { numeric: true }),
@@ -294,7 +306,7 @@ function renderTable() {
     body.innerHTML = `<tr><td colspan="${10 + prefs.weeks}" class="p-6 text-center text-text-muted">${rows.length ? 'Nenhum produto com esse filtro.' : 'Sem vendas nas semanas escolhidas. Confira a data de referência ou importe a planilha.'}</td></tr>`;
   } else {
     body.innerHTML = list.map(({ r, c }) => `
-      <tr class="${c.coverage !== null && c.coverage < 1 ? 'oa-low' : ''}">
+      <tr class="${c.hidden ? 'opacity-50' : (c.coverage !== null && c.coverage < 1 ? 'oa-low' : '')}">
         <td class="l text-text-muted">${esc(r.product_code)}</td>
         <td class="l font-bold text-ink-text">${esc(r.product_name)}</td>
         ${r.weekly_qty.map(q => `<td class="oa-wk">${q ? nf(q) : '–'}</td>`).join('')}
@@ -318,7 +330,7 @@ function renderTable() {
     <td class="l" colspan="2">${list.length} produto(s)</td>
     ${tot.weeks.map(v => `<td>${nf(v)}</td>`).join('')}
     <td>${nf(tot.avg)}</td><td></td><td>${nf(tot.stock)}</td><td></td><td>${nf(tot.need)}</td><td>${nf(tot.sug, 0)}</td><td>${nf(tot.order, 0)}</td>
-    ${showMap ? `<td class="l" colspan="2">${rows.filter(r => !productMap.get(r.product_code)?.flavor_id && !productMap.get(r.product_code)?.ignore).length} sem vínculo</td>` : ''}
+    ${showMap ? `<td class="l" colspan="2">${rows.filter(r => !isHidden(r) && !productMap.get(r.product_code)?.flavor_id).length} sem vínculo</td>` : ''}
   </tr>`;
   rootEl.querySelector('#oa-totals').innerHTML = `
     <span>Média/sem: <b>${nf(tot.avg)}</b></span>
@@ -347,11 +359,11 @@ function renderTable() {
 
 function mapCells(r) {
   const m = productMap.get(r.product_code) || {};
-  const flavorVal = m.ignore ? '__ignore' : (m.flavor_id || '');
+  const flavorVal = (m.product_code ? m.ignore : AUTO_HIDE.test(r.product_name)) ? '__ignore' : (m.flavor_id || '');
   const type = m.product_type || guessType(r.product_name);
   return `<td class="l"><select class="oa-map oa-flavor" data-code="${esc(r.product_code)}" style="max-width:190px;${flavorVal ? '' : 'border-color:#ba1a1a'}">
       <option value="">— vincular —</option>
-      <option value="__ignore" ${flavorVal === '__ignore' ? 'selected' : ''}>Não vai para OP</option>
+      <option value="__ignore" ${flavorVal === '__ignore' ? 'selected' : ''}>Fora do pedido</option>
       ${flavors.map(f => `<option value="${f.id}" ${f.id === flavorVal ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}
     </select></td>
     <td class="l"><select class="oa-map oa-type" data-code="${esc(r.product_code)}">
@@ -372,7 +384,7 @@ async function saveMap(code, tr) {
   const { error } = await supabase.from('sales_product_map').upsert(row, { onConflict: 'product_code' });
   if (error) { showNotification('Erro ao salvar vínculo: ' + error.message, 'error'); return; }
   productMap.set(code, row);
-  tr.querySelector('.oa-flavor').style.borderColor = flavorVal ? '' : '#ba1a1a';
+  renderTable();
 }
 
 async function saveStock(inp) {
@@ -449,8 +461,7 @@ async function openSaveDialog() {
     .order('production_date', { ascending: false }).limit(20);
   if (error) { showNotification('Erro ao ler as OPs: ' + error.message, 'error'); return; }
 
-  const unmapped = lines.filter(({ r }) => { const m = productMap.get(r.product_code); return !m?.flavor_id && !m?.ignore; });
-  const ignored = lines.filter(({ r }) => productMap.get(r.product_code)?.ignore);
+  const unmapped = lines.filter(({ r }) => !productMap.get(r.product_code)?.flavor_id);
   const total = lines.reduce((a, { c }) => a + c.order, 0);
   const tomorrow = addDays(todayLocal(), 1);
 
@@ -460,7 +471,6 @@ async function openSaveDialog() {
       <h2 class="font-headline-sm text-ink-text">Salvar pedido na Ordem de Produção</h2>
       <p class="text-text-muted">${lines.length} produto(s), <b>${nf(total, 0)} kg</b>. Produtos do mesmo sabor e tipo viram uma linha só na OP.</p>
       ${unmapped.length ? `<div class="p-2 rounded bg-badge-error-bg text-badge-error-text text-xs"><b>${unmapped.length} sem sabor vinculado</b> (ficam salvos no pedido, mas não entram na OP): ${unmapped.map(({ r }) => esc(r.product_name)).join(', ')}. Marque "Vincular sabores" para resolver.</div>` : ''}
-      ${ignored.length ? `<div class="text-xs text-text-muted">${ignored.length} marcado(s) "Não vai para OP": ${ignored.map(({ r }) => esc(r.product_name)).join(', ')}.</div>` : ''}
       <label class="flex flex-col gap-1 font-bold text-text-muted text-xs">Destino na OP
         <select id="oa-dlg-dest" class="oa-in">${DESTINATIONS.map(([k, l]) => `<option value="${k}" ${k === prefs.destination ? 'selected' : ''}>${l}</option>`).join('')}</select>
       </label>

@@ -107,7 +107,9 @@ export function parseStockRows(rows) {
   for (let h = 0; h < Math.min(rows.length, 40); h++) {
     const head = (rows[h] || []).map(norm);
     const find = re => head.findIndex(c => re.test(c));
-    const codeCol = find(/^(cod|codigo|cod\.|id|sku|referencia|ref)\b|codigo/);
+    // No Inflow, "ID" é o mesmo código do relatório de vendas ("Codigo" é outro número)
+    let codeCol = head.indexOf('id');
+    if (codeCol < 0) codeCol = find(/^(cod|codigo|sku|referencia|ref)\b|codigo/);
     const nameCol = find(/produto|descri|nome|item/);
     let qtyCol = find(/estoque|saldo|disponivel|quant|qtd|qtde/);
     if (qtyCol === codeCol || qtyCol === nameCol) qtyCol = -1;

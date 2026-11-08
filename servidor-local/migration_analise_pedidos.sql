@@ -72,10 +72,9 @@ as $$
     from win w
     group by w.product_code
   ),
+  -- Só produtos com venda nas semanas (o mapa de estoque traz matéria-prima, embalagem etc.)
   prods as (
     select product_code from agg
-    union
-    select product_code from public.order_stock where stock_qty <> 0
   ),
   names as (
     select distinct on (s.product_code) s.product_code, s.product_name, s.sale_date

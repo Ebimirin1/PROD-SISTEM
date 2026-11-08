@@ -174,6 +174,91 @@ grant select, insert, update, delete on public.sales_product_map, public.order_r
 revoke execute on function public.save_order_request(date, int, numeric, text, text, uuid, date, jsonb) from public, anon;
 grant execute on function public.save_order_request(date, int, numeric, text, text, uuid, date, jsonb) to authenticated;
 
+-- 5. Vínculos iniciais produto (ID do relatório/Inflow) → sabor, pelo nome do sabor.
+-- Só grava quando exatamente UM sabor ativo combina e o produto ainda não tem vínculo;
+-- o resto (e qualquer correção) se faz na tela, em "Vincular sabores".
+insert into public.sales_product_map (product_code, flavor_id, product_type)
+select s.code,
+       (select f.id from public.flavors f
+         where f.active and lower(f.name) ~ s.re and (s.nre is null or lower(f.name) !~ s.nre)),
+       s.ptype
+from (values
+  ('1',   'linguica', 'trad', 'picad|nobre|mo[ií]d|defum'),
+  ('876', 'linguica', 'trad', 'picad|nobre|mo[ií]d|defum'),
+  ('951', 'manta',    'trad', 'picad|nobre|mo[ií]d|defum'),
+  ('13',  'linguica', 'nobre|mo[ií]da', null),
+  ('5',   'linguica', 'picad', null),
+  ('953', 'manta',    'picad', null),
+  ('121', 'linguica', 'gorg', null),
+  ('976', 'manta',    'gorg', null),
+  ('21',  'linguica', 'ro[cç]a', null),
+  ('946', 'manta',    'ro[cç]a', null),
+  ('827', 'linguica', 'alho.*por', null),
+  ('972', 'manta',    'alho.*por', null),
+  ('89',  'linguica', 'alho', 'por'),
+  ('966', 'manta',    'alho', 'por'),
+  ('113', 'linguica', 'cuiab', 'bov'),
+  ('974', 'manta',    'cuiab', 'bov'),
+  ('145', 'linguica', 'brag', null),
+  ('980', 'manta',    'brag', null),
+  ('101', 'linguica', 'r[uú]c', null),
+  ('971', 'manta',    'r[uú]c', null),
+  ('1385','linguica', 'cerveja', null),
+  ('1386','manta',    'cerveja', null),
+  ('133', 'linguica', 'canastra', null),
+  ('973', 'manta',    'canastra', null),
+  ('77',  'linguica', 'lim[aã]o', null),
+  ('960', 'manta',    'lim[aã]o', null),
+  ('117', 'linguica', 'prov', null),
+  ('979', 'manta',    'prov', null),
+  ('25',  'linguica', 'panceta', 'shim'),
+  ('948', 'manta',    'panceta', 'shim'),
+  ('29',  'linguica', 'shim', null),
+  ('949', 'manta',    'shim', null),
+  ('1314','linguica', '[aá]rabe', null),
+  ('1315','manta',    '[aá]rabe', null),
+  ('17',  'linguica', 'bacon', 'fruta'),
+  ('945', 'manta',    'bacon', 'fruta'),
+  ('97',  'linguica', 'chilen', null),
+  ('967', 'manta',    'chilen', null),
+  ('940', 'linguica', 'cheddar|jalape', null),
+  ('962', 'manta',    'cheddar|jalape', null),
+  ('61',  'linguica', 'calab.*fina', null),
+  ('57',  'linguica', 'calab', 'fina|m[eé]dia'),
+  ('957', 'manta',    'calab', 'fina|m[eé]dia'),
+  ('69',  'linguica', 'biq', 'canastra'),
+  ('959', 'manta',    'biq', 'canastra'),
+  ('129', 'linguica', 'napolit', null),
+  ('978', 'manta',    'napolit', null),
+  ('109', 'linguica', 'brasileir', null),
+  ('968', 'manta',    'brasileir', null),
+  ('839', 'linguica', 'cream', null),
+  ('981', 'manta',    'cream', null),
+  ('105', 'linguica', 'cebolinha|ceb.* e cebol', 'cerveja'),
+  ('969', 'manta',    'cebolinha|ceb.* e cebol', 'cerveja'),
+  ('33',  'linguica', 'toscan', null),
+  ('950', 'manta',    'toscan', null),
+  ('53',  'linguica', 'caip', null),
+  ('985', 'manta',    'caip', null),
+  ('141', 'linguica', 'busca', null),
+  ('947', 'manta',    'busca', null),
+  ('954', 'linguica', 'fruta', null),
+  ('955', 'manta',    'fruta', null),
+  ('73',  'linguica', 'malag|mexic', null),
+  ('956', 'manta',    'malag|mexic', null),
+  ('81',  'linguica', 'carol|reaper', null),
+  ('961', 'manta',    'carol|reaper', null),
+  ('85',  'linguica', 'ervas', null),
+  ('970', 'manta',    'ervas', null),
+  ('1287','linguica', 'choc|conhaque', null),
+  ('1302','manta',    'choc|conhaque', null),
+  ('853', 'linguica', 'festiva', null),
+  ('988', 'manta',    'festiva', null)
+) as s(code, ptype, re, nre)
+where (select count(*) from public.flavors f
+        where f.active and lower(f.name) ~ s.re and (s.nre is null or lower(f.name) !~ s.nre)) = 1
+on conflict (product_code) do nothing;
+
 commit;
 
 notify pgrst, 'reload schema';
