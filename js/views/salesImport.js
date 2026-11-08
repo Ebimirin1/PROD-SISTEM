@@ -98,3 +98,30 @@ export function parseSalesRows(rows) {
     types: [...new Set(records.map(r => r.sale_type))]
   };
 }
+
+// Mapa de estoque (Inflow ou outro): procura a linha de cabeçalho com uma coluna de código,
+// uma de nome e uma de quantidade, e devolve [{ code, name, qty }].
+const norm = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
+
+export function parseStockRows(rows) {
+  for (let h = 0; h < Math.min(rows.length, 40); h++) {
+    const head = (rows[h] || []).map(norm);
+    const find = re => head.findIndex(c => re.test(c));
+    const codeCol = find(/^(cod|codigo|cod\.|id|sku|referencia|ref)\b|codigo/);
+    const nameCol = find(/produto|descri|nome|item/);
+    let qtyCol = find(/estoque|saldo|disponivel|quant|qtd|qtde/);
+    if (qtyCol === codeCol || qtyCol === nameCol) qtyCol = -1;
+    if (codeCol < 0 || qtyCol < 0) continue;
+    const items = [];
+    for (const r of rows.slice(h + 1)) {
+      const code = String(r?.[codeCol] ?? '').trim().replace(/\.0+$/, '');
+      if (!code) continue;
+      const rawQty = r[qtyCol];
+      if (String(rawQty ?? '').trim() === '') continue;
+      const qty = toNumber(rawQty);
+      items.push({ code, name: nameCol >= 0 ? String(r[nameCol] ?? '').trim() : '', qty: Math.max(0, Math.round(qty * 1000) / 1000) });
+    }
+    return { items, header: rows[h], codeCol, nameCol, qtyCol };
+  }
+  return { items: [], header: null };
+}
