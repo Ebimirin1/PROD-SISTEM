@@ -265,6 +265,7 @@ async function loadProductionProcessRuns() {
       process_runs (
         id, stage, status, started_at, completed_at, actual_kg, correction_reason,
         process_run_collaborators (
+          collaborator_id,
           collaborators (full_name)
         )
       )
@@ -299,6 +300,21 @@ async function loadProductionProcessRuns() {
     });
   }
 
+  const { data: collaborators } = await supabase.from('collaborators').select('id, full_name').eq('active', true).order('full_name');
+  // Duplas cadastradas (Cadastros > Colaboradores). Se a tabela ainda não existir no banco, segue só com pessoas.
+  const { data: teamRows } = await supabase
+    .from('collaborator_teams')
+    .select('id, name, active, collaborator_team_members (collaborator_id)')
+    .eq('active', true)
+    .order('name');
+  const activeIds = new Set((collaborators || []).map(c => c.id));
+  const teams = (teamRows || [])
+    .map(t => ({ id: t.id, name: t.name, memberIds: (t.collaborator_team_members || []).map(m => m.collaborator_id).filter(id => activeIds.has(id)) }))
+    .filter(t => t.memberIds.length >= 2);
+
+  // Tempo médio de vácuo por pessoa e por dupla: usa o filtro de OP/data, não o de etapa
+  const vacuumStatsHtml = renderVacuumStats(filteredPortions, teams, collaborators);
+
   // Filtrar por estágio/status da produção conforme currentStageFilter
   if (currentStageFilter !== 'all') {
     filteredPortions = filteredPortions.filter(p => {
@@ -321,7 +337,7 @@ async function loadProductionProcessRuns() {
   }
 
   if (filteredPortions.length === 0) {
-    container.innerHTML = '';
+    container.innerHTML = vacuumStatsHtml;
     const filterText = currentFilterMode === 'op' ? ' para a ordem de produção selecionada' :
                        currentFilterMode === 'day' ? ` para o dia ${formatDate(selectedFilterDate)}` :
                        currentFilterMode === 'range' ? ` para o período de ${formatDate(selectedStartDate)} a ${formatDate(selectedEndDate)}` : '';
@@ -334,7 +350,6 @@ async function loadProductionProcessRuns() {
     return;
   }
 
-  const { data: collaborators } = await supabase.from('collaborators').select('id, full_name').eq('active', true);
 
   // Separa por categoria de produto final e ordena por sabor / porção
   const categoryRank = key => { const i = PRODUCT_CATEGORIES.findIndex(c => c.key === key); return i === -1 ? PRODUCT_CATEGORIES.length : i; };
@@ -348,7 +363,7 @@ async function loadProductionProcessRuns() {
   filteredPortions.forEach(p => { const k = categoryOf(p.product_type).key; categoryCounts[k] = (categoryCounts[k] || 0) + 1; });
   let lastCategory = null;
 
-  container.innerHTML = `
+  container.innerHTML = vacuumStatsHtml + `
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-space-md">
       ${filteredPortions.map(p => {
         const cat = categoryOf(p.product_type);
@@ -378,10 +393,10 @@ async function loadProductionProcessRuns() {
               <!-- Etapas Sequenciais de Chão de Fábrica -->
               <div class="flex flex-col gap-2 mt-2">
                 <!-- 1. Embutimento -->
-                ${renderStageBox('Embutimento', embutimento, true, collaborators)}
+                ${renderStageBox('Embutimento', embutimento, true, collaborators, [], p)}
 
                 <!-- 2. Vácuo (Liberado apenas se Embutimento concluído) -->
-                ${renderStageBox('Vácuo', vacuo, embutimento?.status === 'completed', collaborators)}
+                ${renderStageBox('Vácuo', vacuo, embutimento?.status === 'completed', collaborators, teams, p)}
 
                 <!-- Banner Informativo para a Rotulagem -->
                 <div class="p-3 bg-surface-canvas rounded-lg border border-border-subtle flex items-center justify-between text-xs">
@@ -399,10 +414,28 @@ async function loadProductionProcessRuns() {
     </div>
   `;
 
-  setupProductionEventListeners(container, collaborators);
+  setupProductionEventListeners(container, teams);
 }
 
-function renderStageBox(stageName, run, isUnlocked, collaborators) {
+function runPeopleNames(run) {
+  return (run?.process_run_collaborators || []).map(rc => rc.collaborators?.full_name).filter(Boolean);
+}
+
+function runMinutes(run) {
+  if (!run?.started_at || !run?.completed_at) return null;
+  const m = (new Date(run.completed_at) - new Date(run.started_at)) / 60000;
+  return m > 0 ? m : null;
+}
+
+function formatMinutes(min) {
+  if (min === null || min === undefined || isNaN(min)) return '—';
+  const total = Math.round(min);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return h ? `${h}h ${String(m).padStart(2, '0')}min` : `${m} min`;
+}
+
+function renderStageBox(stageName, run, isUnlocked, collaborators, teams, portion) {
   if (!isUnlocked) {
     return `
       <div class="p-3 bg-surface-canvas rounded-lg opacity-50 border border-border-subtle flex items-center justify-between text-xs">
@@ -417,6 +450,11 @@ function renderStageBox(stageName, run, isUnlocked, collaborators) {
   const isPending = run.status === 'pending';
   const isInProgress = run.status === 'in_progress';
   const isCompleted = run.status === 'completed';
+  const isVacuo = run.stage === 'vacuo';
+  const people = runPeopleNames(run);
+  const peopleLine = people.length
+    ? `<span class="text-text-muted">${people.length > 1 ? 'Equipe' : 'Responsável'}: <strong class="text-ink-text">${people.join(' / ')}</strong></span>`
+    : '';
 
   return `
     <div class="p-3 bg-surface-canvas rounded-lg border border-border-subtle flex flex-col gap-2 text-xs">
@@ -440,38 +478,65 @@ function renderStageBox(stageName, run, isUnlocked, collaborators) {
       ${isPending ? `
         <div class="flex items-center justify-between pt-1">
           <select class="collaborator-select px-2 py-1 rounded border border-border-subtle bg-surface-card text-xs" id="collab-${run.id}">
-            <option value="">Selecione Colaborador</option>
-            ${(collaborators || []).map(c => `<option value="${c.id}">${c.full_name}</option>`).join('')}
+            <option value="">${isVacuo ? 'Quem está no vácuo?' : 'Selecione Colaborador'}</option>
+            ${isVacuo && (teams || []).length ? `
+              <optgroup label="Duplas">
+                ${teams.map(t => `<option value="team:${t.id}">${t.name}</option>`).join('')}
+              </optgroup>
+              <optgroup label="Uma pessoa">
+                ${(collaborators || []).map(c => `<option value="c:${c.id}">${c.full_name}</option>`).join('')}
+              </optgroup>
+            ` : (collaborators || []).map(c => `<option value="c:${c.id}">${c.full_name}</option>`).join('')}
           </select>
-          <button class="start-stage-btn px-3 py-1.5 rounded bg-bordeaux-primary text-on-primary font-bold hover:bg-wine-deep" data-runid="${run.id}">
+          <button class="start-stage-btn px-3 py-1.5 rounded bg-bordeaux-primary text-on-primary font-bold hover:bg-wine-deep" data-runid="${run.id}" data-stage="${run.stage}">
             Iniciar Etapa
           </button>
         </div>
       ` : isInProgress ? `
         <div class="flex flex-col gap-2 pt-1">
+          ${peopleLine}
           <span class="text-text-muted">Iniciado em: ${formatDateTime(run.started_at)}</span>
-          <div class="flex items-center gap-2">
-            <input type="number" step="0.001" class="actual-kg-input px-2 py-1 rounded border border-border-subtle bg-surface-card font-bold" placeholder="Qtd Real Produzida (kg)" id="qty-${run.id}">
-            <button class="complete-stage-btn px-3 py-1.5 rounded bg-status-success text-white font-bold hover:bg-green-700" data-runid="${run.id}">
+          <div class="flex items-center gap-2 flex-wrap">
+            ${isVacuo ? `<input type="number" step="0.001" min="0" class="actual-kg-input px-2 py-1 rounded border border-border-subtle bg-surface-card font-bold" placeholder="Peso final do vácuo (kg)" id="qty-${run.id}">` : ''}
+            <button class="complete-stage-btn px-3 py-1.5 rounded bg-status-success text-white font-bold hover:bg-green-700" data-runid="${run.id}" data-stage="${run.stage}" data-plannedkg="${portion?.planned_kg ?? ''}">
               Concluir Etapa
             </button>
           </div>
+          ${isVacuo ? '' : '<span class="text-text-muted italic">O peso é informado só no fim do vácuo.</span>'}
         </div>
       ` : `
-        <div class="flex items-center justify-between text-text-muted pt-1">
-          <span>Qtd Real: <strong>${formatWeight(run.actual_kg)}</strong></span>
-          <span>Concluído em: ${formatDateTime(run.completed_at)}</span>
+        <div class="flex flex-col gap-1 text-text-muted pt-1">
+          ${peopleLine}
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            ${isVacuo ? `<span>Peso final: <strong>${formatWeight(run.actual_kg)}</strong></span>` : `<span>Tempo: <strong>${formatMinutes(runMinutes(run))}</strong></span>`}
+            ${isVacuo ? `<span>Tempo: <strong>${formatMinutes(runMinutes(run))}</strong></span>` : ''}
+            <span>Concluído em: ${formatDateTime(run.completed_at)}</span>
+          </div>
         </div>
       `}
     </div>
   `;
 }
 
-function setupProductionEventListeners(container, collaborators) {
+function setupProductionEventListeners(container, teams) {
   container.querySelectorAll('.start-stage-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const runId = e.currentTarget.dataset.runid;
-      const collabId = document.getElementById(`collab-${runId}`)?.value;
+      const choice = document.getElementById(`collab-${runId}`)?.value || '';
+      const isVacuo = e.currentTarget.dataset.stage === 'vacuo';
+
+      // "team:<id>" = dupla cadastrada (uma linha por pessoa); "c:<id>" = uma pessoa
+      let collabIds = [];
+      if (choice.startsWith('team:')) {
+        collabIds = (teams || []).find(t => t.id === choice.slice(5))?.memberIds || [];
+      } else if (choice.startsWith('c:')) {
+        collabIds = [choice.slice(2)];
+      }
+
+      if (isVacuo && !collabIds.length) {
+        showNotification('Escolha a pessoa ou a dupla que está no vácuo.', 'error');
+        return;
+      }
 
       try {
         const { error } = await supabase
@@ -484,11 +549,11 @@ function setupProductionEventListeners(container, collaborators) {
 
         if (error) throw error;
 
-        if (collabId) {
-          await supabase.from('process_run_collaborators').insert({
-            process_run_id: runId,
-            collaborator_id: collabId
-          });
+        if (collabIds.length) {
+          const { error: collabError } = await supabase.from('process_run_collaborators').insert(
+            collabIds.map(id => ({ process_run_id: runId, collaborator_id: id }))
+          );
+          if (collabError) throw collabError;
         }
 
         showNotification('Etapa iniciada na fábrica!', 'success');
@@ -502,10 +567,15 @@ function setupProductionEventListeners(container, collaborators) {
   container.querySelectorAll('.complete-stage-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const runId = e.currentTarget.dataset.runid;
-      const actualKg = parseFloat(document.getElementById(`qty-${runId}`)?.value);
+      const isVacuo = e.currentTarget.dataset.stage === 'vacuo';
+      // Só o vácuo pede peso (peso final). O embutimento grava o peso planejado da porção,
+      // só para não deixar a etapa sem valor (o banco exige) nem zerar os gráficos.
+      const actualKg = isVacuo
+        ? parseFloat(document.getElementById(`qty-${runId}`)?.value)
+        : Number(e.currentTarget.dataset.plannedkg || 0);
 
-      if (isNaN(actualKg) || actualKg <= 0) {
-        showNotification('Informe a quantidade real produzida em kg.', 'error');
+      if (isVacuo && (isNaN(actualKg) || actualKg <= 0)) {
+        showNotification('Informe o peso final do vácuo em kg.', 'error');
         return;
       }
 
@@ -537,4 +607,108 @@ function setupProductionEventListeners(container, collaborators) {
       }
     });
   });
+}
+
+// Tempo médio de vácuo por dupla/equipe e por pessoa, com base nos vácuos concluídos
+// das porções do filtro atual (OP, dia ou período). Uma dupla é o conjunto de pessoas
+// gravadas no vácuo, então o histórico vale mesmo que a dupla saia do cadastro.
+function renderVacuumStats(portions, teams, collaborators) {
+  // Mostra o nome cadastrado da dupla quando as pessoas batem com uma dupla do cadastro
+  const nameById = Object.fromEntries((collaborators || []).map(c => [c.id, c.full_name]));
+  const teamNameByKey = {};
+  (teams || []).forEach(t => {
+    const key = t.memberIds.map(id => nameById[id]).filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR')).join(' / ');
+    if (key) teamNameByKey[key] = t.name;
+  });
+
+  const vacuums = [];
+  (portions || []).forEach(p => {
+    const run = (p.process_runs || []).find(r => r.stage === 'vacuo' && r.status === 'completed');
+    const minutes = runMinutes(run);
+    const names = runPeopleNames(run).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    if (minutes === null || !names.length) return;
+    vacuums.push({ minutes, kg: Number(run.actual_kg || 0), names });
+  });
+
+  const header = `
+    <summary class="cursor-pointer flex items-center gap-2 font-title-md text-ink-text">
+      <span class="material-symbols-outlined text-bordeaux-primary text-[20px]">timer</span>
+      Tempo médio de vácuo por pessoa e por dupla
+      <span class="text-xs font-bold text-text-muted">(${vacuums.length} ${vacuums.length === 1 ? 'vácuo' : 'vácuos'} no filtro)</span>
+    </summary>`;
+
+  if (!vacuums.length) {
+    return `
+      <details class="mb-space-md bg-surface-card rounded-xl p-space-md shadow-sm border border-border-subtle">
+        ${header}
+        <p class="mt-2 text-xs text-text-muted">Ainda não há vácuos concluídos com pessoa ou dupla registrada neste filtro.</p>
+      </details>`;
+  }
+
+  const agg = () => ({ n: 0, min: 0, kg: 0 });
+  const add = (a, v) => { a.n += 1; a.min += v.minutes; a.kg += v.kg; };
+  const avg = a => (a.n ? a.min / a.n : null);
+  const kgPerHour = a => (a.min > 0 ? a.kg / (a.min / 60) : null);
+  const fmtKgH = v => (v === null ? '—' : `${v.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kg/h`);
+
+  const teamAgg = {};
+  const people = {};
+  vacuums.forEach(v => {
+    if (v.names.length > 1) {
+      const key = v.names.join(' / ');
+      add(teamAgg[key] ||= agg(), v);
+    }
+    v.names.forEach(name => {
+      const p = people[name] ||= { all: agg(), solo: agg(), team: agg() };
+      add(p.all, v);
+      add(v.names.length > 1 ? p.team : p.solo, v);
+    });
+  });
+
+  const th = 'py-2 px-3 font-semibold';
+  const td = 'py-2 px-3';
+  const teamRows = Object.entries(teamAgg).sort((a, b) => avg(a[1]) - avg(b[1]));
+  const peopleRows = Object.entries(people).sort((a, b) => a[0].localeCompare(b[0], 'pt-BR'));
+
+  return `
+    <details class="mb-space-md bg-surface-card rounded-xl p-space-md shadow-sm border border-border-subtle" open>
+      ${header}
+      <p class="mt-1 text-xs text-text-muted">Tempo de cada vácuo = do "Iniciar Etapa" ao "Concluir Etapa". Como as porções têm pesos diferentes, compare também os kg por hora.</p>
+      <div class="mt-3 grid grid-cols-1 xl:grid-cols-2 gap-space-md text-xs">
+        <div class="overflow-x-auto">
+          <h4 class="font-bold text-ink-text mb-1">Por dupla / equipe</h4>
+          ${teamRows.length ? `
+          <table class="w-full text-left">
+            <thead class="bg-surface-canvas text-ink-text border-b border-border-subtle">
+              <tr><th class="${th}">Dupla</th><th class="${th} text-right">Vácuos</th><th class="${th} text-right">Tempo médio</th><th class="${th} text-right">Peso médio</th><th class="${th} text-right">Ritmo</th></tr>
+            </thead>
+            <tbody class="divide-y divide-border-subtle text-ink-text">
+              ${teamRows.map(([name, a]) => `
+                <tr><td class="${td} font-bold">${teamNameByKey[name] || name}</td><td class="${td} text-right">${a.n}</td><td class="${td} text-right">${formatMinutes(avg(a))}</td><td class="${td} text-right">${formatWeight(a.kg / a.n)}</td><td class="${td} text-right">${fmtKgH(kgPerHour(a))}</td></tr>
+              `).join('')}
+            </tbody>
+          </table>` : '<p class="text-text-muted">Nenhum vácuo feito em dupla neste filtro.</p>'}
+        </div>
+        <div class="overflow-x-auto">
+          <h4 class="font-bold text-ink-text mb-1">Por pessoa</h4>
+          <table class="w-full text-left">
+            <thead class="bg-surface-canvas text-ink-text border-b border-border-subtle">
+              <tr><th class="${th}">Pessoa</th><th class="${th} text-right">Vácuos</th><th class="${th} text-right">Média geral</th><th class="${th} text-right">Sozinho(a)</th><th class="${th} text-right">Em dupla</th><th class="${th} text-right">Ritmo</th></tr>
+            </thead>
+            <tbody class="divide-y divide-border-subtle text-ink-text">
+              ${peopleRows.map(([name, p]) => `
+                <tr>
+                  <td class="${td} font-bold">${name}</td>
+                  <td class="${td} text-right">${p.all.n}</td>
+                  <td class="${td} text-right">${formatMinutes(avg(p.all))}</td>
+                  <td class="${td} text-right">${p.solo.n ? `${formatMinutes(avg(p.solo))} <span class="text-text-muted">(${p.solo.n})</span>` : '—'}</td>
+                  <td class="${td} text-right">${p.team.n ? `${formatMinutes(avg(p.team))} <span class="text-text-muted">(${p.team.n})</span>` : '—'}</td>
+                  <td class="${td} text-right">${fmtKgH(kgPerHour(p.all))}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </details>`;
 }

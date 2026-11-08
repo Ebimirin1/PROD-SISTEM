@@ -380,6 +380,22 @@ create table public.process_run_collaborators (
   primary key (process_run_id, collaborator_id)
 );
 
+-- Duplas do vácuo (migration_vacuum_teams.sql)
+create table public.collaborator_teams (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  constraint collaborator_teams_name_nonblank check (length(trim(name)) > 0)
+);
+create unique index collaborator_teams_name_unique on public.collaborator_teams (lower(trim(name)));
+
+create table public.collaborator_team_members (
+  team_id uuid not null references public.collaborator_teams(id) on delete cascade,
+  collaborator_id uuid not null references public.collaborators(id) on delete cascade,
+  primary key (team_id, collaborator_id)
+);
+
 create table public.finished_lots (
   id uuid primary key default gen_random_uuid(),
   production_order_id uuid not null references public.production_orders(id) on delete restrict,
@@ -589,6 +605,8 @@ alter table public.production_portions enable row level security;
 alter table public.portion_ingredient_lines enable row level security;
 alter table public.process_runs enable row level security;
 alter table public.process_run_collaborators enable row level security;
+alter table public.collaborator_teams enable row level security;
+alter table public.collaborator_team_members enable row level security;
 alter table public.finished_lots enable row level security;
 alter table public.finished_lot_demand_allocations enable row level security;
 alter table public.inventory_movements enable row level security;
@@ -661,6 +679,12 @@ create policy process_runs_by_production on public.process_runs for all to authe
 using (public.app_has_screen_access('production')) with check (public.app_has_screen_access('production'));
 create policy process_collaborators_by_production on public.process_run_collaborators for all to authenticated
 using (public.app_has_screen_access('production')) with check (public.app_has_screen_access('production'));
+create policy collaborator_teams_by_screen on public.collaborator_teams for all to authenticated
+using (public.app_has_screen_access('catalogs') or public.app_has_screen_access('production'))
+with check (public.app_has_screen_access('catalogs') or public.app_has_screen_access('production'));
+create policy collaborator_team_members_by_screen on public.collaborator_team_members for all to authenticated
+using (public.app_has_screen_access('catalogs') or public.app_has_screen_access('production'))
+with check (public.app_has_screen_access('catalogs') or public.app_has_screen_access('production'));
 create policy finished_lots_by_screen on public.finished_lots for all to authenticated
 using (public.app_has_screen_access('production') or public.app_has_screen_access('inventory') or public.app_has_screen_access('shipping') or public.app_has_screen_access('billing'))
 with check (public.app_has_screen_access('production') or public.app_has_screen_access('inventory'));
