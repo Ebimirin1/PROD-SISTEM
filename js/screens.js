@@ -9,6 +9,7 @@ export const SCREENS = [
   { key: 'production', title: 'Produção', icon: 'precision_manufacturing', includes: 'Embutimento, Vácuo' },
   { key: 'labeling', title: 'Contagem de Rótulos', icon: 'label', includes: '' },
   { key: 'inventory', title: 'Estoque & Cura', icon: 'inventory_2', includes: '' },
+  { key: 'orderAnalysis', title: 'Análise de Pedidos', icon: 'query_stats', includes: 'Média de vendas, estoque, sugestão de pedido por giros' },
   { key: 'shipping', title: 'Pedidos & Expedição', icon: 'local_shipping', includes: '' },
   { key: 'billing', title: 'Faturamento', icon: 'receipt_long', includes: '' },
   { key: 'users', title: 'Usuários & Acessos', icon: 'manage_accounts', includes: '' }
