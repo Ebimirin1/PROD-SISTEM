@@ -920,8 +920,56 @@ async function renderCollaboratorsTab() {
       </div>
 
       <div id="collaborators-list-container"></div>
+
+      <div class="flex flex-col gap-2 pt-space-md border-t border-border-subtle">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h2 class="font-headline-sm text-headline-sm text-ink-text">Duplas do Vácuo</h2>
+            <p class="text-sm text-text-muted">Aparecem prontas para escolher ao iniciar o vácuo no Controle de Produção.</p>
+          </div>
+        </div>
+        <form id="team-form" class="bg-surface-card p-space-md rounded-xl border border-border-subtle shadow-sm flex flex-col gap-3">
+          <span class="font-label-md text-ink-text">Nova dupla: marque 2 ou mais pessoas</span>
+          <div id="team-members-options" class="flex flex-wrap gap-2"></div>
+          <div class="flex items-end gap-2 flex-wrap">
+            <div class="flex flex-col gap-1 flex-1 min-w-[200px]">
+              <label class="font-label-md text-ink-text" for="team-name">Nome da dupla (opcional)</label>
+              <input type="text" id="team-name" class="min-h-[44px] px-3.5 rounded-lg border border-border-subtle bg-surface-card text-ink-text focus:outline-none focus:border-bordeaux-primary" placeholder="Em branco: primeiros nomes, ex. Ariane / Alex">
+            </div>
+            <button type="submit" class="min-h-[44px] px-5 rounded-lg bg-bordeaux-primary hover:bg-wine-deep text-on-primary font-title-md">Salvar Dupla</button>
+          </div>
+        </form>
+        <div id="teams-list-container"></div>
+      </div>
     </div>
   `;
+
+  document.getElementById('team-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const checked = [...document.querySelectorAll('#team-members-options input:checked')];
+    if (checked.length < 2) {
+      showNotification('Marque pelo menos 2 pessoas para formar a dupla.', 'error');
+      return;
+    }
+    const name = document.getElementById('team-name').value.trim()
+      || checked.map(c => c.dataset.name.trim().split(/\s+/)[0]).join(' / ');
+    try {
+      const { data: team, error } = await supabase.from('collaborator_teams').insert({ name }).select('id').single();
+      if (error) throw error;
+      const { error: membersError } = await supabase.from('collaborator_team_members')
+        .insert(checked.map(c => ({ team_id: team.id, collaborator_id: c.value })));
+      if (membersError) {
+        await supabase.from('collaborator_teams').delete().eq('id', team.id);
+        throw membersError;
+      }
+      showNotification(`Dupla ${name} cadastrada!`, 'success');
+      document.getElementById('team-name').value = '';
+      loadCollaborators();
+    } catch (err) {
+      const msg = /duplicate|unique/i.test(err.message) ? 'já existe uma dupla com esse nome' : err.message;
+      showNotification(`Erro ao salvar dupla: ${msg}`, 'error');
+    }
+  });
 
   const addBtn = document.getElementById('add-collaborator-btn');
   const formContainer = document.getElementById('collaborator-form-container');
@@ -983,6 +1031,7 @@ async function loadCollaborators() {
       actionText: 'Cadastrar Primeiro Colaborador',
       onAction: () => document.getElementById('add-collaborator-btn')?.click()
     }));
+    loadTeams([]);
     return;
   }
 
@@ -1024,6 +1073,88 @@ async function loadCollaborators() {
       document.getElementById('collaborator-name').value = target.dataset.name;
       document.getElementById('collaborator-form-title').innerText = 'Editar Colaborador';
       document.getElementById('collaborator-form-container')?.classList.remove('hidden');
+    });
+  });
+
+  loadTeams(collaborators);
+}
+
+async function loadTeams(collaborators) {
+  const options = document.getElementById('team-members-options');
+  const container = document.getElementById('teams-list-container');
+  if (!options || !container) return;
+
+  const active = (collaborators || []).filter(c => c.active);
+  options.innerHTML = active.length
+    ? active.map(c => `
+        <label class="flex items-center gap-2 px-3 py-2 rounded-lg border border-border-subtle bg-surface-canvas text-sm text-ink-text cursor-pointer">
+          <input type="checkbox" value="${c.id}" data-name="${c.full_name}" class="accent-bordeaux-primary">
+          <span>${c.full_name}</span>
+        </label>`).join('')
+    : '<span class="text-sm text-text-muted">Cadastre os colaboradores acima primeiro.</span>';
+
+  const { data: teams, error } = await supabase
+    .from('collaborator_teams')
+    .select('id, name, active, collaborator_team_members (collaborators (full_name))')
+    .order('name');
+  if (error) {
+    container.innerHTML = `<div class="p-4 bg-badge-error-bg text-badge-error-text rounded-lg text-sm">Não foi possível carregar as duplas (${error.message}). Se a tabela não existe, rode o arquivo migration_vacuum_teams.sql no banco.</div>`;
+    return;
+  }
+  if (!teams?.length) {
+    container.innerHTML = '<p class="text-sm text-text-muted">Nenhuma dupla cadastrada ainda.</p>';
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="bg-surface-card rounded-xl shadow-sm border border-border-subtle overflow-x-auto">
+      <table class="w-full text-left font-body-md">
+        <thead class="bg-surface-canvas text-ink-text font-title-md border-b border-border-subtle">
+          <tr>
+            <th class="py-3 px-4 font-semibold">Dupla</th>
+            <th class="py-3 px-4 font-semibold">Pessoas</th>
+            <th class="py-3 px-4 font-semibold">Status</th>
+            <th class="py-3 px-4 font-semibold text-right">Ações</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-border-subtle text-ink-text">
+          ${teams.map(t => `
+            <tr class="hover:bg-surface-canvas/60 transition-colors">
+              <td class="py-3 px-4 font-bold">${t.name}</td>
+              <td class="py-3 px-4 text-text-muted">${(t.collaborator_team_members || []).map(m => m.collaborators?.full_name).filter(Boolean).join(', ')}</td>
+              <td class="py-3 px-4">
+                ${t.active
+                  ? '<span class="px-2 py-0.5 rounded text-xs font-bold bg-surface-container-low text-status-success">Ativa</span>'
+                  : '<span class="px-2 py-0.5 rounded text-xs font-bold bg-badge-error-bg text-badge-error-text">Inativa</span>'}
+              </td>
+              <td class="py-3 px-4 text-right whitespace-nowrap">
+                <button class="toggle-team-btn px-3 py-1.5 rounded bg-surface-canvas hover:bg-wine-deep hover:text-on-primary text-bordeaux-primary font-label-md transition-colors" data-id="${t.id}" data-active="${t.active}">${t.active ? 'Desativar' : 'Ativar'}</button>
+                <button class="delete-team-btn px-3 py-1.5 rounded bg-surface-canvas hover:bg-badge-error-bg text-badge-error-text font-label-md transition-colors" data-id="${t.id}" data-name="${t.name}">Excluir</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  container.querySelectorAll('.toggle-team-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const { id, active: isActive } = e.currentTarget.dataset;
+      const { error: err } = await supabase.from('collaborator_teams').update({ active: isActive !== 'true' }).eq('id', id);
+      if (err) { showNotification(`Erro ao atualizar dupla: ${err.message}`, 'error'); return; }
+      loadCollaborators();
+    });
+  });
+
+  container.querySelectorAll('.delete-team-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const { id, name } = e.currentTarget.dataset;
+      if (!confirm(`Excluir a dupla ${name}? Os vácuos já feitos por ela continuam no histórico.`)) return;
+      const { error: err } = await supabase.from('collaborator_teams').delete().eq('id', id);
+      if (err) { showNotification(`Erro ao excluir dupla: ${err.message}`, 'error'); return; }
+      showNotification('Dupla excluída.', 'success');
+      loadCollaborators();
     });
   });
 }
