@@ -21,7 +21,6 @@ let flavors = [];
 let showMap = false;
 // Todas as linhas são sabores; nada fica escondido
 function isHidden() { return false; }
-const DESTINATIONS = [['emporio', 'Empório'], ['lanchonete', 'Lanchonete'], ['outro', 'Outro']];
 
 function loadPrefs() {
   const d = { refDate: '', weeks: 4, giros: 2, minOrder: 15, saleType: 'VAREJO', search: '', onlyNeeded: false, destination: 'emporio' };
@@ -68,7 +67,7 @@ export async function render(container) {
             <input id="oa-stock-file" type="file" accept=".xls,.xlsx,.csv" class="hidden">
           </label>
           <button id="oa-save" class="px-3 py-2 rounded-lg text-xs font-bold bg-bordeaux-primary text-on-primary shadow-sm flex items-center gap-1">
-            <span class="material-symbols-outlined text-[18px]">playlist_add_check</span>Gerar pedido (OP)
+            <span class="material-symbols-outlined text-[18px]">playlist_add_check</span>Lançar pedido
           </button>
           <button id="oa-print" class="px-3 py-2 rounded-lg text-xs font-bold bg-surface-canvas text-ink-text border border-border-subtle hover:bg-surface-container flex items-center gap-1">
             <span class="material-symbols-outlined text-[18px]">print</span>Imprimir pedido
@@ -105,7 +104,7 @@ export async function render(container) {
           <tfoot id="oa-foot" class="sticky bottom-0 bg-surface-canvas font-bold"></tfoot>
         </table>
       </div>
-      <p class="text-[11px] text-text-muted">Uma linha por sabor cadastrado; o pedido vai para a OP como linguiça. Vendas e estoque somam os IDs ligados ao sabor (botão "IDs" ou "Mostrar IDs ligados"). Estoque digitado à mão vale até a próxima importação do mapa do Inflow. Semana 1 = os 7 dias que terminam na data de referência. Média = total das semanas ÷ nº de semanas. 1 giro = 1 semana; necessidade = média × giros. Sugestão = necessidade − estoque, arredondada para cima e nunca abaixo do pedido mínimo. O estoque é salvo ao sair do campo; o pedido pode ser ajustado à mão. "Gerar pedido" lança tudo como linguiça na OP aberta da semana (ou cria uma).</p>
+      <p class="text-[11px] text-text-muted">Pedido de linguiça do empório: uma linha por sabor cadastrado. Média/sem = vendas das últimas semanas (padrão 4, até a data de referência) ÷ nº de semanas; as semanas uma a uma estão na aba Histórico de vendas. 1 giro = 1 semana; necessidade = média × giros. Sugestão = necessidade − estoque, arredondada para cima e nunca abaixo do pedido mínimo. Vendas e estoque somam os IDs ligados ao sabor (botão "IDs"). Estoque digitado à mão vale até a próxima importação do mapa do Inflow. "Lançar pedido" põe tudo como linguiça (resfriado ou congelado, como escolhido) na OP aberta da semana ou cria um rascunho.</p>
       </div>
       <div id="oa-dialog" class="hidden fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"></div>
     </div>
@@ -231,7 +230,7 @@ async function loadSummary() {
   prefs.saleType = typeSel.value;
 
   el.textContent = summary.rows
-    ? `Base: ${Number(summary.rows).toLocaleString('pt-BR')} itens vendidos, de ${formatDate(summary.first_date)} a ${formatDate(summary.last_date)} · última importação ${formatDateTime(summary.last_import)}`
+    ? `Última venda na base: ${formatDate(summary.last_date)} · Último mapa de estoque: ${summary.last_stock ? formatDateTime(summary.last_stock) : 'nenhum importado'}`
     : 'Base de vendas vazia. Importe a planilha "Mapa de Vendas por Cliente" (.xls, .xlsx ou .csv).';
 }
 
@@ -293,51 +292,48 @@ function renderTable() {
   const body = rootEl.querySelector('#oa-body');
   const foot = rootEl.querySelector('#oa-foot');
   const ref = prefs.refDate || todayLocal();
-  const weeks = Array.from({ length: prefs.weeks }, (_, i) => {
-    const end = addDays(ref, -7 * i);
-    return `S${i + 1}<div class="font-normal text-[10px] text-text-muted">${shortDate(addDays(end, -6))}–${shortDate(end)}</div>`;
-  });
+  // As semanas, uma a uma, ficam na aba Histórico de vendas
+  const avgHint = `${shortDate(addDays(ref, -7 * prefs.weeks + 1))}–${shortDate(ref)}`;
 
   const th = (key, label, cls = '') => `<th data-sort="${key}" class="${cls}">${label}${sortKey === key ? ' ▾' : ''}</th>`;
   head.innerHTML = `<tr>
     <th class="l">IDs</th>${th('name', 'Sabor', 'l')}
-    ${weeks.map(w => `<th class="oa-wk">${w}</th>`).join('')}
-    ${th('avg', 'Média/sem')}<th>Última venda</th>${th('stock', 'Estoque')}${th('cov', 'Cobertura<div class="font-normal text-[10px] text-text-muted">giros</div>')}
+    ${th('avg', `Média/sem<div class="font-normal text-[10px] text-text-muted">${prefs.weeks} sem · ${avgHint}</div>`)}${th('stock', 'Estoque')}${th('cov', 'Cobertura<div class="font-normal text-[10px] text-text-muted">giros</div>')}
     <th>Necessidade<div class="font-normal text-[10px] text-text-muted">${nf(prefs.giros, 1)} giro(s)</div></th>
-    <th>Sugestão</th>${th('order', 'Pedido')}
+    <th>Sugestão</th>${th('order', 'Pedido')}<th class="l">Conservação</th>
     ${showMap ? '<th class="l">Produtos ligados (vendas/estoque)</th>' : ''}
   </tr>`;
   head.querySelectorAll('th[data-sort]').forEach(el => el.addEventListener('click', () => { sortKey = el.dataset.sort; renderTable(); }));
 
   const list = visibleRows();
   if (!list.length) {
-    body.innerHTML = `<tr><td colspan="${10 + prefs.weeks}" class="p-6 text-center text-text-muted">${rows.length ? 'Nenhum produto com esse filtro.' : 'Sem vendas nas semanas escolhidas. Confira a data de referência ou importe a planilha.'}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-text-muted">${rows.length ? 'Nenhum produto com esse filtro.' : 'Sem vendas nas semanas escolhidas. Confira a data de referência ou importe a planilha.'}</td></tr>`;
   } else {
     body.innerHTML = list.map(({ r, c }) => `
       <tr class="${c.hidden ? 'opacity-50' : (c.coverage !== null && c.coverage < 1 ? 'oa-low' : '')}">
         <td class="l"><button class="oa-link text-[11px] underline ${r.codes.length ? 'text-text-muted' : 'text-badge-error-text font-bold'}" data-flavor="${esc(r.flavor_id)}">${r.codes.length ? esc(r.codes.join(', ')) : 'ligar'}</button></td>
         <td class="l font-bold text-ink-text">${esc(r.product_name)}${r.has_recipe ? '' : ' <span class="text-[10px] font-normal text-badge-error-text">sem receita ativa</span>'}</td>
-        ${r.weekly_qty.map(q => `<td class="oa-wk">${q ? nf(q) : '–'}</td>`).join('')}
         <td class="font-bold">${nf(r.weekly_avg)}</td>
-        <td class="text-text-muted">${r.last_sale ? formatDate(r.last_sale) : '–'}</td>
         <td><input class="oa-stock" data-code="${esc(r.product_code)}" inputmode="decimal" value="${r.stock_qty ? nf(r.stock_qty, 1) : ''}" placeholder="0" title="${r.stock_source === 'manual' ? 'Digitado à mão' : r.stock_source === 'inflow' ? 'Do mapa de estoque (Inflow)' : 'Sem estoque informado'}${r.stock_updated_at ? ' · ' + formatDateTime(r.stock_updated_at) : ''}" ${r.stock_source === 'manual' ? 'style="border-color:#e69f0f"' : ''}></td>
         <td>${c.coverage === null ? '–' : nf(c.coverage, 1)}</td>
         <td>${nf(c.need)}</td>
         <td class="oa-sug">${c.suggestion ? nf(c.suggestion, 0) : '–'}</td>
         <td><input class="oa-ord" data-code="${esc(r.product_code)}" inputmode="decimal" value="${c.order ? nf(c.order, 0) : ''}" placeholder="0"></td>
+        <td class="l"><select class="oa-cons" data-flavor="${esc(r.flavor_id)}">
+          <option value="resfriado" ${consOf(r) === 'resfriado' ? 'selected' : ''}>Resfriado</option>
+          <option value="congelado" ${consOf(r) === 'congelado' ? 'selected' : ''}>Congelado</option>
+        </select></td>
         ${showMap ? mapCells(r) : ''}
       </tr>`).join('');
   }
 
   const tot = list.reduce((a, { r, c }) => {
-    a.weeks = a.weeks.map((v, i) => v + (r.weekly_qty[i] || 0));
     a.avg += r.weekly_avg; a.stock += r.stock_qty; a.need += c.need; a.sug += c.suggestion; a.order += c.order;
     return a;
-  }, { weeks: Array(prefs.weeks).fill(0), avg: 0, stock: 0, need: 0, sug: 0, order: 0 });
+  }, { avg: 0, stock: 0, need: 0, sug: 0, order: 0 });
   foot.innerHTML = `<tr>
     <td class="l" colspan="2">${list.length} sabor(es)</td>
-    ${tot.weeks.map(v => `<td>${nf(v)}</td>`).join('')}
-    <td>${nf(tot.avg)}</td><td></td><td>${nf(tot.stock)}</td><td></td><td>${nf(tot.need)}</td><td>${nf(tot.sug, 0)}</td><td>${nf(tot.order, 0)}</td>
+    <td>${nf(tot.avg)}</td><td>${nf(tot.stock)}</td><td></td><td>${nf(tot.need)}</td><td>${nf(tot.sug, 0)}</td><td>${nf(tot.order, 0)}</td><td></td>
     ${showMap ? `<td class="l">${rows.filter(r => !r.codes.length).length} sabor(es) sem ID ligado</td>` : ''}
   </tr>`;
   rootEl.querySelector('#oa-totals').innerHTML = `
@@ -345,6 +341,10 @@ function renderTable() {
     <span>Estoque: <b>${nf(tot.stock)}</b></span>
     <span>Pedido: <b class="text-bordeaux-primary">${nf(tot.order, 0)}</b></span>`;
 
+  body.querySelectorAll('.oa-cons').forEach(sel => sel.addEventListener('change', () => {
+    prefs.conservation = { ...(prefs.conservation || {}), [sel.dataset.flavor]: sel.value };
+    savePrefs();
+  }));
   body.querySelectorAll('.oa-link').forEach(b => b.addEventListener('click', () => openLinkDialog(b.dataset.flavor)));
   body.querySelectorAll('.oa-stock').forEach(inp => inp.addEventListener('change', () => saveStock(inp)));
   body.querySelectorAll('.oa-ord').forEach(inp => inp.addEventListener('change', () => {
@@ -363,6 +363,11 @@ function renderTable() {
       again?.focus(); again?.select();
     }, 0);
   }));
+}
+
+// Resfriado/congelado: o último escolhido para o sabor fica lembrado neste computador
+function consOf(r) {
+  return (prefs.conservation || {})[r.flavor_id] || 'resfriado';
 }
 
 function mapCells(r) {
@@ -507,7 +512,6 @@ async function openSaveDialog() {
   const unmapped = [];
   const noRecipe = lines.filter(({ r }) => !r.has_recipe);
   const total = lines.reduce((a, { c }) => a + c.order, 0);
-  const tomorrow = addDays(todayLocal(), 1);
   // OP aberta desta semana ou da próxima (segunda a domingo) já vem escolhida
   const t = todayLocal();
   const [ty, tm, td] = t.split('-').map(Number);
@@ -518,25 +522,22 @@ async function openSaveDialog() {
   const dlg = rootEl.querySelector('#oa-dialog');
   dlg.innerHTML = `
     <div class="bg-surface-card rounded-xl shadow-lg p-5 w-full max-w-lg text-sm flex flex-col gap-3">
-      <h2 class="font-headline-sm text-ink-text">Salvar pedido na Ordem de Produção</h2>
-      <p class="text-text-muted">${lines.length} produto(s), <b>${nf(total, 0)} kg</b>. Produtos do mesmo sabor e tipo viram uma linha só na OP.</p>
+      <h2 class="font-headline-sm text-ink-text">Lançar pedido do empório</h2>
+      <p class="text-text-muted">${lines.length} sabor(es), <b>${nf(total, 0)} kg</b> de linguiça, destino Empório. ${weekOp ? `Vai para a OP <b>${esc(weekOp.order_code)}</b> desta semana.` : 'Não há OP aberta desta semana: será criado um rascunho de OP.'}</p>
       ${noRecipe.length ? `<div class="p-2 rounded bg-badge-error-bg text-badge-error-text text-xs"><b>Sem receita ativa</b> (ative em Cadastros &amp; Fórmulas ou zere o pedido): ${noRecipe.map(({ r }) => esc(r.product_name)).join(', ')}.</div>` : ''}
       ${unmapped.length ? `<div class="p-2 rounded bg-badge-error-bg text-badge-error-text text-xs"><b>${unmapped.length} sem sabor vinculado</b> (ficam salvos no pedido, mas não entram na OP): ${unmapped.map(({ r }) => esc(r.product_name)).join(', ')}. Marque "Vincular sabores" para resolver.</div>` : ''}
-      <label class="flex flex-col gap-1 font-bold text-text-muted text-xs">Destino na OP
-        <select id="oa-dlg-dest" class="oa-in">${DESTINATIONS.map(([k, l]) => `<option value="${k}" ${k === prefs.destination ? 'selected' : ''}>${l}</option>`).join('')}</select>
-      </label>
       <label class="flex flex-col gap-1 font-bold text-text-muted text-xs">Ordem de Produção
         <select id="oa-dlg-op" class="oa-in">
-          <option value="">Criar OP nova</option>
+          <option value="">Criar rascunho de OP</option>
           ${(ops || []).map(o => `<option value="${o.id}" ${weekOp?.id === o.id ? 'selected' : ''}>${esc(o.order_code)} · produção ${formatDate(o.production_date)}</option>`).join('')}
         </select>
       </label>
-      <label id="oa-dlg-date-wrap" class="flex flex-col gap-1 font-bold text-text-muted text-xs">Data de produção da OP nova
-        <input id="oa-dlg-date" type="date" class="oa-in" value="${tomorrow}">
+      <label id="oa-dlg-date-wrap" class="flex flex-col gap-1 font-bold text-text-muted text-xs">Data de produção do rascunho
+        <input id="oa-dlg-date" type="date" class="oa-in" value="${t}">
       </label>
       <div class="flex justify-end gap-2 mt-2">
         <button id="oa-dlg-cancel" class="px-3 py-2 rounded-lg text-xs font-bold bg-surface-canvas border border-border-subtle">Cancelar</button>
-        <button id="oa-dlg-ok" class="px-3 py-2 rounded-lg text-xs font-bold bg-bordeaux-primary text-on-primary">Salvar pedido</button>
+        <button id="oa-dlg-ok" class="px-3 py-2 rounded-lg text-xs font-bold bg-bordeaux-primary text-on-primary">Lançar pedido</button>
       </div>
     </div>`;
   dlg.classList.remove('hidden');
@@ -549,8 +550,7 @@ async function openSaveDialog() {
   dlg.querySelector('#oa-dlg-ok').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     btn.disabled = true; btn.textContent = 'Salvando…';
-    prefs.destination = dlg.querySelector('#oa-dlg-dest').value;
-    savePrefs();
+    prefs.destination = 'emporio';
     const { data, error: err } = await supabase.rpc('save_order_request', {
       p_ref: prefs.refDate || todayLocal(),
       p_weeks: prefs.weeks,
@@ -561,17 +561,17 @@ async function openSaveDialog() {
       p_new_op_date: opSel.value ? null : dlg.querySelector('#oa-dlg-date').value,
       p_lines: lines.map(({ r, c }) => ({
         product_code: r.product_code, product_name: r.product_name, weekly_avg: r.weekly_avg,
-        stock_qty: r.stock_qty, suggestion: c.suggestion, order_qty: c.order
+        stock_qty: r.stock_qty, suggestion: c.suggestion, order_qty: c.order, conservation: consOf(r)
       }))
     });
     if (err) {
       showNotification('Erro ao salvar pedido: ' + err.message, 'error');
-      btn.disabled = false; btn.textContent = 'Salvar pedido';
+      btn.disabled = false; btn.textContent = 'Lançar pedido';
       return;
     }
     close();
     const miss = (data?.unmapped || []).length;
-    showNotification(`Pedido salvo na OP ${data.order_code} (${data.demands} linha(s) de demanda)${miss ? `; ${miss} produto(s) sem sabor ficaram fora da OP` : ''}.`, 'success');
+    showNotification(`Pedido lançado na OP ${data.order_code} (${data.demands} linha(s) de linguiça)${miss ? `; ${miss} sem sabor ficaram de fora` : ''}.`, 'success');
   });
 }
 
@@ -656,9 +656,9 @@ function printOrder() {
 
 function exportCsv() {
   const list = visibleRows();
-  const header = ['IDs', 'Sabor', ...Array.from({ length: prefs.weeks }, (_, i) => `S${i + 1}`), 'Media_semana', 'Estoque', 'Cobertura_giros', 'Necessidade', 'Sugestao', 'Pedido'];
+  const header = ['IDs', 'Sabor', ...Array.from({ length: prefs.weeks }, (_, i) => `S${prefs.weeks - i}`), 'Media_semana', 'Estoque', 'Cobertura_giros', 'Necessidade', 'Sugestao', 'Pedido'];
   const f = n => String(Math.round(Number(n || 0) * 1000) / 1000).replace('.', ',');
-  const lines = list.map(({ r, c }) => [`"${r.codes.join(',')}"`, `"${r.product_name.replace(/"/g, '""')}"`, ...r.weekly_qty.map(f), f(r.weekly_avg), f(r.stock_qty), c.coverage === null ? '' : f(c.coverage), f(c.need), f(c.suggestion), f(c.order)].join(';'));
+  const lines = list.map(({ r, c }) => [`"${r.codes.join(',')}"`, `"${r.product_name.replace(/"/g, '""')}"`, ...[...r.weekly_qty].reverse().map(f), f(r.weekly_avg), f(r.stock_qty), c.coverage === null ? '' : f(c.coverage), f(c.need), f(c.suggestion), f(c.order)].join(';'));
   const blob = new Blob(['﻿' + [header.join(';'), ...lines].join('\r\n')], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);

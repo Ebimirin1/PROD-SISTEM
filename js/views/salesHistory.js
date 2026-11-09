@@ -106,7 +106,7 @@ function draw() {
   const head = el.querySelector('#sh-head');
   const body = el.querySelector('#sh-body');
   const foot = el.querySelector('#sh-foot');
-  const periods = [...new Set(data.map(r => r.period))].sort().reverse(); // mais recente primeiro
+  const periods = [...new Set(data.map(r => r.period))].sort(); // da mais antiga para a mais nova
   const byProd = new Map();
   data.forEach(r => {
     const p = byProd.get(r.product_code) || { code: r.product_code, name: r.product_name, vals: {}, total: 0 };
