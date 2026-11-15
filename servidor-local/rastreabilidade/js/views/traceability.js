@@ -1,5 +1,19 @@
 import { supabase } from '../supabaseClient.js';
-import { formatDate, formatDateTime, showNotification, weekdayName } from '../utils.js';
+import * as U from '../utils.js';
+
+const { formatDate, formatDateTime, showNotification, weekdayName } = U;
+
+// Mesmo rótulo de OP do resto do app ("Lote …", opLabel em utils.js); sem ele, o código puro
+function opName(o) {
+  if (!o) return '';
+  try {
+    if (typeof U.opLabel === 'function') {
+      const r = U.opLabel(o);
+      if (typeof r === 'string' && r.trim() && !/undefined|null|NaN/.test(r)) return r;
+    }
+  } catch { /* usa o código */ }
+  return o.order_code || '';
+}
 
 // Consultar Origem — rastreabilidade por lote.
 // Lote do produto = data de produção da OP. Escolhe a OP (ou digita a data do lote), escolhe o
@@ -113,7 +127,7 @@ function renderBody() {
     return;
   }
 
-  const options = orders.map(o => `<option value="${esc(o.id)}" ${o.id === st.orderId ? 'selected' : ''}>${esc(o.order_code)} — ${esc(weekdayName(o.production_date))}, ${esc(formatDate(o.production_date))}</option>`).join('');
+  const options = orders.map(o => `<option value="${esc(o.id)}" ${o.id === st.orderId ? 'selected' : ''}>${esc(opName(o))} — ${esc(weekdayName(o.production_date))}, ${esc(formatDate(o.production_date))}</option>`).join('');
   body.innerHTML = `
     <div class="flex flex-col gap-space-md">
       <div class="flex flex-wrap items-end gap-space-md bg-surface-card p-space-md rounded-xl border border-border-subtle shadow-sm">
@@ -241,7 +255,7 @@ function renderDetail() {
         <div class="min-w-0">
           <p class="text-xs font-bold uppercase text-text-muted">Lote do produto</p>
           <p class="font-display-lg text-display-lg text-bordeaux-primary leading-tight">${esc(formatDate(order?.production_date))}</p>
-          <p class="font-title-md text-ink-text">${esc(p.name)} · ${esc(order?.order_code)}</p>
+          <p class="font-title-md text-ink-text">${esc(p.name)} · ${esc(opName(order))}</p>
           ${productLines(p)}
         </div>
         <button id="tr-print" class="px-3 py-2 rounded-lg text-xs font-bold bg-bordeaux-primary text-on-primary shadow-sm flex items-center gap-1">
@@ -315,7 +329,7 @@ function printDetail(p, order, base, flavor) {
   const el = document.getElementById('tr-print-root');
   el.innerHTML = `
     <h1>Rastreabilidade — ${esc(p.name)} · Lote ${esc(formatDate(order?.production_date))}</h1>
-    <p>OP ${esc(order?.order_code)} · Data de produção ${esc(formatDate(order?.production_date))} · Emitido em ${esc(formatDateTime(new Date().toISOString()))}</p>
+    <p>${esc(opName(order))} · Data de produção ${esc(formatDate(order?.production_date))} · Emitido em ${esc(formatDateTime(new Date().toISOString()))}</p>
     ${p.items.map(i => `<p>${esc([TYPE_LABEL[i.type] || i.type, CONS_LABEL[i.cons], DEST_LABEL[i.dest], `${nf(i.kg, 1)} kg`].filter(Boolean).join(' · '))}</p>`).join('')}
     <h2>Massa-base (bateladas da OP)</h2>
     ${table(base, true)}
@@ -385,7 +399,7 @@ async function searchLot() {
             ${rows.map(r => `
               <tr class="border-b border-border-subtle">
                 <td class="py-2 px-2 font-bold text-bordeaux-primary whitespace-nowrap">${esc(formatDate(r.production_date))}</td>
-                <td class="py-2 px-2">${esc(r.order_code)}</td>
+                <td class="py-2 px-2">${esc(opName({ id: r.production_order_id, order_code: r.order_code, production_date: r.production_date }))}</td>
                 <td class="py-2 px-2">${r.origem === 'massa_base' ? `Massa-base (batelada ${r.batch_no})` : esc(r.flavor_name)}</td>
                 <td class="py-2 px-2 font-bold text-ink-text">${esc(r.insumo_nome)}</td>
                 <td class="py-2 px-2">${esc(r.insumo_lote)}</td>

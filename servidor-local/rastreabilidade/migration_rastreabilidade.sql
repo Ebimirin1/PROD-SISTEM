@@ -159,3 +159,6 @@ commit;
 -- Conferência (opcional): deve listar os insumos e lotes da OP mais recente
 -- select * from public.vw_rastreabilidade_insumos
 -- where production_order_id = (select id from public.production_orders order by production_date desc limit 1);
+
+-- Avisa a API (PostgREST) que há funções novas; sem isso a tela diz que a consulta não está ativa
+notify pgrst, 'reload schema';
