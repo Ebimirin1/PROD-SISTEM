@@ -97,6 +97,7 @@ export async function render(container) {
         <div id="oa-totals" class="ml-auto flex gap-4 pb-1 text-ink-text"></div>
       </div>
 
+      <div id="oa-gap" class="hidden rounded-xl border p-3 text-xs font-bold" style="border-color:#e69f0f;background:#fff7e6;color:#380000"></div>
       <div class="bg-surface-card rounded-xl border border-border-subtle shadow-sm overflow-auto max-h-[calc(100vh-260px)]">
         <table class="w-full text-xs oa-table">
           <thead id="oa-head" class="sticky top-0 bg-surface-canvas z-10"></thead>
@@ -259,6 +260,34 @@ async function loadAnalysis() {
   }));
   orderOverrides = new Map();
   renderTable();
+  checkCoverage();
+}
+
+// Avisa quando a média está baixa porque faltam vendas importadas no período da média.
+async function checkCoverage() {
+  const box = rootEl.querySelector('#oa-gap');
+  const ref = prefs.refDate || todayLocal();
+  const { data, error } = await supabase.rpc('sales_coverage', {
+    p_ref: ref, p_weeks: prefs.weeks + 52, p_sale_type: prefs.saleType || null
+  });
+  if (error || !data?.length) { box.classList.add('hidden'); return; }
+  const weeks = data.map(w => ({ ...w, sales: Number(w.sales) }));
+  // "Normal" = 3ª semana mais forte do ano anterior à média (não se engana com meses inteiros faltando)
+  const before = weeks.slice(prefs.weeks).map(w => w.sales).filter(n => n > 0).sort((a, b) => b - a);
+  const normal = before.length ? before[Math.min(2, before.length - 1)] : 0;
+  const low = w => w.sales < normal * 0.4;
+  const bad = weeks.slice(0, prefs.weeks).filter(low);
+  if (!normal || !bad.length) { box.classList.add('hidden'); return; }
+  // Período sem dados: da semana fraca mais antiga (seguida, a partir da referência) até a referência
+  let i = 0;
+  while (i < weeks.length && low(weeks[i])) i++;
+  const gapFrom = weeks[Math.max(i - 1, 0)].week_start;
+  const list = weeks.slice(0, prefs.weeks).reverse()
+    .map(w => `${shortDate(w.week_start)}–${shortDate(w.week_end)}: ${w.sales} vendas`).join(' · ');
+  box.innerHTML = `⚠ Faltam vendas na base: a média está baixa porque ${bad.length} de ${prefs.weeks} semana(s) da média têm poucas vendas importadas (o normal é ~${normal} vendas por semana).<br>
+    <span class="font-normal">${list}</span><br>
+    Importe o relatório "Mapa de Vendas por Cliente" de <b>${formatDate(i < weeks.length ? gapFrom : weeks[weeks.length - 1].week_start)}</b> a <b>${formatDate(ref)}</b> em "Importar planilha de vendas". Em .xls, exporte no máximo 2 meses por arquivo (o .xls corta em 65.536 linhas); em .xlsx ou .csv pode ser tudo de uma vez.`;
+  box.classList.remove('hidden');
 }
 
 function calc(r) {
