@@ -14,7 +14,17 @@ if (-not (Test-Path $planning)) { throw "Não achei $planning. Confira o -AppDir
 $txt = [IO.File]::ReadAllText($planning, [Text.Encoding]::UTF8)
 $crlf = $txt.Contains("`r`n")
 $txt = $txt.Replace("`r`n", "`n")
-if ($txt.Contains('checkMinimumKg')) { throw 'planning.js já tem o patch (checkMinimumKg). Nada feito.' }
+if ($txt.Contains('checkMinimumKg')) {
+  # planning.js já tem o patch: só atualiza a lista (minimumCheck.js)
+  $bkDir = "C:\SGP\backups\app-antes-pedido-minimo-v2-$carimbo"
+  New-Item -ItemType Directory -Path $bkDir | Out-Null
+  $destino = Join-Path $AppDir 'js\views\minimumCheck.js'
+  if (Test-Path $destino) { Copy-Item $destino $bkDir }
+  Copy-Item "$aqui\js\views\minimumCheck.js" $destino -Force
+  Add-Content 'C:\SGP\ALTERACOES.md' -Encoding UTF8 "`r`n## $(Get-Date -Format 'dd/MM/yyyy HH:mm') — Lista tirar da loja por cliente`r`n- App: $AppDir. minimumCheck.js atualizado: mínimo de 15 kg por produto (sabor + tipo, somando conservações) e lista uma linha por cliente. Backup: $bkDir. Sem mudança de banco.`r`n"
+  Write-Host "planning.js já tinha o patch; minimumCheck.js atualizado (backup $bkDir). Recarregue com Ctrl+F5."
+  return
+}
 
 $ancora1 = "    // Insumos de cada versão de formulação usada (uma consulta só)`n"
 $novo1 = @'
@@ -60,5 +70,5 @@ if ($crlf) { $txt = $txt.Replace("`n", "`r`n") }
 Copy-Item "$aqui\js\views\minimumCheck.js" (Join-Path $AppDir 'js\views\minimumCheck.js') -Force
 Write-Host 'planning.js alterado e minimumCheck.js copiado.'
 
-Add-Content 'C:\SGP\ALTERACOES.md' -Encoding UTF8 "`r`n## $(Get-Date -Format 'dd/MM/yyyy HH:mm') — Gerar Ordens: itens abaixo de 15 kg (tirar da loja) e porções de até 30 kg`r`n- App: $AppDir. Novo js/views/minimumCheck.js; planning.js: antes de gerar, grupos sabor+tipo+conservação abaixo de 15 kg aparecem numa lista (Imprimir / Cancelar / Gerar sem esses itens) e ficam fora das porções e bateladas; grupo acima de 30 kg é dividido em porções iguais (antes dava erro production_portions_planned_kg_check). Backup: $bkDir. Sem mudança de banco.`r`n"
+Add-Content 'C:\SGP\ALTERACOES.md' -Encoding UTF8 "`r`n## $(Get-Date -Format 'dd/MM/yyyy HH:mm') — Gerar Ordens: itens abaixo de 15 kg (tirar da loja) e porções de até 30 kg`r`n- App: $AppDir. Novo js/views/minimumCheck.js; planning.js: antes de gerar, produtos (sabor+tipo) abaixo de 15 kg aparecem numa lista por cliente (Imprimir / Cancelar / Gerar sem esses itens) e ficam fora das porções e bateladas; grupo acima de 30 kg é dividido em porções iguais (antes dava erro production_portions_planned_kg_check). Backup: $bkDir. Sem mudança de banco.`r`n"
 Write-Host 'Pronto. Recarregue com Ctrl+F5.'
