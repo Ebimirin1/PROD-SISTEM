@@ -113,7 +113,7 @@ begin
   from (
     select unnest(array['overview', 'planning', 'catalogs', 'separation', 'production',
                         'labeling', 'inventory', 'shipping', 'billing', 'users',
-                        'orderAnalysis', 'traceability']) as k
+                        'orderAnalysis', 'embutimento', 'vacuo', 'pdv', 'traceability']) as k
     union
     select distinct screen_key from public.user_screen_permissions
     union
