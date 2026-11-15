@@ -1,0 +1,8 @@
+/* Linhas intercaladas em todas as tabelas (15/11/2026).
+   :where() deixa a regra com prioridade zero: linhas com cor própria
+   (total, destaque, alerta) e o efeito de passar o mouse continuam valendo. */
+:where(table > tbody > tr:nth-child(even)) { background-color: rgba(230, 159, 15, 0.10); }
+:where(table > tbody > tr:hover) { background-color: rgba(56, 0, 0, 0.06); }
+@media print {
+  :where(table > tbody > tr:nth-child(even)) { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
