@@ -107,6 +107,7 @@ grant execute on function public.rastreabilidade_por_lote_insumo(text) to authen
 do $$
 declare
   v_keys text[];
+  v_con name;
 begin
   select array_agg(distinct k order by k) into v_keys
   from (
@@ -115,9 +116,26 @@ begin
                         'orderAnalysis', 'traceability']) as k
     union
     select distinct screen_key from public.user_screen_permissions
+    union
+    -- chaves que já estão no CHECK atual (ex.: embutimento, vacuo, pdv no servidor)
+    -- aceita as duas formas: ARRAY['a'::text, ...] e '{a,b}'::text[]
+    select trim(both '"' from k2)
+    from pg_constraint c,
+         lateral regexp_matches(pg_get_constraintdef(c.oid), '''([^'']+)''', 'g') as m,
+         lateral regexp_split_to_table(trim(both '{}' from m[1]), ',') as k2
+    where c.conrelid = 'public.user_screen_permissions'::regclass
+      and c.contype = 'c'
+      and pg_get_constraintdef(c.oid) ilike '%screen_key%'
   ) t;
 
-  alter table public.user_screen_permissions drop constraint if exists user_screen_permissions_screen_key_check;
+  -- remove todo CHECK de screen_key (qualquer nome) antes de recriar
+  for v_con in
+    select conname from pg_constraint
+    where conrelid = 'public.user_screen_permissions'::regclass and contype = 'c'
+      and pg_get_constraintdef(oid) ilike '%screen_key%'
+  loop
+    execute format('alter table public.user_screen_permissions drop constraint %I', v_con);
+  end loop;
   execute format(
     'alter table public.user_screen_permissions add constraint user_screen_permissions_screen_key_check check (screen_key = any (%L::text[]))',
     v_keys);
