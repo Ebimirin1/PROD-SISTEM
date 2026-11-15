@@ -926,6 +926,15 @@ async function processGenerateOrders(production_order_id) {
       return;
     }
 
+    // Pedido mínimo: porção abaixo de 15 kg não é produzida, sai da loja (lista na tela)
+    {
+      const { checkMinimumKg } = await import('./minimumCheck.js?v=20261115');
+      const keep = await checkMinimumKg(demands);
+      if (keep === null) return; // usuário cancelou: nada foi gravado
+      demands.splice(0, demands.length, ...keep);
+      if (demands.length === 0) return; // todos abaixo do mínimo: nada para gerar
+    }
+
     // Insumos de cada versão de formulação usada (uma consulta só)
     const formulaIds = [...new Set(demands.map(d => d.formula_version_id))];
     const { data: allFormulaIngredients, error: fiErr } = await supabase
@@ -1014,7 +1023,16 @@ async function processGenerateOrders(production_order_id) {
       String(x.conservation).localeCompare(String(y.conservation)));
 
     const portionCountByFlavor = {};
-    for (const g of sortedGroups) {
+    // Porção tem no máximo 30 kg (limite do banco/embutimento): grupo maior vira partes iguais (54 kg = 27 + 27)
+    const MAX_PORTION_G = 30000;
+    const portionJobs = [];
+    sortedGroups.forEach(g => {
+      const parts = Math.max(1, Math.ceil(g.totalG / MAX_PORTION_G));
+      const baseG = Math.floor(g.totalG / parts);
+      for (let i = 0; i < parts; i++) portionJobs.push({ ...g, totalG: baseG + (i < g.totalG % parts ? 1 : 0) });
+    });
+
+    for (const g of portionJobs) {
       const portionNo = (portionCountByFlavor[g.flavorId] || 0) + 1;
       portionCountByFlavor[g.flavorId] = portionNo;
       const portionKg = fromGrams(g.totalG);
