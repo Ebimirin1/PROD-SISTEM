@@ -617,6 +617,9 @@ async function loadOPs() {
                 <button class="op-flavor-map-btn text-xs font-bold text-bordeaux-primary flex items-center gap-1 hover:underline" data-opid="${op.id}">
                   <span class="material-symbols-outlined text-[16px]">print</span> Mapa Sabor × Destino
                 </button>
+                <button class="op-store-list-btn text-xs font-bold text-bordeaux-primary flex items-center gap-1 hover:underline" data-opid="${op.id}" title="Itens abaixo de 15 kg, por cliente, que saem da loja">
+                  <span class="material-symbols-outlined text-[16px]">storefront</span> Tirar da loja
+                </button>
                 ${!generated ? `
                 <button class="demand-grid-btn text-xs font-bold text-bordeaux-primary flex items-center gap-1 hover:underline" data-opid="${op.id}">
                   <span class="material-symbols-outlined text-[16px]">grid_on</span> Lançar Pedido (Grade)
@@ -709,6 +712,16 @@ async function loadOPs() {
     btn.addEventListener('click', (e) => {
       showSeasoningForOrder(e.currentTarget.dataset.id);
       navigateTo('separation');
+    });
+  });
+
+  // Lista "Tirar da loja" (itens abaixo de 15 kg, por cliente) de uma OP
+  container.querySelectorAll('.op-store-list-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const op = ops.find(o => o.id === e.currentTarget.dataset.opid);
+      if (!op) return;
+      const { openStoreList } = await import('./minimumCheck.js?v=20261115b');
+      openStoreList(op.id, op.order_code);
     });
   });
 
@@ -928,7 +941,7 @@ async function processGenerateOrders(production_order_id) {
 
     // Pedido mínimo: porção abaixo de 15 kg não é produzida, sai da loja (lista na tela)
     {
-      const { checkMinimumKg } = await import('./minimumCheck.js?v=20261115');
+      const { checkMinimumKg } = await import('./minimumCheck.js?v=20261115b');
       const keep = await checkMinimumKg(demands);
       if (keep === null) return; // usuário cancelou: nada foi gravado
       demands.splice(0, demands.length, ...keep);
